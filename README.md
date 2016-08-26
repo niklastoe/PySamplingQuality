@@ -5,5 +5,6 @@ Python tool to assess the sampling quality if MD simulation using multiple traje
 
 
 
-The tool is in preparation and is released soon.
+First working version is released. 
+Some special features will follow soon.
 A tutorial and description will follow.
