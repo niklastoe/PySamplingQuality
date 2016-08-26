@@ -1,5 +1,6 @@
 #######################################################
 #######################################################
+# Released under the GNU General Public License version 3 by Mike Nemec
 #
 # PySampling: Python scripts to assess the sampling quality of MD simulations 
 #               using a multi-trajectory overlap approach
