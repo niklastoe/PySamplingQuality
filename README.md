@@ -1,6 +1,7 @@
 # PySamplingQuality
+_Released under the GNU General Public License version 3 by MikeN12_
 
-Python tool to assess the sampling quality if MD simulation using multiple trajectories, released under the GNU General Public License version 3 by MikeN12
+Python tool to assess the sampling quality if MD simulation using multiple trajectories
 
 
 
