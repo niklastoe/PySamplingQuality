@@ -9,7 +9,7 @@
 #
 # Author:     Mike Nemec <mike.nemec@uni-due.de>
 #
-# current version: v18.06.16
+# current version: v06.09.16
 #######################################################
 #######################################################
 
@@ -738,12 +738,12 @@ OUTPUT:
 #---          EVENTCURVE CALCULATION
 #------------------------------------------------------
 #######################################################
-def Generate_EventCurves(TrajNameList, TrajLengthList, MatrixDir, SaveDir, SaveName, ThresholdList, \
+def Generate_EventCurves(TrajNameList, TrajLengthList, MatrixDir, SaveDir, SaveName, ThresholdList, MaxNumberLines, \
      ROW_TrajNrList=None, COL_TrajNrList=None, StartFrame=0, EndingFrame=NP.infty, PartList=None,
-     aMD_Nrs=[], aMD_reweight='MF', aMDlogDIR=None, aMDlogName=None, AmberVersion='Amber14', WeightStep=1, Temp=300,
+     aMD_Nrs=[], aMD_reweight='MF', aMDlogDir=None, aMDlogName=None, AmberVersion='Amber14', WeightStep=1, Temp=300,
      sMD_Nrs=[], Lambda=1, Order=10, BinFile_precision = NP.float32, Iterations=1, RMSD_SaveAdder=''):
     """ 
-v02.08.16
+v06.09.16
     This function calculates the EventCurves using calculated RMSD matrices and possible aMD/sMD Weights: 
         - Events are the number of neighboring frames with Threshold < RMSD for each reference frame and for each traj
         - Events as a function of Simulation time
@@ -768,6 +768,7 @@ INPUT:
     SaveName       : {STRING}    Save PREFIX, e.g. 'V3_S1-S10' -> with possible StartFrame/EndingFrame/SamplingMethod
                                      'Events_V3_S1-S10_StartFrame_EndingFrame_SamplingMethod.txt';
     ThresholdList  : {FLOAT-LIST} different thresholds r for which the Events are counted, e.g. [0.1, 0.2, 0.3, ...];
+    MaxNumberLines : {INT}
     ROW_TrajNrList : {INT-LIST}  <default None>, reference trajectories, to which the Events are counted;
     COL_TrajNrList : {INT-LIST}  <default None>, the Events are counted for these trajectories, e.g. [2,3,4];
     StartFrame     : {INT}       <default 0>    starting frame of Trajectories/RMSD matrices,
@@ -785,9 +786,11 @@ INPUT:
                                     e.g. [1,3,5] means trajNr 1,3,5 of TrajNameList are aMD trajectories;
     aMD_reweight   : {STRING}    <default 'MF'> reweighting method if aMD trajs are present, default Mean-Field-Approach
                                     possibilitie 'MF', 'Exp', 'McL';
-    aMDlogDIR      : {STRING}    <default None> directory, for aMD.log '%s%s' % (aMDlogDIR, aMDlogName) from AMBER14/12;
-    aMDlogName     : {STRING}    <default None> Name for aMD.log '%s%s' % (aMDlogDIR, aMDlogName) from AMBER14/12,
-                                    probably necessary for re-weighting, if no weights are already present;
+    aMDlogDir      : {LIST}      <default None> ['directory/'], for aMD.log '%s%s' % (aMDlogDir, aMDlogName) from AMBER14/12,
+                                    len(aMDlogDir) == 1 OR len(aMDlogDir) == len(aMD_Nrs) for different traj directories;
+    aMDlogName     : {LIST}      <default None> Names for aMD.log '%s%s' % (aMDlogDir, aMDlogName) from AMBER14/12,
+                                    necessary for re-weighting, if no weights are already present,
+                                    len(aMDlogName) == len(aMD_Nrs), each name correspond to aMD_Nrs;
     AmberVersion   : {STRING}    <default Amber14> Amber14 OR Amber12, because the units are different in both versions;
     WeightStep     : {INT}       <default 1> every WeightStep-th Row is used from the aMD.log, this HAS TO correspond
                                     to the same frames from the trajectories which are used for RMSD matrices;
@@ -799,23 +802,17 @@ INPUT:
  BinFile_precision : {TYPE}      <default NP.float32> FORMAT , RMSD matrix [GROMACS/BINARY], double prec = NP.float64;
     Iterations     : {INT}       <default 1> defines the number of MF iterations if aMD (MF) or sMD are present;
 OUTPUT:
-    return aMD_Names e.g. ['_noWeight', '_Exp+sMD', '_McL'+str(Order)+'+sMD', '_CUM1+sMD']
-                                
-        v21.10.15 UPDATED: NP.savetxt(..., fmt=FMT), can be changed according which TrajNr is aMD (other %i)
-                        Time[ns] | TrajNr | Traj1-TrajN | Traj1-TrajN | ...
-            default: FMT = %.4f     %i      N*%.4f        N*%.4f        ...
+    STORE noWeight & possible enhancedMatrix
     """
 #### #### #### #### #### 
 #### INITIALIZATION
-#### #### #### #### ####  
+#### #### #### #### #### 
     #---- INIT trajXList & trajYList for the "reference"- and "event calc"-trajs
     if ROW_TrajNrList is None: ## USE ALL TRAJECTORY CONFIGURATIONS
         trajXList = range(len(TrajNameList))
     else: 
         ROW_TrajNrList.sort()
         trajXList = [elem-1 for elem in ROW_TrajNrList]
-    #  v25.05.16: use ALL trajX frames, BeginX = 0 | EndX = TrajLength
-    NrOfRows = NP.sum([TrajLengthList[elem] for elem in trajXList]) 
     #---- SORT ThresholdList
     ThresholdList.sort()
     #---- DELETE dubplicates
@@ -835,28 +832,47 @@ OUTPUT:
     if PartList is None:
         PartList = [1]*len(TrajNameList)
     #---- INIT TrajLenghtList to a dictionary
-    TrajLenDict = {}; Index = 0
-    ## NP.unique(NP.concatenate((trajXList,trajYList)))
-    for trajX in range(len(TrajNameList)):      ## "Reference"-trajectory loop, to which Events are counted
-        for PartX in [(('_part%s' % Part) if PartList[trajX]!=1 else '') for Part in range(1,PartList[trajX]+1)]: 
-            TrajLenDict['%s%s' % (trajX, PartX)] = (TrajLengthList[Index], Index)
-            Index += 1
+    TrajLenDict = Helper_Generate_TrajLenDict(len(TrajNameList), PartList, TrajLengthList)
     MaxTrajLength = max(max([max([NP.sum([TrajLenDict['%s%s' % (Kai, (('_part%s' % elem) if PartList[Kai] > 1 else ''))][0] \
                                       for elem in range(1,PartList[Kai]+1)])]) \
                          for Kai in trajYList]),
                         max([max([NP.sum([TrajLenDict['%s%s' % (Kai, (('_part%s' % elem) if PartList[Kai] > 1 else ''))][0] \
                                       for elem in range(1,PartList[Kai]+1)])]) \
                          for Kai in trajXList]))
+    #  v25.05.16: use ALL trajX frames, BeginX = 0 | EndX = TrajLength
+    NrOfRows = NP.sum([TrajLenDict['%s%s' % (elem, (('_part%s' % elem2) if PartList[Kai] > 1 else ''))][0] \
+                       for elem in trajXList for elem2 in range(1,PartList[elem]+1)])
     #---- adjust EndingFrame to a int value if "infinity"
     EndingFrame = min(EndingFrame,MaxTrajLength)
-    #---- MODIFY aMD_Nrs and sMD_Nrs, that they match COL_TrajNrList
+  #---- aMD_Nrs & sMD_Nrs HAVE TO BE UNIQUE
+    aMD_Nrs = NP.unique(aMD_Nrs); sMD_Nrs = NP.unique(sMD_Nrs); 
+  #---- ADJUST AND CHECK aMDlogDir & aMDlogName
+    # (1) if aMDlogDir/aMDlogName NOT None: len(aMDlogDir)+len(aMDlogName) == len(aMD_Nrs)
+    # (2) merge both to ONE list, adjust that they match COL_TrajNrList
+    # (3) use same "list-indices" like aMD_Nrs for GenerateWeights()
+    if (aMDlogName is None or aMDlogDir is None) or len(aMDlogName) != len(aMD_Nrs) or len(aMDlogDir) > len(aMDlogName):
+        aMDlogCombo = None;
+    elif len(aMDlogDir) == 1:
+        aMDlogCombo = ['%s%s' % (aMDlogDir[0], elem) for elem in aMDlogName]
+    elif len(aMDlogDir) == len(aMDlogName):
+        aMDlogCombo = ['%s%s' % (aMDlogDir[elem], aMDlogName[elem]) for elem in range(len(aMDlogName))]
+    else:
+        raise ValueError('aMDlogDir & aMDlogName have to be '+\
+                         '\n\tEITHER both none'+\
+                         '\n\tOR len(aMDlogDir) == 1, len(aMDlogName) == len(aMD_Nrs)'+\
+                         '\n\tOR len(aMDlogDir) == len(aMDlogName) == len(aMD_Nrs)!\nCheck your input!')
+  #---- MODIFY aMD_Nrs and sMD_Nrs, that they match COL_TrajNrList
+    if aMDlogCombo is not None:
+        aMDlogCombo = [aMDlogCombo[elem] for elem in range(len(aMDlogCombo)) if trajYList.count(aMD_Nrs[elem]-1) > 0 and \
+               NP.sum([TrajLenDict['%s%s' % (aMD_Nrs[elem]-1, (('_part%s' % elem2) if PartList[Kai] > 1 else ''))][0] \
+                       for elem2 in range(1,PartList[aMD_Nrs[elem]-1]+1)])>StartFrame]
     aMD_Nrs = [elem for elem in aMD_Nrs if trajYList.count(elem-1) > 0 and \
                        NP.sum([TrajLenDict['%s%s' % (elem-1, (('_part%s' % elem2) if PartList[Kai] > 1 else ''))][0] \
                                for elem2 in range(1,PartList[elem-1]+1)])>StartFrame]
     sMD_Nrs = [elem for elem in sMD_Nrs if trajYList.count(elem-1) > 0 and \
                        NP.sum([TrajLenDict['%s%s' % (elem-1, (('_part%s' % elem2) if PartList[Kai] > 1 else ''))][0] \
                                for elem2 in range(1,PartList[elem-1]+1)])>StartFrame]
-    #---- Define SaveName for <EventMatrix> and <enhancedMatrix>
+  #---- Define SaveName for <EventMatrix> and <enhancedMatrix>
     SaveAdd1 = ''
     SaveAdd2 = ''
     if ROW_TrajNrList != None:
@@ -886,7 +902,6 @@ OUTPUT:
         print '\t>%s%s<\nand\n\t>%s%s<\nalready exists! Calculation stopped.' % \
                 (SaveDir, SaveEventMatrix, SaveDir, SaveEnhancedMatrix)
     else:
-    
         t1=time.time()
     #---- generate Directories  
         for Kai in range(1,len((SaveDir).split('/'))):
@@ -897,29 +912,12 @@ OUTPUT:
     #---- INIT NP.ndarray for EVENTS & NORM
         #                 |                  r=r1             |             r=r2                  |
         # Frames | TrajNr | Events traj1 | Events traj2 | ... | Events traj1 | Events traj2 | ... |
-        EventMatrix = NP.zeros( (NrOfRows, NrOfCols, NP.max(PartList)), dtype=int )  
-        NormMatrix  = NP.zeros( (   1    , NrOfCols, NP.max(PartList)), dtype=int )
-        NormMatrix[0,0:2,0] = 1 # first two values are 1 to use is whole for NP.divide(EventMatrix,NormMatrix)
+        EventMatrix = NP.zeros( (NrOfRows, NrOfCols), dtype=int )  
+        NormMatrix  = NP.zeros( (   1    , NrOfCols), dtype=int )
+        NormMatrix[0,0:2] = 1 # first two values are 1 to use is whole for NP.divide(EventMatrix,NormMatrix)
         if aMD_Nrs != [] or sMD_Nrs != []:
-            enhancedMatrix = NP.zeros( (NrOfRows, NrOfCols, NP.max(PartList)) )
-            enhancedNorm   = NP.zeros( (    1   , NrOfCols, NP.max(PartList)) )
-    #---- INIT LOOP for (trajX, PartX, trajY, PartY) to have only one easy readable loop
-        #---- use trajX and trajY loops to define the ROW (trajX) as reference configurations  
-        #                                     and the COL (trajY), for which trajs the events are calculated
-        #     GENERATE FIRST all diagonals, because this is necessary for weight generation
-        Looper = []
-        Looper2= []
-        for trajX in trajXList:      ## "Reference"-trajectory loop, to which Events are counted
-            for PartX in [(('_part%s' % Part) if PartList[trajX]!=1 else '') for Part in range(1,PartList[trajX]+1)]: 
-                for trajY in trajYList:  ## "Reference"-trajectory loop, to which Events are counted
-                    for PartY in [(('_part%s' % Part) if PartList[trajY]!=1 else '') \
-                                                  for Part in range(1,PartList[trajY]+1)]: 
-                        if trajX == trajY and PartX == PartY:
-                            Looper.append((trajX, trajY, PartX, PartY))
-                        else:
-                            Looper2.append((trajX, trajY, PartX, PartY))
-        Looper = Looper+Looper2
-        del Looper2
+            enhancedMatrix = NP.zeros( (NrOfRows, NrOfCols) )
+            enhancedNorm   = NP.zeros( (    1   , NrOfCols) )
 #### #### #### #### #### 
 #### ERROR DETECTION
 #### #### #### #### ####         
@@ -971,29 +969,32 @@ OUTPUT:
                                              ('\t%s not in %s\nTrajName = %s, StartFrame, EndingFrame, Iterations = (%s, %s, %s)' % \
                                                   (Kai, [elem+1 for elem in trajXList], TrajNameList[Kai-1], 
                                                    StartFrame, EndingFrame, Iterations)))
-                        elif os.path.exists('%s%s' % (aMDlogDIR, aMDlogName)):
-                            temp = NP.genfromtxt('%s%s' % (aMDlogDIR, aMDlogName))[0::WeightStep]
+                        elif aMDlogCombo is not None and os.path.exists(aMDlogCombo[aMD_Nrs.index(Kai)]):
+                            temp = NP.genfromtxt(aMDlogCombo[aMD_Nrs.index(Kai)])[0::WeightStep]
                             if PartList[Kai-1] > 1 and len(temp[:,0])==NP.sum([TrajLenDict['%s_part%s' % (Kai-1, elem)][0] \
-                                              for elem in range(1,1+int(PartY.split('_part')[1]))]):
+                                              for elem in range(1,1+PartList[Kai-1])]):
                                 pass
                             elif PartList[Kai-1] == 1 and len(temp[:,0]) == TrajLenDict['%s' % (Kai-1)][0]:
                                 pass
                             else:
                                 if PartList[Kai-1] > 1: 
+                                    print PartList[Kai-1]
                                     LENGO = NP.sum([TrajLenDict['%s_part%s' % (Kai-1, elem)][0] \
-                                                    for elem in range(1,1+int(PartY.split('_part')[1]))])
+                                                    for elem in range(1,1+PartList[Kai-1])])
                                 else:
                                     LENGO = TrajLenDict['%s' % (Kai-1)][0]
+                                    print 'komische'
                                 raise ValueError('aMD Weight Check failed: length of the trajectory does not match the '+\
-                                                 ('length of the aMD.log file\n\t%s%s\n\t%s != %s\n' % \
-                                                  (aMDlogDIR, aMDlogName, len(temp[:,0]), LENGO))+\
+                                                 ('length of the aMD.log file\n\t%s\n\t%s != %s\n' % \
+                                                  (aMDlogCombo[aMD_Nrs.index(Kai)], len(temp[:,0]), LENGO))+\
                                                  'check the trajectory and aMD.log lengths and select the correct frames')
                         else:
                             raise NameError('aMD Weight Check failed: no appropriate aMD-Weight-File is submitted!\n'+\
                                     ('Neither >%sWeights/aMD_Weight_MF_%s_%s-%s%s_Iter%s.txt<\n' % \
                                   (SaveDir, TrajNameList[trajY], StartFrame, EndingFrame, PartY, Iterations))+\
                                     ('nor >%sWeights/aMD_Weight_%s%s.txt\n' % (SaveDir, TrajNameList[trajY], PartY))+\
-                                    ('nor >%s%s<\nexist! Calculation stopped' % (aMDlogDIR, aMDlogName)))
+                                    ('nor >%s<\nexist! Calculation stopped' % \
+                         (aMDlogCombo[aMD_Nrs.index(Kai)] if aMDlogCombo is not None else 'aMDlogDir/aMDlogName')))
     #---- CHECK if all necessary trajectories are present for sMD weight calculation
     #----       OR if the weights already exist
         if sMD_Nrs != []:
@@ -1009,303 +1010,268 @@ OUTPUT:
                                              ('\t%s not in %s\nsMD_Weight_lambda%s_%s_%s-%s%s_Iter%s.txt' % \
                                                   (Kai, [elem+1 for elem in trajXList], Lambda, 
                                                    TrajNameList[Kai-1], StartFrame, EndingFrame, PartY, Iterations))) 
+#### #### #### #### #### #### 
+# if trajectories are split into parts, the EventCurve HAS TO BE built completely before generating the aMD/sMD MF weights
 #### #### #### #### #### 
 #### LOAD RMSD matrix
-#### #### #### #### #### 
-        for (trajX, trajY, PartX, PartY) in Looper:
-        # monitor current rows of the EventMatrix
-            # v01.06.16: EventRow is now calculated using the TrajLengthList, because Looper is not consecutively
-            EventRow = int(NP.sum([NP.sum([NP.sum([TrajLenDict['%s%s' % \
-                                                               (Kai, '_part%s' % elem if PartList[Kai] > 1 else '')][0] \
-                                          for elem in range(1,PartList[Kai]+1)])]) \
-                             for Kai in [GAGA for GAGA in trajXList if GAGA < trajX]]))
-            #-- 12.07.16 - if PartList != None and PartX != '': add PartX length to EventRow
-            if PartX != '':
-                EventRow += int(NP.sum([NP.sum([TrajLenDict['%s%s' % \
-                                                            (trajX, '_part%s' % elem if PartList[trajX] > 1 else '')][0] \
-                                      for elem in range(1,PartList[trajX]+1) if elem < int(PartX.split('_part')[-1])])]))
-            #EventRow = sum(TrajLengthList[:TrajLenDict['%s%s' % (trajX, PartX)][1]])
-        #####
-        ## Extract correct StartFrame & EndFrame for RMSD matrix with possible Splits for X (row), Y (column)
-        #  v25.05.16: use ALL trajX frames, BeginX = 0 | EndX = TrajLength
-        #####
-            BeginX = 0;  EndX = TrajLenDict['%s%s' % (trajX, PartX)][0]
-            ####
-            if PartY == '' or PartY == '_part1': ## NO SPLIT or PART1 for trajY ##
-                BeginY = StartFrame;  EndY = min(EndingFrame, TrajLenDict['%s%s' % (trajY, PartY)][0])
-            else:
-                BeginY = max(0,StartFrame-NP.sum([TrajLenDict['%s_part%s' % (trajY, elem)][0] \
-                                              for elem in range(1,int(PartY.split('_part')[1]))]))
-                EndY   = min(EndingFrame, NP.sum([TrajLenDict['%s_part%s' % (trajY, elem)][0] \
-                                              for elem in range(1,1+int(PartY.split('_part')[1]))]))
-                # v03.06.16: EndY must be subtracted by the LENGTHS of all SMALLER parts
-                EndY   = EndY - NP.sum([TrajLenDict['%s_part%s' % (trajY, elem)][0] \
-                                              for elem in range(1,int(PartY.split('_part')[1]))])
-        #####
-        ## Diagonal RMSD matrix - single traj
-        #####
-            if trajX == trajY and PartX == PartY and BeginX < EndX and BeginY < EndY:   
-                try:
-                    RMSD_mat = NP.fromfile('%s%s%s%s_bin.dat' % (MatrixDir, TrajNameList[trajX], PartX, RMSD_SaveAdder), 
-                                           dtype=BinFile_precision)
-                    LenX = NP.sqrt(len(RMSD_mat))
-                    LenY = NP.sqrt(len(RMSD_mat))
-                    RMSD_mat = NP.reshape(RMSD_mat, (LenX, LenY))
-                except ValueError:
-                  #----- TRY TO LOAD NP.NDarray like input, like generated by AmberTools14
-                    RMSD_mat = NP.genfromtxt('%s%s%s%s_bin.dat' % (MatrixDir, TrajNameList[trajX], PartX, RMSD_SaveAdder))
-                   #--- if FIRST COL = Indices: strip them (AmberTools14)
-                    if NP.sum(NP.absolute(RMSD_mat[:,0]-range(1,len(RMSD_mat[:,0])-1))) < 10e-6: 
-                       #--- AmberTool14 uses Angstrom, thus /10 for NM
-                        RMSD_mat = RMSD_mat[:,1:]/10.
-                    LenX, LenY = RMSD_mat.shape
-             #---- CHECK, if submitted TrajLength match the RMSD matrix length
-                if LenX != TrajLenDict['%s%s' % (trajX, PartX)][0]:
-                    print TrajLenDict
-                    raise ValueError('submitted TrajLenghtList does not match length of the RMSD matrix\n\t'+\
-                                     '%s%s%s_bin.dat (%s) != %s' % \
-                         (TrajNameList[trajX], PartX, RMSD_SaveAdder, LenX, TrajLenDict['%s%s' % (trajX, PartX)][0]))
-                RMSD_mat = RMSD_mat[BeginX:EndX, BeginY:EndY]
-                LenX, LenY = RMSD_mat.shape
-        #####
-        ## Off-Diagonal RMSD matrix - trajX vs trajY
-        #####
-            elif BeginX < EndX and BeginY < EndY:
-                if os.path.exists('%s%s%s_%s%s%s_bin.dat' % \
-                                  (MatrixDir, TrajNameList[trajX], PartX, TrajNameList[trajY], PartY, RMSD_SaveAdder)):
-                    FileName = '%s%s_%s%s%s_bin.dat' % \
-                                      (TrajNameList[trajX], PartX, TrajNameList[trajY], PartY, RMSD_SaveAdder)
-                    TransPose = False
-                else:
-                    FileName = '%s%s_%s%s%s_bin.dat' % \
-                                      (TrajNameList[trajY], PartY, TrajNameList[trajX], PartX, RMSD_SaveAdder)
-                    TransPose = True
-             #---- LenX is the length of the X trajectory, should be equal to the transposed if necessary   
-                LenX = TrajLenDict['%s%s' % (trajX, PartX)][0]
-                LenY = TrajLenDict['%s%s' % (trajY, PartY)][0]
-                    
-                try:
-                    RMSD_mat = NP.fromfile('%s%s' % (MatrixDir,FileName), dtype=BinFile_precision)
-                    if TransPose:
-                        RMSD_mat = NP.transpose(NP.reshape(RMSD_mat, (LenY,LenX)))
-                    else:
-                        RMSD_mat = NP.reshape(RMSD_mat, (LenX, LenY))
-                except ValueError:
-                  #----- TRY TO LOAD NP.NDarray like input, like generated by AmberTools14
-                    RMSD_mat = NP.genfromtxt('%s%s' % (MatrixDir,FileName) )
-                   #--- if FIRST COL = Indices: strip them (AmberTools14)
-                    if NP.sum(NP.absolute(RMSD_mat[:,0]-range(1,len(RMSD_mat[:,0])+1))) < 10e-6: 
-                       #--- AmberTool14 uses Angstrom, thus /10 for NM
-                        RMSD_mat = RMSD_mat[:,1:]/10.
-                    if TransPose:
-                        RMSD_mat = NP.transpose(RMSD_mat)
-             #---- CHECK, if submitted TrajLength match the RMSD matrix length
-                if (LenX,LenY) != RMSD_mat.shape:
-                    print TrajLenDict
-                    raise ValueError('submitted TrajLenghtList does not match length of the RMSD matrix\n\t'+\
-                                     '%s (%s, %s) != %s' % \
-                                     (FileName, LenX, LenY, RMSD_mat.shape))
-                RMSD_mat = RMSD_mat[BeginX:EndX, BeginY:EndY]
-                LenX, LenY = RMSD_mat.shape
-#### #### #### #### #### 
-#### CALCULATE Nr of Events for every Threshold: >> noWeight <<
-#### ASSIGN Events to >EventMatrix[:,:]< & >NormMatrix<
-#                     |                  r=r1             |             r=r2                  |
-#     Frames | TrajNr | Events traj1 | Events traj2 | ... | Events traj1 | Events traj2 | ... |
 #### #### #### #### ####
-            if BeginX < EndX and BeginY < EndY:
-        #---- SORT and store INDICEs of RMSD_Mat
-                INDICES = NP.argsort(RMSD_mat, axis=1)
-        #---- INIT EventMatrix[:,[0,1],0] / NormMatrix[0, [0,1],0] with Frames & TrajNr
-        #     THE THIRD DIMENSON NEEDS TO BE ZERO for correct NP.sum(, axis=2) of the single parts
-                #if not os.path.exists('bla'): # This approach does not work, if ONLY the full EventMatrix is stored
-                EventMatrix[(EventRow):(EventRow+EndX), 0, 0] = range(BeginX,EndX,1)
-                EventMatrix[(EventRow):(EventRow+EndX), 1, 0] = trajX+1
-                NormMatrix[0, [2+trajYList.index(trajY)+elem*len(trajYList) for elem in range(len(ThresholdList))],
-                           0 if PartY == '' else int(PartY.split('_part')[1])-1] \
-                           = LenY
-        #---- assign Counts/events to the corresponding trajectory column for the corresponding trajectory reference
-                II = 0
-                for Rows in range((EventRow), (EventRow+EndX)):
-                    EventMatrix[Rows,
-                                [2+trajYList.index(trajY)+elem*len(trajYList) for elem in range(len(ThresholdList))],
-                                0 if PartY == '' else int(PartY.split('_part')[1])-1] = \
-                                        NP.searchsorted(RMSD_mat[II, INDICES[II,:]], ThresholdList)
-                    II += 1
+    #---- INIT LOOP for (trajX, trajY) to have only one easy readable loop
+    #---- use trajX and trajY loops to define the ROW (trajX) as reference configurations  
+    #                                     and the COL (trajY), for which trajs the events are calculated
+    #     GENERATE FIRST all diagonals, because this is necessary for weight generation
+        Looper = []
+        Looper2= []
+        for trajX in trajXList:      ## "Reference"-trajectory loop, to which Events are counted
+            for trajY in trajYList:  ## "Reference"-trajectory loop, to which Events are counted
+                if trajX == trajY:
+                    Looper.append((trajX, trajY))
+                else:
+                    Looper2.append((trajX, trajY))
+        Looper = Looper+Looper2
+        del Looper2
+        FullCumTrajLenList = [max(0,min(NP.infty,Helper_Return_TrajLen_for_trajX(elem,
+                                                                                 TrajLenDict,
+                                                                                 PartList, 
+                                                                                 range(len(TrajNameList))))-0) \
+                              for elem in range(len(TrajNameList))]
+        FullCumTrajLenList = [sum(FullCumTrajLenList[:elem2]) for elem2 in range(0,len(TrajNameList)+1)]
+      ############
+        for (trajX, trajY) in Looper:
+            FullRMSDBlock = False
+            CurrentRow=FullCumTrajLenList[trajX]
+            EmergencyCancel = 0
+## v24.08.16: IDEA OF PARTITIONING AND MF WEIGHTS
+# 1. one NEEDS full EventMatrix & full INDICES (for all ref-frames)
+# 2. i.e. <while not FullRMSDBlock:> should be done ONCE COMPLETELY to obtain full EventMatrix
+# 3.      a) either STORE INDICES_LowerEnd-UpperEnd to load it then in the Weight MF generation
+# 3.      b) or     load FullColRMSD, extract again INDICES, SORT THEM, and process to Weight MF generation
+#####
+# WORKFLOW:
+# 1. <while not FullRMSDBlock:> for EventMatrix only
+# 2. then do Weight MF generation, submit FULL EventMatrix[trajY]
+# 3. INSIDE Weight Generation: load corresponding INDICES_LowerEnd-UpperEnd and do the MF steps
+            LowUpArray = []
+            while not FullRMSDBlock:
+                #if EmergencyCancel == 1000:
+                #    print 'EmergencyCancel'
+                #    return
+                #EmergencyCancel += 1
+              #-- v26.08.16: return FULL RMSD matrix for given trajectory: StartFrame=0; EndingFrame=NP.infty
+              #              then store INDICES and then use only RMSD_mat[:,BeginY:EndY]
+              ################
+                RMSD_mat, BeginX, EndX, BeginY, EndY, LowerEnd, UpperEnd = \
+                    Return_FullColRMSD(MatrixDir, TrajNameList, CurrentRow, 
+                                       MaxNumberLines, TrajLenDict, FullCumTrajLenList, PartList=PartList, 
+                                       BinFile_precision=BinFile_precision, GLOBAL=True, 
+                                       EventCurve=True, trajYList=[trajY], RMSD_SaveAdder=RMSD_SaveAdder)
+              ################
+                BeginY = StartFrame;  
+                if PartList[trajY] > 1:
+                    EndY = min(EndingFrame, NP.sum([TrajLenDict['%s_part%s' % (trajY, PayY)][0] 
+                                                    for PayY in range(1,1+PartList[trajY]) 
+                                                    if TrajLenDict['%s_part%s' % (trajY, PayY)][0] > 0]))
+                else:
+                    EndY = min(EndingFrame, TrajLenDict['%s' % (trajY)][0])
+              ################
+                if MaxNumberLines >= FullCumTrajLenList[trajX+1]-FullCumTrajLenList[trajX]:
+                    FullRMSDBlock = True
+                elif UpperEnd == FullCumTrajLenList[trajX+1]:
+                    FullRMSDBlock = True
+                elif UpperEnd == FullCumTrajLenList[-1]:
+                    FullRMSDBlock = True
+                CurrentRow = UpperEnd
+              ################
+    #### #### #### #### #### 
+    #### CALCULATE Nr of Events for every Threshold: >> noWeight <<
+    #### ASSIGN Events to >EventMatrix[:,:]< & >NormMatrix<
+    #                     |                  r=r1             |             r=r2                  |
+    #     Frames | TrajNr | Events traj1 | Events traj2 | ... | Events traj1 | Events traj2 | ... |
+    #### #### #### #### ####
+                if BeginX < EndX and BeginY < EndY:
+            #---- SORT and store INDICEs of RMSD_Mat; STORE ONLY if not FullRMSD matrix could be loaded
+                    if (aMD_Nrs.count(trajY+1) > 0 or sMD_Nrs.count(trajY+1) > 0):
+                        if MaxNumberLines < FullCumTrajLenList[trajX+1]-FullCumTrajLenList[trajX] and \
+                            not os.path.exists('%sINDICES_%s-%s_%s-%s.npy' % \
+                                      (MatrixDir, TrajNameList[trajX], TrajNameList[trajY], LowerEnd, UpperEnd)) and \
+                            not os.path.exists('%sINDICES_%s-%s_%s-%s.npy' % \
+                                      (MatrixDir, TrajNameList[trajY], TrajNameList[trajX], LowerEnd, UpperEnd)):
+                            NP.save('%sINDICES_%s-%s_%s-%s.npy' % (MatrixDir, TrajNameList[trajX], TrajNameList[trajY], 
+                                                                   LowerEnd-FullCumTrajLenList[trajX], 
+                                                                   UpperEnd-FullCumTrajLenList[trajX]), 
+                                    NP.argsort(RMSD_mat, axis=1))
+                    #INDICES = NP.argsort(RMSD_mat, axis=1)
+                    RMSD_mat = RMSD_mat[:,BeginY:EndY]
+                    INDICES = NP.argsort(RMSD_mat, axis=1)
+                            
+                    if aMD_Nrs.count(trajY+1) > 0 or sMD_Nrs.count(trajY+1) > 0:
+                        LowUpArray.append((LowerEnd-FullCumTrajLenList[trajX], UpperEnd-FullCumTrajLenList[trajX]))
+            #---- INIT EventMatrix[:,[0,1],0] / NormMatrix[0, [0,1],0] with Frames & TrajNr
+            #     THE THIRD DIMENSON NEEDS TO BE ZERO for correct NP.sum(, axis=2) of the single parts
+                    EventMatrix[(LowerEnd):(UpperEnd), 0] = range(LowerEnd-FullCumTrajLenList[trajX],
+                                                                  UpperEnd-FullCumTrajLenList[trajX],1)
+                    EventMatrix[(LowerEnd):(UpperEnd), 1] = trajX+1
+                    NormMatrix[0, [2+trajYList.index(trajY)+elem*len(trajYList) for elem in range(len(ThresholdList))]] \
+                               =  max(0,min(EndingFrame,FullCumTrajLenList[trajY+1]-FullCumTrajLenList[trajY])-StartFrame)
+            #---- assign Counts/events to the corresponding trajectory column for the corresponding trajectory reference
+                    II = 0
+
+                    for Rows in range((LowerEnd), (UpperEnd)):
+                        EventMatrix[Rows,
+                                    [2+trajYList.index(trajY)+elem*len(trajYList) for elem in range(len(ThresholdList))]] = \
+                                            NP.searchsorted(RMSD_mat[II, INDICES[II,:]], ThresholdList)
+                        II += 1
+                    #---- INIT enhancedMatrix for aMD/sMD
+                    if aMD_Nrs != [] or sMD_Nrs != []:
+                        enhancedMatrix[(LowerEnd):(UpperEnd), 
+                                       [0,1]+[2+trajYList.index(trajY)+elem*len(trajYList) \
+                                              for elem in range(len(ThresholdList))]] = \
+                           EventMatrix[(LowerEnd):(UpperEnd), 
+                                       [0,1]+[2+trajYList.index(trajY)+elem*len(trajYList) \
+                                              for elem in range(len(ThresholdList))]]
+                        enhancedNorm[0, [0,1]+[2+trajYList.index(trajY)+elem*len(trajYList) \
+                                               for elem in range(len(ThresholdList))]] = \
+                          NormMatrix[0, [0,1]+[2+trajYList.index(trajY)+elem*len(trajYList) \
+                                               for elem in range(len(ThresholdList))]]
+                else:
+                    FullRMSDBlock = True                        
 #### #### #### #### #### 
 #### LOAD/CALCULATE possible Weights for aMD/sMD for current trajectory (trajY )
 #### ASSIGN Events to >enhancedMatrix[:,:]< & >enhancedNorm<
 #### #### #### #### ####
-            #---- INIT
-                if aMD_Nrs != [] or sMD_Nrs != []:
-                    enhancedMatrix[(EventRow):(EventRow+EndX), 
-                                   [0,1]+[2+trajYList.index(trajY)+elem*len(trajYList) for elem in range(len(ThresholdList))],
-                                   0 if PartY == '' else int(PartY.split('_part')[1])-1] = \
-                       EventMatrix[(EventRow):(EventRow+EndX), 
-                                   [0,1]+[2+trajYList.index(trajY)+elem*len(trajYList) for elem in range(len(ThresholdList))],
-                                   0 if PartY == '' else int(PartY.split('_part')[1])-1]
-                    enhancedNorm[0, [0,1]+[2+trajYList.index(trajY)+elem*len(trajYList) for elem in range(len(ThresholdList))],
-                                 0 if PartY == '' else int(PartY.split('_part')[1])-1] = \
-                      NormMatrix[0, [0,1]+[2+trajYList.index(trajY)+elem*len(trajYList) for elem in range(len(ThresholdList))],
-                                 0 if PartY == '' else int(PartY.split('_part')[1])-1]
-        #### #### ####         
-        #---- aMD
-        #### #### #### 
-                if aMD_Nrs.count(trajY+1) > 0:
-                
-                ##### ##### #####
-                # LOAD/GENERATE aMD Weights
-                ##### ##### #####
-                    WeightName = 'aMD_Weight_MF_%s_%s-%s%s_Iter%s.txt' % \
-                                  (TrajNameList[trajY], StartFrame, EndingFrame, PartY, Iterations)
-                    if PartY != '':
-                        SpecLenList = [TrajLenDict['%s_part%s' % (trajY, elem)][0] for elem in range(1,PartList[trajY]+1)]
-                    else: SpecLenList = []
-                    if aMD_reweight == 'MF':
-                        ## for Weight generation, trajX==trajY, thus the trajY specific ROWS of EventMatrix are used
-                        SpecEventRow = sum(TrajLengthList[:TrajLenDict['%s%s' % (trajY, PartY)][1]])
+    #### #### ####         
+    #---- aMD
+    #### #### #### 
+            if aMD_Nrs.count(trajY+1) > 0:
+        ##### ##### #####
+        # LOAD/GENERATE aMD Weights
+        ##### ##### #####
+                WeightName = 'aMD_Weight_MF_%s_%s-%s_Iter%s.txt' % \
+                              (TrajNameList[trajY], StartFrame, EndingFrame, Iterations)
+                if aMD_reweight == 'MF':
+                    ## for Weight generation, trajX==trajY, thus the trajY specific ROWS of EventMatrix are used
+                    if PartList[trajY] > 1:
+                        SpecEventRow = sum(TrajLengthList[:TrajLenDict['%s_part1' % (trajY)][1]])
                     else:
-                        SpecEventRow = 0
-                    Weights = GenerateWeights(TrajNameList[trajY], 
-                                  EventMatrix[(SpecEventRow+BeginY):(SpecEventRow+EndY),
-                                              [2+trajYList.index(trajY)+elem*len(trajYList) for elem in range(len(ThresholdList))],
-                                              0 if PartY == '' else int(PartY.split('_part')[1])-1],
-                                  INDICES[(BeginY):(BeginY+EndY), :],
-                                  '%sWeights/' % SaveDir, WeightName, BeginY, EndY, aMD_reweight, 
-                                  Iterations, Lambda, PartY, aMDlogDIR, aMDlogName, WeightStep,
-                                  AmberVersion, Temp, SpecLenList)
-                ##### ##### #####
-                # ASSIGN enhancedMatrix (aMD)
-                ##### ##### #####
+                        SpecEventRow = sum(TrajLengthList[:TrajLenDict['%s' % (trajY)][1]])
+                else:
+                    SpecEventRow = 0
+                Weights = GenerateWeights(TrajNameList[trajY], 
+                              EventMatrix[(SpecEventRow+BeginY):(SpecEventRow+EndY),
+                                          [2+trajYList.index(trajY)+elem*len(trajYList) \
+                                           for elem in range(len(ThresholdList))]],
+                              INDICES[(BeginY):(EndY), :],
+                              LowUpArray,
+                              '%sWeights/' % SaveDir, WeightName, BeginY, EndY, ThresholdList, aMD_reweight, 
+                              Iterations, Lambda,
+                              aMDlogCombo[aMD_Nrs.index(trajY+1)] if aMDlogCombo is not None else None, 
+                              WeightStep, AmberVersion, Temp) 
+        ##### ##### #####
+        # ASSIGN enhancedMatrix (aMD)
+        ##### ##### #####
+                for ColIndex in range(len(ThresholdList)):
                     if aMD_reweight == 'MF':
-                        for ColIndex in range(len(ThresholdList)):
-                            enhancedNorm[0, 2+trajYList.index(trajY)+ColIndex*len(trajYList), 
-                                         0 if PartY == '' else int(PartY.split('_part')[1])-1] = \
-                                                                    NP.sum(NP.exp( Weights[:, ColIndex] ))
-                            II = 0
-                            for Row in range(EventRow, (EventRow+EndX)):
-                                enhancedMatrix[Row, 2+trajYList.index(trajY)+ColIndex*len(trajYList),
-                                               0 if PartY == '' else int(PartY.split('_part')[1])-1] = \
-                                                    NP.sum(NP.exp( Weights[\
-                                    INDICES[II, 0:EventMatrix[Row, 2+trajYList.index(trajY)+ColIndex*len(trajYList), 
-                                                               0 if PartY == '' else int(PartY.split('_part')[1])-1] ], 
-                                                                           ColIndex] ))
-                                II += 1
+                        enhancedNorm[0, 2+trajYList.index(trajY)+ColIndex*len(trajYList)] = \
+                                                                NP.sum(NP.exp( Weights[:,ColIndex] ))
                     elif aMD_reweight == 'Exp':
-                        for ColIndex in range(len(ThresholdList)):
-                            enhancedNorm[0, 2+trajYList.index(trajY)+ColIndex*len(trajYList), 
-                                         0 if PartY == '' else int(PartY.split('_part')[1])-1] = NP.sum(NP.exp( Weights ))
-                            II = 0
-                            for Row in range(EventRow, (EventRow+EndX)):
-                                enhancedMatrix[Row, 2+trajYList.index(trajY)+ColIndex*len(trajYList),
-                                               0 if PartY == '' else int(PartY.split('_part')[1])-1] = \
-                                                    NP.sum(NP.exp( Weights[\
-                                    INDICES[II, 0:EventMatrix[Row, 
-                                                           2+trajYList.index(trajY)+ColIndex*len(trajYList), 
-                                                           0 if PartY == '' else int(PartY.split('_part')[1])-1] ] ] ) )
-                                II += 1
+                        enhancedNorm[0, 2+trajYList.index(trajY)+ColIndex*len(trajYList)] = NP.sum(NP.exp( Weights ))
                     elif aMD_reweight == 'McL':
                         Weight_McL = NP.zeros(len(Weights))
                         for Ord in range(0,Order+1):
                             Weight_McL = NP.add(Weight_McL, 
                                                 NP.divide( NP.power( Weights , Ord), float(scipy.misc.factorial(Ord))))
-                        for ColIndex in range(len(ThresholdList)):
-                            enhancedNorm[0, 2+trajYList.index(trajY)+ColIndex*len(trajYList), 
-                                         0 if PartY == '' else int(PartY.split('_part')[1])-1] = NP.sum(Weight_McL)
-                            II = 0
-                            for Row in range(EventRow, (EventRow+EndX)):
-                                enhancedMatrix[Row, 2+trajYList.index(trajY)+ColIndex*len(trajYList),
-                                               0 if PartY == '' else int(PartY.split('_part')[1])-1] = \
-                                                    NP.sum(Weight_McL[\
-                                    INDICES[II, 0:EventMatrix[Row, 
-                                                               2+trajYList.index(trajY)+ColIndex*len(trajYList), 
-                                                               0 if PartY == '' else int(PartY.split('_part')[1])-1] ] ])
-                                II += 1
+                        enhancedNorm[0, 2+trajYList.index(trajY)+ColIndex*len(trajYList)] = NP.sum(Weight_McL)
+                    #---------
+                    if MaxNumberLines < FullCumTrajLenList[trajX+1]-FullCumTrajLenList[trajX]: II = len(INDICES[:,0]); 
+                    else: II = 0;
+                    III = 0;
+                    for Row in range(LowUpArray[0][0]+FullCumTrajLenList[trajX], 
+                                     LowUpArray[-1][1]+FullCumTrajLenList[trajX]):
+                      #--- LOAD INDICES if necessary
+                        if MaxNumberLines < FullCumTrajLenList[trajX+1]-FullCumTrajLenList[trajX] and \
+                           len(INDICES[:,0]) <= II:
+                            if os.path.exists('%sINDICES_%s-%s_%s-%s.npy' % \
+                                  (MatrixDir,TrajNameList[trajX],TrajNameList[trajY],LowUpArray[III][0],LowUpArray[III][1])):
+                                INDICES = NP.load('%sINDICES_%s-%s_%s-%s.npy' % \
+                                  (MatrixDir,TrajNameList[trajX],TrajNameList[trajY],LowUpArray[III][0],LowUpArray[III][1]))
+                            else:
+                                INDICES = NP.transpose(NP.load('%sINDICES_%s-%s_%s-%s.npy' % \
+                                  (MatrixDir,TrajNameList[trajX],TrajNameList[trajY],LowUpArray[III][0],LowUpArray[III][1])))
+                            III +=1; II = 0; 
+                      #--- v26.08.16 adjust indices to BeginY:EndY
+                        if MaxNumberLines < FullCumTrajLenList[trajX+1]-FullCumTrajLenList[trajX] and \
+                            BeginY > 0 or max(INDICES[0,:]) >= EndY: 
+                            temp = INDICES[II, INDICES[II,:]>=BeginY]; temp = NP.subtract(temp[temp<EndY],BeginY);
+                        else:
+                            temp = INDICES[II,:]
+                      #-----------
+                        if aMD_reweight == 'MF':
+                            enhancedMatrix[Row, 2+trajYList.index(trajY)+ColIndex*len(trajYList)] = \
+                                                NP.sum(NP.exp( Weights[\
+                                temp[0:EventMatrix[Row, 2+trajYList.index(trajY)+ColIndex*len(trajYList)] ], ColIndex] ))
+                        elif aMD_reweight == 'Exp':
+                            enhancedMatrix[Row, 2+trajYList.index(trajY)+ColIndex*len(trajYList)] = \
+                                                NP.sum(NP.exp( Weights[\
+                                temp[0:EventMatrix[Row, 2+trajYList.index(trajY)+ColIndex*len(trajYList)] ] ] ) )
+                        elif aMD_reweight == 'McL':
+                            enhancedMatrix[Row, 2+trajYList.index(trajY)+ColIndex*len(trajYList)] = \
+                                                NP.sum(Weight_McL[\
+                                temp[0:EventMatrix[Row, 2+trajYList.index(trajY)+ColIndex*len(trajYList)] ] ])
+                        II += 1;
+                    #---------
         #### #### ####         
         #---- sMD
         #### #### ####
-                elif sMD_Nrs.count(trajY+1) > 0:
-                ##### ##### #####
-                # LOAD/GENERATE sMD Weights
-                ##### ##### #####
-                    WeightName = 'sMD_Weight_lambda%s_%s_%s-%s%s_Iter%s.txt' % \
-                                  (Lambda, TrajNameList[trajY], StartFrame, EndingFrame, PartY, Iterations)
-                    if PartY != '':
-                        SpecLenList = [TrajLenDict['%s_part%s' % (trajY, elem)][0] for elem in range(1,PartList[trajY]+1)]
-                    else: SpecLenList = []
-                    ## for Weight generation, trajX==trajY, thus the trajY specific ROWS of EventMatrix are used
-                    SpecEventRow = sum(TrajLengthList[:TrajLenDict['%s%s' % (trajY, PartY)][1]])
-                    Weights = GenerateWeights(TrajNameList[trajY], 
-                                  EventMatrix[(SpecEventRow+BeginY):(SpecEventRow+EndY),
-                                              [2+trajYList.index(trajY)+elem*len(trajYList) for elem in range(len(ThresholdList))],
-                                              0 if PartY == '' else int(PartY.split('_part')[1])-1],
-                                  INDICES[(BeginY):(BeginY+EndY), :],
-                                  '%sWeights/' % SaveDir, WeightName, None, None, 'sMD', 
-                                  Iterations, Lambda, PartY, None, None, None,
-                                  None, Temp, SpecLenList)
-                ##### ##### #####
-                # ASSIGN enhancedMatrix (sMD)
-                ##### ##### #####        
-                    for ColIndex in range(len(ThresholdList)):
-                        enhancedNorm[0, 2+trajYList.index(trajY)+ColIndex*len(trajYList), 
-                                     0 if PartY == '' else int(PartY.split('_part')[1])-1] = NP.sum(Weights[:,ColIndex])
-                        II = 0
-                        for Row in range(EventRow, (EventRow+EndX)):
-                            enhancedMatrix[Row, 2+trajYList.index(trajY)+ColIndex*len(trajYList),
-                                           0 if PartY == '' else int(PartY.split('_part')[1])-1] = NP.sum(Weights[\
-                                    INDICES[II, 0:EventMatrix[Row, 
-                                                 2+trajYList.index(trajY)+ColIndex*len(trajYList), 
-                                                 0 if PartY == '' else int(PartY.split('_part')[1])-1] ], ColIndex])
-                            II += 1
-##############          
-## if SplitTrajs: merge Weight parts together
-##############
-        if aMD_reweight == 'MF':
-            for aMD_Traj in aMD_Nrs:
-                Inni = 0
-                if PartList[aMD_Traj-1] > 1:
-                    for Part in range(1,PartList[aMD_Traj-1]+1):
-                        aMD_TrajLen = sum([TrajLengthList[TrajLenDict['%s_part%s' % (aMD_Traj-1, elem)][1]] \
-                                           for elem in range(1,PartList[aMD_Traj-1]+1)])
-                        FullWeight = NP.zeros( (aMD_TrajLen, len(ThresholdList)) )
-                        for Part in range(1,PartList[aMD_Traj-1]+1):
-                            WeightName = 'aMD_Weight_MF_%s_%s-%s%s_Iter%s.txt' % \
-                                              (TrajNameList[aMD_Traj-1], StartFrame, EndingFrame, Part, Iterations)
-                            tempWeight = NP.genfromtxt('%sWeights/%s' % (SaveDir, WeightName))
-                            FullWeight[Inni:(Inni+len(tempWeight[:,0]))]
-                            Inni += len(tempWeight[:,0])
-                    with open(WeightName, 'r') as INPUT:
-                        HEADY = ''
-                        for line in INPUT:
-                            if line[0] != '#':
-                                break
-                            HEADY = HEADY + line[2:]
-                    NP.savetxt('%sWeights/aMD_Weight_MF_%s_%s-%s_Iter%s.txt' % \
-                               (SaveDir, TrajNameList[aMD_Traj-1], StartFrame, EndingFrame, Iterations), 
-                               FullWeight, fmt='%i '+' %.12f'*len(ThresholdList), header=HEADY)
-    #-------
-        for sMD_Traj in sMD_Nrs:
-            Inni = 0
-            if PartList[sMD_Traj-1] > 1:
-                for Part in range(1,PartList[sMD_Traj-1]+1):
-                    sMD_TrajLen = sum([TrajLengthList[TrajLenDict['%s_part%s' % (sMD_Traj-1, elem)][1]] \
-                                       for elem in range(1,PartList[sMD_Traj-1]+1)])
-                    FullWeight = NP.zeros( (sMD_TrajLen, len(ThresholdList)) )
-                    for Part in range(1,PartList[sMD_Traj-1]+1):
-                        WeightName = 'sMD_Weight_lambda%s_%s_%s-%s%s_Iter%s.txt' % \
-                                      (Lambda, TrajNameList[sMD_Traj-1], StartFrame, EndingFrame, Part, Iterations)
-                        tempWeight = NP.genfromtxt('%sWeights/%s' % (SaveDir, WeightName))
-                        FullWeight[Inni:(Inni+len(tempWeight[:,0]))]
-                        Inni += len(tempWeight[:,0])
-                with open(WeightName, 'r') as INPUT:
-                    HEADY = ''
-                    for line in INPUT:
-                        if line[0] != '#':
-                            break
-                        HEADY = HEADY + line[2:]
-                NP.savetxt('%sWeights/sMD_Weight_lambda%s_%s_%s-%s_Iter%s.txt' % \
-                           (SaveDir, Lambda, TrajNameList[sMD_Traj-1], StartFrame, EndingFrame, Iterations), 
-                           FullWeight, fmt='%i '+' %.12f'*len(ThresholdList), header=HEADY)
+            elif sMD_Nrs.count(trajY+1) > 0:
+            ##### ##### #####
+            # LOAD/GENERATE sMD Weights
+            ##### ##### #####
+                WeightName = 'sMD_Weight_lambda%s_%s_%s-%s_Iter%s.txt' % \
+                              (Lambda, TrajNameList[trajY], StartFrame, EndingFrame, Iterations)
+                ## for Weight generation, trajX==trajY, thus the trajY specific ROWS of EventMatrix are used
+                if PartList[trajY] > 1:
+                    SpecEventRow = sum(TrajLengthList[:TrajLenDict['%s_part1' % (trajY)][1]])
+                else:
+                    SpecEventRow = sum(TrajLengthList[:TrajLenDict['%s' % (trajY)][1]])
+                Weights = GenerateWeights(TrajNameList[trajY], 
+                              EventMatrix[(SpecEventRow+BeginY):(SpecEventRow+EndY),
+                                          [2+trajYList.index(trajY)+elem*len(trajYList) \
+                                           for elem in range(len(ThresholdList))]],
+                              INDICES[(BeginY):(EndY), :],
+                              LowUpArray,
+                              '%sWeights/' % SaveDir, WeightName, BeginY, EndY, ThresholdList, 'sMD', 
+                              Iterations, Lambda, None, None, None, Temp)
+                    ##### ##### #####
+                    # ASSIGN enhancedMatrix (sMD)
+                    ##### ##### #####        
+                for ColIndex in range(len(ThresholdList)):
+                    enhancedNorm[0, 2+trajYList.index(trajY)+ColIndex*len(trajYList)] = NP.sum(Weights[:,ColIndex])
+                    
+                    if MaxNumberLines < FullCumTrajLenList[trajX+1]-FullCumTrajLenList[trajX]: II = len(INDICES[:,0]); 
+                    else: II = 0;
+                    III = 0;
+                    for Row in range(LowUpArray[0][0]+FullCumTrajLenList[trajX], 
+                                     LowUpArray[-1][1]+FullCumTrajLenList[trajX]):
+                      #--- LOAD INDICES if necessary
+                        if MaxNumberLines < FullCumTrajLenList[trajX+1]-FullCumTrajLenList[trajX] and \
+                           len(INDICES[:,0]) <= II:
+                            if os.path.exists('%sINDICES_%s-%s_%s-%s.npy' % \
+                                  (MatrixDir,TrajNameList[trajX],TrajNameList[trajY],LowUpArray[III][0],LowUpArray[III][1])):
+                                INDICES = NP.load('%sINDICES_%s-%s_%s-%s.npy' % \
+                                  (MatrixDir,TrajNameList[trajX],TrajNameList[trajY],LowUpArray[III][0],LowUpArray[III][1]))
+                            else:
+                                INDICES = NP.transpose(NP.load('%sINDICES_%s-%s_%s-%s.npy' % \
+                                  (MatrixDir,TrajNameList[trajX],TrajNameList[trajY],LowUpArray[III][0],LowUpArray[III][1])))
+                            III +=1; II = 0;
+                      #--- v26.08.16 adjust indices to BeginY:EndY
+                        if MaxNumberLines < FullCumTrajLenList[trajX+1]-FullCumTrajLenList[trajX] and \
+                            BeginY > 0 or max(INDICES[0,:]) >= EndY: 
+                            temp = INDICES[II, INDICES[II,:]>=BeginY]; temp = NP.subtract(temp[temp<EndY],BeginY);
+                        else:
+                            temp = INDICES[II,:]
+                      #-----------
+                        enhancedMatrix[Row, 2+trajYList.index(trajY)+ColIndex*len(trajYList)] = NP.sum(Weights[\
+                                temp[0:EventMatrix[Row, 2+trajYList.index(trajY)+ColIndex*len(trajYList)] ], ColIndex])
+                        II += 1 
 ##############          
 ## STORE: OverlapMatrix
 ##############
@@ -1314,14 +1280,13 @@ OUTPUT:
         updated_TrjLenList = []
         for trajY in range(len(TrajNameList)):
             PartY = PartList[trajY]
-            #for PartY in PartList[trajY]:
-            if PartY == 1: ## NO SPLIT or PART1 for trajY ##
+            if PartY == 1: ## NO SPLIT
                 BeginY = StartFrame;  EndY = min(EndingFrame, TrajLenDict['%s' % (trajY)][0])
                 updated_TrjLenList.append(EndY - BeginY)
             else:
                 for PaY in range(1,PartY+1):
                     if PaY == 1:
-                        BeginY = StartFrame;  EndY = min(EndingFrame, TrajLenDict['%s%s' % (trajY, PartY)][0])
+                        BeginY = StartFrame;  EndY = min(EndingFrame, TrajLenDict['%s_part1' % (trajY)][0])
                     else:
                         BeginY = max(0,StartFrame-NP.sum([TrajLenDict['%s_part%s' % (trajY, elem)][0] \
                                                           for elem in range(1,PaY)]))
@@ -1364,97 +1329,81 @@ OUTPUT:
          'Frames | TrajNr | '+' | '.join([('r=%s' % elem).ljust(max(Rlen,Tlen)) for elem in ThresholdList])+'\n'+\
          ''.rjust(15)+(' | '+('%s - %s' % (trajYList[0]+1, trajYList[-1]+1)).ljust(max(Rlen,Tlen)))*len(ThresholdList)
             if not os.path.exists('%s%s' % (SaveDir, SaveEventMatrix)):
-                NP.save('%s%s' % (SaveDir, SaveEventMatrix), NP.sum(EventMatrix, axis=2))
+                NP.save('%s%s' % (SaveDir, SaveEventMatrix), EventMatrix)
             if not os.path.exists('%s%s' % (SaveDir, SaveNormMatrix)):
                 NP.savetxt('%s%s' % (SaveDir, SaveNormMatrix),
-                       NP.sum(NormMatrix, axis=2),  fmt='%i %i   '+'%i '*len(trajYList)*len(ThresholdList), header=HEADER)
+                           NormMatrix,  fmt='%i %i   '+'%i '*len(trajYList)*len(ThresholdList), header=HEADER)
             if aMD_Nrs != [] or sMD_Nrs != []:
                 FMT = '%i %i   '+((' '.join(['%i' if (aMD_Nrs+sMD_Nrs).count(elem+1) == 0 else '%.6f' \
                                              for elem in trajYList]))+'  ')*len(ThresholdList)
-                NP.save('%s%s' % (SaveDir, SaveEnhancedMatrix), NP.sum(enhancedMatrix, axis=2))
+                NP.save('%s%s' % (SaveDir, SaveEnhancedMatrix), enhancedMatrix)
                 if not os.path.exists('%s%s' % (SaveDir, SaveEnhancedNorm)):
-                    NP.savetxt('%s%s' % (SaveDir, SaveEnhancedNorm),
-                               NP.sum(enhancedNorm, axis=2), fmt=FMT, header=HEADER)
+                    NP.savetxt('%s%s' % (SaveDir, SaveEnhancedNorm), enhancedNorm, fmt=FMT, header=HEADER)
+
 ###############
 #-------------
 ###############
 
-def Extract_aMDlog(SaveDir, SaveName, aMDlogDIR, aMDlogName, WeightStep=1, AmberVersion='Amber14', Temp=300,
-                   Parts=False, TrajLenList=[]):
+def Extract_aMDlog(SaveDir, SaveName, aMDlogCombo, WeightStep=1, AmberVersion='Amber14', Temp=300):
     """
-v09.10.15
+v06.09.16
 - this supporting function extracts the Weights of the aMD.log's and stores every WeightStep-th frame
 - ensure, that the same time steps are used as in the corresponding RMSD matrices
+- FULL aMD.log (with corresponding WeightStep) is returned, then one need to extract Begin:End + LowerEnd:UpperEnd
 INPUT:
     SaveDir      : {STRING}   Directory, where the extracted weights are stored, e.g. aMD_Weights/;
     SaveName     : {STRING}   classical savename WITHOUT ENDING, SaveName = Test -> Test.txt / Test_partX.txt;
-    aMDlogDIR    : {STRING}   location, where aMD.log from Amber is located;
-    aMDlogName   : {STRING}   name of the aMD reweight file, standard Amber output is aMD.log, 
-                                where the 6th and 7th column are used;
+    aMDlogCombo  : {STRING}   name of the aMD reweight file WITH DIRECTORY, standard Amber output is aMD.log, 
+                                where the 6th and 7th column are used, e.g. 'Directory/aMD.log';
     WeightStep   : {INT}      <default 1>       every WeightStep-th frame from the aMDlogName is used,
                                 synchronization with RMSD matrix is necessary
     AmberVersion : {STRING}   <default Amber14> Amber14 OR Amber12, because the units are different in both versions;
     Temp         : {FLOAT}    <default 300>     simulation temperature of the system (for correct units)
-    Parts        : {BOOL}     <default False>   if true, weights are split into parts corresponding to the TrajLenList;
-    TrajLenList  : {INT-List} <default: []>     IF the TrajName is split, this list holds the number of frames 
-                                                for every part;
 OUTPUT:
     - returns aMD_Weights monitored in aMD.log, whereas only the WeightStep-th frames are stored
-    - if the corresponding TrajName is split, ONLY the first part >_part1.txt< is returned, but all parts are stored
     """
     if not os.path.exists(SaveDir):
         for Kai in range(1,len((SaveDir+SaveName).split('/'))):
             if not os.path.exists('/'.join((SaveDir+SaveName).split('/')[:Kai])):
                 os.mkdir('/'.join((SaveDir+SaveName).split('/')[:Kai]))
     #----
-    if os.path.exists('%s%s' % (aMDlogDIR, aMDlogName)):
-        Weights = NP.genfromtxt('%s%s' % (aMDlogDIR, aMDlogName), usecols=(6,1,7))[0::WeightStep,:]
+    if os.path.exists('%s' % (aMDlogCombo)):
+        Weights = NP.genfromtxt('%s' % (aMDlogCombo), usecols=(6,1,7))[0::WeightStep,:]
         if AmberVersion == 'Amber14':
             Weights[:,2] = NP.add(Weights[:,0], Weights[:,2])
             Weights[:,0] = NP.divide(Weights[:,2], (0.001987*Temp))
         elif AmberVersion == 'Amber12':
             Weights[:,0] = NP.add(Weights[:,0], Weights[:,2])
             Weights[:,2] = NP.multiply(Weights[:,2], (0.001987*Temp))
-        HEADER = 'aMD weights extracted from \n\t>%s%s<\nbeta*dV [unitless] | steps [*0.002=ps] | dV [kCal/mol]' % \
-                    (aMDlogDIR, aMDlogName)
+        HEADER = 'aMD weights extracted from \n\t>%s<\nbeta*dV [unitless] | steps [*0.002=ps] | dV [kCal/mol]' % \
+                    (aMDlogCombo)
         NP.savetxt('%s%s.txt' % (SaveDir, SaveName), Weights, fmt='%.12f  %i  %.12f', header=HEADER)
-    #---- STORE to different parts
-        if Parts and TrajLenList != []:
-            for Kai in range(1,len(TrajLenList)+1):
-                NP.savetxt('%s%s_part%s.txt' % (SaveDir, SaveName, Kai), 
-                           Weights[sum(TrajLenList[:(Kai-1)]), sum(TrajLenList[:Kai]),:], 
-                           fmt='%.12f  %i  %.12f', header=HEADER)
-            return NP.genfromtxt('%s%s_part1.txt' % (SaveDir, SaveName), usecols=(0))
-        else:
-            return NP.genfromtxt('%s%s.txt' % (SaveDir, SaveName), usecols=(0))
+        return NP.genfromtxt('%s%s.txt' % (SaveDir, SaveName), usecols=(0))
     elif os.path.exists('%s%s.txt' % (SaveDir, SaveName)):
-        if Parts and TrajLenList != []:
-            return NP.genfromtxt('%s%s_part1.txt' % (SaveDir, SaveName), usecols=(0))
-        else:
-            return NP.genfromtxt('%s%s.txt' % (SaveDir, SaveName), usecols=(0))
+        return NP.genfromtxt('%s%s.txt' % (SaveDir, SaveName), usecols=(0))
     else:
-        raise NameError('Neither \n\t%s%s.txt\nnor\n\t%s%s\nexist! Check your input!' % \
-                           (SaveDir, SaveName, aMDlogDIR, aMDlogName))
+        raise NameError('Neither \n\t%s%s.txt\nnor\n\t%s\nexist! Check your input!' % \
+                           (SaveDir, SaveName, aMDlogCombo))
 
 ###############
 #-------------
 ###############
 
-def GenerateWeights(TrajName, noWeights, Indices, SaveDir, SaveName, BeginY, EndY, aMD_reweight='MF', Iterations=1, 
-                    Lambda=1, Part='', aMDlogDIR=None, aMDlogName=None, WeightStep=1, 
-                    AmberVersion='Amber14', Temp=300, TrajLenList=[]):
+def GenerateWeights(TrajName, noWeights, Indices, RangeArray, SaveDir, SaveName, BeginY, EndY, ThresholdList, 
+                    aMD_reweight='MF', Iterations=1, Lambda=1, aMDlogCombo=None, WeightStep=1, 
+                    AmberVersion='Amber14', Temp=300):
     """ 
-v22.05.16
+v06.09.16
     This function calculates the >Mean-Field< approach for aMD/sMD using the 
         >Events< (noWeight) and RMSD matrix >Indices< and the standard aMD.log Weights, 
         >Indices< store the frames for the corresponding Weights
     Weights from aMD.log are ONLY "beta \Delta V", the EXPONENTIAL FUNCTION IS APPLIED IN >Generate_EventCurves<
     if aMD_reweight='MF' or sMD:
-        Full noWeights for the corresponding trajNr and Part is used with all THRESHOLDS, because the weights are 
+        Full noWeights for the corresponding trajNr is used with all THRESHOLDS, because the weights are 
         unique for each threshold
 INPUT:
-    TrajName     : {STRING}     Name of the trajectory, used for aMD_Weight_%s%s.txt % (TrajName, Part);
-    noWeights    : {NP.ndarray} number of counts for certain threshold, ! TrajX=TrajY, PartX=PartY, Indices.shape == (X,X) !
+    TrajName     : {STRING}     Name of the trajectory, used for aMD_Weight_%s.txt % (TrajName);
+    noWeights    : {NP.ndarray} number of counts for certain threshold, ! TrajX=TrajY, Indices.shape == (X,X) !
                                     the ROWS need to correspond to the frames counted in the COLUMNS
                                     the Indices[x,.] has to correspond to Indices[.,0];
     Indices      : {NP.ndarray} sorting Indices, storing the specific frames, 
@@ -1463,18 +1412,16 @@ INPUT:
     SaveName     : {STRING}     Save name to store the weights, '%sWeights/%s' % (SaveDir, SaveName);
     BeginY       : {INT}        Starting frame of the trajectory, correspond to BeginY of RMSD_mat, e.g. 0;
     EndY         : {INT}        Ending frame of the trajectory,   correspond to EndY   of RMSD_mat, e.g. 2000;
+    ThresholdList: {FLOAT-LIST} different thresholds r for which the Events are counted, e.g. [0.1, 0.2, 0.3, ...];
     aMD_reweight : {STRING}     <default 'MF'>      reweighting Method -> 'MF', 'Exp', 'McL' OR 'sMD';
     Iterations   : {INT}        <default 1>         number of iterations for the Mean-Field approach of 'MF' OR 'sMD';      
     Lambda       : {FLOAT}      <default 1>         scaling factor lambda for 'sMD', 1 means no rescaling;
-    Part         : {STRING}     <default ''>        defines the partY, '' or '_partY' where Y is the number of the part;
-    aMDlogDir    : {STRING}     <default None>      directory, where aMD.log from Amber is located;
-    aMDlogName   : {STRING}     <default None>      name of the reweighting file 'aMD.log' produced by Amber;
+    aMDlogCombo  : {STRING}     <default None>      name of the reweighting file WITH DIRECTORY 'Dir/aMD.log' produced by Amber;
     WeightStep   : {INT}        <default 1>         skip every WeightStep-th frame, i.e. Weight[0-last, every WeightStep], 
                                     HAS TO MATCH THE FRAMES EXTRACTED FROM THE TRAJECTORY WHICH ARE USED FOR RMSD_mat;
     AmberVersion : {STRING}     <default 'Amber14'> AmberVersion, either 'Amber14' OR 'Amber12', 
                                     defines the unit of the aMD.log deltaV's;
     Temp         : {FLOAT}      <default 300>       temperature of the simulation in Kelvin;
-    TrajLenList  : {INT-LIST}   <default []>        IF the TrajName is split, this list holds the LENGTHS for every part;
 OUTPUT:
     return Weight for correct PART, which is already included in the SaveName
             and already correct simulation time part
@@ -1482,32 +1429,45 @@ OUTPUT:
     for aMD     :    SAVE averaged weights, without NP.exp()
     the EXPONENTIAL FUNCTION is applied in <Generate_EventCurve()>
     """
-    
 #### #### #### 
 #-------------
 #### #### ####
+    if Iterations < 1: Iterations = 1;
     #--- aMD + <'MF'> + FILE EXIST
     if aMD_reweight == 'MF' and os.path.exists('%s%s' % (SaveDir, SaveName)):
-        if len(NP.genfromtxt('%s%s' % (SaveDir, SaveName)).shape) == 1:
-            return NP.reshape(NP.genfromtxt('%s%s' % (SaveDir, SaveName)), (-1,1))
-        else:
-            return NP.genfromtxt('%s%s' % (SaveDir, SaveName))
-
+        #---- load ThresholdList
+        with open('%s%s' % (SaveDir, SaveName), 'r') as INPUT:
+            for line in INPUT:
+                if len(line.split()) > 2 and line.split()[0] == '#' and line.split()[1] == 'ThresholdList':
+                    temp = [float(elem.replace(',','')) for elem in line[line.find('[')+1:line.find(']')].split()]
+                    break
+        if ThresholdList == temp:
+            if len(ThresholdList) == 1:
+                return NP.reshape(NP.genfromtxt('%s%s' % (SaveDir, SaveName)), (-1,1))
+            else:
+                return NP.genfromtxt('%s%s' % (SaveDir, SaveName))
     #--- sMD          + FILE EXIST
-    elif aMD_reweight == 'sMD' and os.path.exists('%s%s' % (SaveDir, SaveName)):
-        if len(NP.genfromtxt('%s%s' % (SaveDir, SaveName)).shape) == 1:
-            return NP.reshape(NP.genfromtxt('%s%s' % (SaveDir, SaveName)), (-1,1))
-        else:
-            return NP.genfromtxt('%s%s' % (SaveDir, SaveName))
+    if aMD_reweight == 'sMD' and os.path.exists('%s%s' % (SaveDir, SaveName)):
+        #---- load ThresholdList
+        with open('%s%s' % (SaveDir, SaveName), 'r') as INPUT:
+            for line in INPUT:
+                if len(line.split()) > 2 and line.split()[0] == '#' and line.split()[1] == 'ThresholdList':
+                    temp = [float(elem.replace(',','')) for elem in line[line.find('[')+1:line.find(']')].split()]
+                    break
+        if ThresholdList == temp:
+            if len(ThresholdList) == 1:
+                return NP.reshape(NP.genfromtxt('%s%s' % (SaveDir, SaveName)), (-1,1))
+            else:
+                return NP.genfromtxt('%s%s' % (SaveDir, SaveName))
     #--- not (aMD + <'MF'>) and not (sMD) + FILE EXIST
-    elif aMD_reweight != 'MF' and aMD_reweight != 'sMD' and \
-         os.path.exists('%saMD_Weight_%s%s.txt' % (SaveDir, TrajName, Part)):
-        return NP.genfromtxt('%saMD_Weight_%s%s.txt' % (SaveDir, TrajName, Part), usecols=(0))[BeginY:EndY]
+    if aMD_reweight != 'MF' and aMD_reweight != 'sMD' and \
+         os.path.exists('%saMD_Weight_%s.txt' % (SaveDir, TrajName)):
+        return NP.genfromtxt('%saMD_Weight_%s.txt' % (SaveDir, TrajName), usecols=(0))[BeginY:EndY]
     #--- not (aMD + <'MF'>) and not (sMD) and NO aMD_Weights_%s%s.txt exist
     elif aMD_reweight != 'MF' and aMD_reweight != 'sMD': 
-        ## no MF approach, weights are simply extracted from <%s%s_aMD.log> % (aMDlogDir TrajName)
-        return Extract_aMDlog('%s' % SaveDir, 'aMD_Weight_%s%s' % (TrajName, Part), aMDlogDIR, aMDlogName, 
-                              WeightStep, AmberVersion, Temp, Part!='', TrajLenList)[BeginY:EndY]
+        ## no MF approach, weights are simply extracted from <Directory/aMD.log>
+        return Extract_aMDlog('%s' % SaveDir, 'aMD_Weight_%s' % (TrajName), aMDlogCombo, 
+                              WeightStep, AmberVersion)[BeginY:EndY]
     #--- (aMD + <'MF'>) or (sMD) and NO file exist
     else:
 #### #### #### 
@@ -1515,12 +1475,11 @@ OUTPUT:
 #### #### ####
         t1 = time.time()
         if aMD_reweight != 'sMD':
-            if os.path.exists('%saMD_Weight_%s%s.txt' % (SaveDir, TrajName, Part)):
-                Weights = NP.genfromtxt('%saMD_Weight_%s%s.txt' % (SaveDir, TrajName, Part), usecols=(0))[BeginY:EndY]
+            if os.path.exists('%saMD_Weight_%s.txt' % (SaveDir, TrajName)):
+                Weights = NP.genfromtxt('%saMD_Weight_%s.txt' % (SaveDir, TrajName), usecols=(0))[BeginY:EndY]
             else:
-                Weights = Extract_aMDlog('%s' % SaveDir, 'aMD_Weight_%s%s' % (TrajName,Part), aMDlogDIR, 
-                                     aMDlogName, WeightStep, AmberVersion, Temp, Part!='', TrajLenList)[BeginY:EndY]
-            #print BeginY, EndY
+                Weights = Extract_aMDlog('%s' % SaveDir, 'aMD_Weight_%s' % (TrajName), aMDlogCombo, 
+                                         WeightStep, AmberVersion, Temp)[BeginY:EndY]
             ## INIT Weights_MF (0. step) with "beta deltaV" from Weights
             Weights_MF1 = NP.zeros( noWeights.shape )
             for RadIndex in range(len(noWeights[0,:])):
@@ -1528,30 +1487,62 @@ OUTPUT:
             #del Weights
         elif aMD_reweight == 'sMD':
             ## INIT Weights_MF (0. step) with 1: w_k^(0) = 1
-            Weights_MF1 = NP.zeros( noWeights.shape )+1
+            Weights_MF1 = NP.ones( noWeights.shape )
         ## INIT RadList: if for specific threshold the Weights are already converged, delete it from RadList
         RadList = range(len(noWeights[0,:]))
         Iter = 0
 #### #### #### 
 #-------------
 #### #### ####
+      #### v05.09.16 variable which monitors, if Indices has to be loaded
+        IndicesLoad = False
+      ####
         while Iter < Iterations and len(RadList) != 0:
             ## Store current Weights_MF (n) step to control convergency
             Weights_MF0 = NP.copy(Weights_MF1)
-            for RadIndex in RadList:
-                for Rows in range(len(noWeights[:,0])):
+         #### v25.08.16: LOAD INDICES IF NECESSARY, take care about noWeights = Ev[BeginY:EndY,:]
+            III = 0
+            while III < len(RangeArray) and RangeArray[III][1] < BeginY:
+                III += 1
+            if os.path.exists('%sINDICES_%s-%s_%s-%s.npy' % \
+                                  (MatrixDir, TrajName, TrajName, RangeArray[III][0], RangeArray[III][1])):
+                Indices = NP.load('%sINDICES_%s-%s_%s-%s.npy' % \
+                                  (MatrixDir, TrajName, TrajName, RangeArray[III][0], RangeArray[III][1]))
+                IndicesLoad = True
+            #--- adjust lower index to BeginY
+                if RangeArray[III][0] < BeginY and RangeArray[III][1] > BeginY:
+                    Indices = Indices[(BeginY-RangeArray[III][0]):,:]
+         ####
+            IIII = 0
+            for Rows in range(len(noWeights[:,0])):
+              ####
+                if RangeArray[III][1] <= BeginY+Rows and \
+                   os.path.exists('%sINDICES_%s-%s_%s-%s.npy' % \
+                              (MatrixDir, TrajName, TrajName, RangeArray[III+1][0], RangeArray[III+1][1])):
+                    III +=1 ; Indices = NP.load('%sINDICES_%s-%s_%s-%s.npy' % \
+                              (MatrixDir, TrajName, TrajName, RangeArray[III][0], RangeArray[III][1]))
+                    IIII = 0
+                    IndicesLoad = True
+              #---26.08.16 adjust indices to BeginY:EndY
+                if IndicesLoad:
+                    temp = Indices[IIII, Indices[IIII,:]>=BeginY]; temp = NP.subtract(temp[temp<EndY],BeginY);
+                else:
+                    temp = Indices[IIII,:]
+              #-----          
+                for RadIndex in RadList:
+                  #-----          
                     if aMD_reweight != 'sMD':
                         ## for Mean-Field: calculate average deltaV for each reference frame
-                        #print NP.sum(Weights_MF0[Indices[0:noWeights[Rows, RadIndex]], RadIndex])
                         Weights_MF1[Rows, RadIndex] = \
-                                NP.divide( NP.sum(Weights_MF0[Indices[Rows, 0:noWeights[Rows, RadIndex]], RadIndex]),
+                                NP.divide( NP.sum(Weights_MF0[temp[0:noWeights[Rows, RadIndex]], RadIndex]),
                                                  noWeights[Rows, RadIndex] )
                     elif aMD_reweight == 'sMD':
                         ## Indices[Rows, 0:Events] returns frames -> Weights_MF0[Rows, frames] weights the frames
-                        weightedEvents = NP.sum( Weights_MF0[Indices[Rows, 0:noWeights[Rows, RadIndex]], RadIndex] )
-                        
+                        weightedEvents = NP.sum( Weights_MF0[temp[0:noWeights[Rows, RadIndex]], RadIndex] )
                         Weights_MF1[Rows, RadIndex] = NP.divide( NP.power(weightedEvents, 1./Lambda),
                                                                  noWeights[Rows, RadIndex] )
+                IIII += 1
+              ####
             Iter += 1
             ##### ##### ##### 
             # CHECK convergence of Weights_MF1 for every Threshold, pop() if convergence reached
@@ -1562,7 +1553,7 @@ OUTPUT:
                     Delete.append(RadIndex)
             if Delete != []:
                 RadList = [elem for elem in RadList if Delete.count(elem) == 0]
-#### #### #### 
+#### #### ####
 #-------------
 #### #### ####
         t2 = time.time()
@@ -1576,6 +1567,7 @@ OUTPUT:
                     if not os.path.exists('/'.join(('%s' % SaveDir).split('/')[:Kai])):
                         os.mkdir('/'.join(('%s' % SaveDir).split('/')[:Kai]))
             HEADER = 'generated Weights for '+aMD_reweight+'\n'+\
+                     'ThresholdList = {}\n'.format(ThresholdList)+\
                      'elapsed time: {} seconds\n'.format(round(t2-t1,2))+\
                      'aMD is calculated by\n'+\
                      '\t\tsum_k(\Delta V_k)/N\n'+\
@@ -1583,13 +1575,50 @@ OUTPUT:
                      'sMD is calculated by\n'+\
                      '\t\tcounts^(1./lambda)/counts with lambda = '+str(Lambda)+'\n'+\
                      Conv+'\n'+\
-                     'r='
+                     'r='+' | r='.join([str(elem) for elem in ThresholdList])
             NP.savetxt('%s%s' % (SaveDir, SaveName), Weights_MF1, fmt='%.12f'+' %.12f'*len(Weights_MF1[0,1:]),
                        header=HEADER)
-        if len(NP.genfromtxt('%s%s' % (SaveDir, SaveName)).shape) == 1:
+        if len(ThresholdList) == 1:
             return NP.reshape(NP.genfromtxt('%s%s' % (SaveDir, SaveName)), (-1,1))
         else:
             return NP.genfromtxt('%s%s' % (SaveDir, SaveName))
+
+###############
+#-------------
+###############
+
+def Helper_Generate_TrajLenDict(LengthTrajNameList, PartList, TrajLengthList, StartFrame=0, EndingFrame=NP.infty):
+    """
+v06.09.16
+Helper function to return TrajLenDict[trajX_PartX] = (len(trajX_PartX), Index, EndX-BeginX)
+    """
+    if PartList is None:
+        PartList = [1]*LengthTrajNameList
+    #------    
+    TrajLenDict = {}; Index = 0
+    for trajX in range(LengthTrajNameList):
+        for PartX in [(('_part%s' % Part) if PartList[trajX]!=1 else '') for Part in range(1,PartList[trajX]+1)]: 
+            TrajLenDict['%s%s' % (trajX, PartX)] = (TrajLengthList[Index], Index, TrajLengthList[Index])
+            Index += 1
+  ##############
+    if StartFrame != 0 or EndingFrame != NP.infty:
+        for trajX in range(LengthTrajNameList):
+            for PartX in [(('_part%s' % Part) if PartList[trajX]!=1 else '') for Part in range(1,PartList[trajX]+1)]: 
+                if PartX == '' or PartX == '_part1': ## NO SPLIT or PART1 for trajX ##
+                    BeginX = StartFrame;  EndX = min(EndingFrame, TrajLenDict['%s%s' % (trajX, PartX)][0])
+                else:
+                    BeginX = max(0,StartFrame-NP.sum([TrajLenDict['%s_part%s' % (trajX, elem)][0] \
+                                                  for elem in range(1,int(PartX.split('_part')[1]))]))
+                    EndX   = min(EndingFrame, NP.sum([TrajLenDict['%s_part%s' % (trajX, elem)][0] \
+                                                  for elem in range(1,1+int(PartX.split('_part')[1]))]))
+                  # v03.06.16: EndY must be subtracted by the LENGTHS of all SMALLER parts
+                    EndX   = EndX - NP.sum([TrajLenDict['%s_part%s' % (trajX, elem)][0] \
+                                                  for elem in range(1,int(PartX.split('_part')[1]))])
+                TrajLenDict['%s%s' % (trajX, PartX)] = (TrajLenDict['%s%s' % (trajX, PartX)][0], 
+                                                        TrajLenDict['%s%s' % (trajX, PartX)][1],
+                                                        0 if EndX < BeginX else EndX-BeginX)
+  ##############
+    return TrajLenDict
 
 #######################################################
 #------------------------------------------------------
@@ -2514,7 +2543,7 @@ def Generate_Clustering(MatrixDir, SaveDir, TrajNameList, TrajLengthList, Thresh
                         Select1=None, Select2=None, AmberHome='', GromacsHome='', Program_Suffix='', ReferencePDB=None, 
                         BinFile_precision=NP.float32, RMSD_SaveAdder=''):
     """
-v29.07.16
+v06.09.16
 Calculates and generates the LOCAL or GLOBAL PROFILE & CENTROIDS for effective clustering for the submitted 
 trajectories, 
     - using Generate_reference_for_Clustering() & Return_FullColRMSD()
@@ -2605,7 +2634,6 @@ OUTPUT:
             - maximal memory/size
             - length to generate blocks of full columns and maximal rows which fit to the memory/maximum
             - PossibleClusters
-    
     """
     #----- DETECT Gromacs or Amber
     ## GROMACS ##
@@ -2631,12 +2659,7 @@ OUTPUT:
 ### v13.07.16 UPDATE: INIT FullCumTrajLenList & delete trajectories which do not match Startframe-EndingFrame
     FullCumTrajLenList = [0]
     while NP.all(FullCumTrajLenList) == False:
-        TrajLenDict = {}; Index = 0
-        Index = 0
-        for trajX in range(len(TrajNameList)):
-            for PartX in [(('_part%s' % Part) if PartList[trajX]!=1 else '') for Part in range(1,PartList[trajX]+1)]: 
-                TrajLenDict['%s%s' % (trajX, PartX)] = (TrajLengthList[Index], Index)
-                Index += 1
+        TrajLenDict = Helper_Generate_TrajLenDict(len(TrajNameList), PartList, TrajLengthList, StartFrame, EndingFrame)
         FullCumTrajLenList = [max(0,min(EndingFrame,Helper_Return_TrajLen_for_trajX(elem,
                                                                                     TrajLenDict,
                                                                                     PartList, 
@@ -2651,8 +2674,7 @@ OUTPUT:
     ##---- ERROR DETECT, if all trajectories DO NOT FIT into <StartFrame-EndingFrame>, stop the calculation
     if len(TrajNameList) == 0:
         print 'No trajectory fit into the simulation time [StartFrame, EndingFrame], stopping calculation!'
-        return
-    
+        return 
     #---- if EndingFrame is NP.infty OR > largest trajectory size, then use the largest trajectory size
     EndingFrame = min(EndingFrame, \
                       max([max([NP.sum([TrajLenDict['%s%s' % \
@@ -2773,7 +2795,6 @@ OUTPUT:
         elif not CentersFinished:
         ########################
         ## generate ClusterProfile for the current Frames
-        #  PARALLELIZE different ClustRadii!!!
         ########################
       ####### INIT FIRST FRAME #######
             if (ReferencePDB is None and (NEXT == 0 or (GLOBAL == False and LastTrajNr != TrajNr))) or \
@@ -2879,7 +2900,6 @@ OUTPUT:
     updated_TrjLenList = []
     for trajY in range(len(TrajNameList)):
         PartY = PartList[trajY]
-        #for PartY in PartList[trajY]:
         if PartY == 1: ## NO SPLIT or PART1 for trajY ##
             BeginY = StartFrame;  EndY = min(EndingFrame, TrajLenDict['%s' % (trajY)][0])
             updated_TrjLenList.append(EndY - BeginY)
@@ -3095,18 +3115,17 @@ OUTPUT:
 ###############
 #-------------
 ###############
-
 def Return_FullColRMSD(MatrixDir, TrajNameList, CurrentRow, MaxNumberLines, TrajLenDict, FullCumTrajLenList,
                        StartFrame=0, EndingFrame=NP.infty, PartList=None, BinFile_precision=NP.float32, GLOBAL=True,
-                       RMSD_SaveAdder=''):
+                       EventCurve=False, trajYList=None, RMSD_SaveAdder=''):
     """ 
-v11.07.16
-    - Helper function for <Generate_EventCurves()> to return the full ROW of the whole RMSD matrix 
-      for every submitted Xtc-files
+v06.09.16
+    - Helper function for <Generate_EventCurves()> AND <Generate_Clustering()> to return the full ROW of the 
+      whole RMSD matrix for every submitted trajectory files
     - to select adequate cluster, it is necessary to load at least ONE FULL ROW of all involved RMSD matrices
     - with MaxNumberLines, one can select, how many ROWS are loaded, to be processed directly
-    - recommended is to load at least one RMSD block, i.e. if all RMSD matrices have 2000 rows, MaxNumberLines = 2000,
-      this loads one row of block matrices
+    - recommended is to load at least one RMSD block (if possible due to RAM), i.e. if all RMSD matrices have 2000 rows, 
+      MaxNumberLines = 2000, this loads one row of block matrices
         
 INPUT:
     MatrixDir          : {STRING}    Directory, where RMSD matrices are stored, e.g. 'RMSD_files/BinFiles/';
@@ -3136,39 +3155,50 @@ INPUT:
     BinFile_precision  : {TYPE}      <default NP.float32> FORMAT , RMSD matrix [GROMACS/BINARY], double prec = NP.float64;
     GLOBAL             : {BOOL}      <default True> if True,  a GLOBAL clustering is applied for all concatenated trajectories
                                                     if False, every trajectory is clustered separately;
+    EventCurve         : {BOOL}      <default False> if True,  FullColRMSD is returned for Generate_EventCurves()
+                                                     if False, FullColRMSD is returned for Generate_Clustering();
+    trajYList          : {INT-LIST}  <default None>  for Generate_EventCurves(), defines the trajectory for trajY;
 OUTPUT:
-    return FullColRMSD, CurrentTrajNr, LowerEnd, UpperEnd
+    if EventCurve:
+        return FullColRMSD, BeginX, EndX, BeginY, EndY, LowerEnd, UpperEnd
+    else:
+        return FullColRMSD, CurrentTrajNr, LowerEnd, UpperEnd
     
-    FullColRMSD - {NP.ndarray} returns the FullColRMSD matrix with maximally allowed rows which fit into the RAM
-    TrajNr      - {INT}        returns the corresponding TrajNr
-    LowerEnd    - {INT}        the FullColRMSD reaches from [LowerEnd, UpperEnd] compared to the FullRMSD matrix
-    UpperEnd    - {INT}        the FullColRMSD reaches from [LowerEnd, UpperEnd] compared to the FullRMSD matrix
+    FullColRMSD   - {NP.ndarray} returns the FullColRMSD matrix with maximally allowed rows which fit into the RAM
+    CurrentTrajNr - {INT}        returns the corresponding TrajNr
+    LowerEnd      - {INT}        the FullColRMSD reaches from [LowerEnd, UpperEnd] compared to the FullRMSD matrix
+    UpperEnd      - {INT}        the FullColRMSD reaches from [LowerEnd, UpperEnd] compared to the FullRMSD matrix
     """
-  
-    #---- INIT PartList
+#---- INIT PartList
     if PartList is None:
         PartList = [1]*len(TrajNameList)
+#---- ADJUST MaxNumberLines
     if MaxNumberLines < FullCumTrajLenList[-1] or GLOBAL == False:
         trajXList = [NP.searchsorted(FullCumTrajLenList, CurrentRow, side='right')-1]
-        MaxNumberLines = min(MaxNumberLines, FullCumTrajLenList[trajXList[0]+1]-FullCumTrajLenList[trajXList[0]])
+        if EventCurve:
+            MaxNumberLines = min(MaxNumberLines, 
+                                 FullCumTrajLenList[trajXList[0]+1]-CurrentRow,
+                                 FullCumTrajLenList[trajXList[0]+1]-FullCumTrajLenList[trajXList[0]])
+        else:
+            MaxNumberLines = min(MaxNumberLines, FullCumTrajLenList[trajXList[0]+1]-FullCumTrajLenList[trajXList[0]])
     else:
         trajXList = range(len(TrajNameList))
         MaxNumberLines = FullCumTrajLenList[-1]
-    if not GLOBAL:
+#---- INIT trajYList
+    if not GLOBAL and trajYList is None:
         trajYList = [trajXList[0]]
-    else:
+    elif trajYList is None:
         trajYList = range(len(TrajNameList))
-    #---- INIT Loop for the necessary single RMSD matrices        
-    Looper = []
-    for trajX in trajXList:      ## "Reference"-trajectory loop, to which Events are counted
-        for PartX in [(('_part%s' % Part) if PartList[trajX]!=1 else '') for Part in range(1,PartList[trajX]+1)]: 
-            for trajY in trajYList:  ## "Reference"-trajectory loop, to which Events are counted
-                for PartY in [(('_part%s' % Part) if PartList[trajY]!=1 else '') \
-                                              for Part in range(1,PartList[trajY]+1)]: 
-                    Looper.append((trajX, trajY, PartX, PartY))
 ###### ###### ###### ##### #######
 #---- INIT FullColRMSD
-    if GLOBAL:
+    if EventCurve:
+        FullColRMSD = NP.zeros( (MaxNumberLines, 
+            max(0,min(EndingFrame,FullCumTrajLenList[trajYList[-1]+1]-FullCumTrajLenList[trajYList[-1]])-StartFrame)) )
+      #####  
+        if max(0,min(EndingFrame,FullCumTrajLenList[trajYList[-1]+1]-FullCumTrajLenList[trajYList[-1]])-StartFrame) == 0:
+            return FullColRMSD, 100, 0, 100, 0, 100, 0
+      #####
+    elif GLOBAL:
         FullColRMSD = NP.zeros( (MaxNumberLines, FullCumTrajLenList[-1]) )
     else:
         if len(trajXList) > 1:
@@ -3176,44 +3206,80 @@ OUTPUT:
         else:
             FullColRMSD = NP.zeros( (MaxNumberLines, 
                                      FullCumTrajLenList[trajXList[0]+1]-FullCumTrajLenList[trajXList[0]]) )
-#----
 ###### ###### ###### ###### ######
-    #--- if MaxNumberLines < len(RMSD[trajXList]): DEFINE LIMITS OF RMSD[trajXList] which are returned
+#---- INIT LowerRow | UpperRow, Limits for loaded RMSD_mat
     #--- use Limits to best fit around CurrentRow
-    if MaxNumberLines < FullCumTrajLenList[-1]:
-        #-- lower bound = 0
-        LowerRow = max(0,CurrentRow-FullCumTrajLenList[trajXList[0]]-MaxNumberLines/2)
-        UpperRow = LowerRow+MaxNumberLines
-        #-- upper bound = trajectory length
-        if UpperRow > FullCumTrajLenList[trajXList[0]+1]-FullCumTrajLenList[trajXList[0]]:
-            UpperRow = min(FullCumTrajLenList[trajXList[0]+1]-FullCumTrajLenList[trajXList[0]], 
-                           CurrentRow-FullCumTrajLenList[trajXList[0]]+MaxNumberLines/2)
-            LowerRow = UpperRow - MaxNumberLines
-    else:
+    if (EventCurve and MaxNumberLines >= FullCumTrajLenList[trajXList[0]+1]-FullCumTrajLenList[trajXList[0]]) or \
+       (MaxNumberLines >= FullCumTrajLenList[-1]) or \
+       (not GLOBAL and MaxNumberLines >= FullCumTrajLenList[trajXList[0]+1]-FullCumTrajLenList[trajXList[0]]):
         LowerRow = 0
         UpperRow = MaxNumberLines
+    else:
+        LowerRow = max(0,CurrentRow-FullCumTrajLenList[trajXList[0]] - (0 if EventCurve else MaxNumberLines/2) )
+        UpperRow = LowerRow+MaxNumberLines
+        if not EventCurve and UpperRow > FullCumTrajLenList[trajXList[0]+1]-FullCumTrajLenList[trajXList[0]]:
+            UpperRow = FullCumTrajLenList[trajXList[0]+1]-FullCumTrajLenList[trajXList[0]]
+            LowerRow = UpperRow - MaxNumberLines
+  #############
+#--- DEFINE indices which defines the limits of FullColRMSD within the FullRMSD
+#    if all RMSD matrices are concatenated, LowerEnd = 0 & UpperEnd = last
+    LowerEnd = FullCumTrajLenList[trajXList[0]]+LowerRow
+    UpperEnd = LowerEnd+len(FullColRMSD[:,0])
+  #############
+###### ###### ###### ###### ######
+#---- INIT Loop for the necessary single RMSD matrices
+    Looper = []
+    for trajX in trajXList:      ## "Reference"-trajectory loop, to which Events are counted
+        for PartX in [(('_part%s' % Part) if PartList[trajX]!=1 else '') for Part in range(1,PartList[trajX]+1)]: 
+            for trajY in trajYList:  ## "Reference"-trajectory loop, to which Events are counted
+                for PartY in [(('_part%s' % Part) if PartList[trajY]!=1 else '') \
+                                              for Part in range(1,PartList[trajY]+1)]: 
+                    if PartX != '' and EventCurve:
+                        ## v22.08.16: if RMSD matrix is split: load only matching part
+                        if (NP.sum([TrajLenDict['%s_part%s' % (trajX, elem)][0] \
+                                   for elem in range(1, int(PartX.replace('_part','')))]) <= LowerRow and \
+                            NP.sum([TrajLenDict['%s_part%s' % (trajX, elem)][0] \
+                                   for elem in range(1, 1+int(PartX.replace('_part','')))]) > LowerRow) or \
+                           (NP.sum([TrajLenDict['%s_part%s' % (trajX, elem)][0] \
+                                   for elem in range(1, int(PartX.replace('_part','')))]) < UpperRow and \
+                            NP.sum([TrajLenDict['%s_part%s' % (trajX, elem)][0] \
+                                   for elem in range(1, 1+int(PartX.replace('_part','')))]) >= UpperRow) or \
+                           (NP.sum([TrajLenDict['%s_part%s' % (trajX, elem)][0] \
+                                   for elem in range(1, int(PartX.replace('_part','')))]) >= LowerRow and \
+                            NP.sum([TrajLenDict['%s_part%s' % (trajX, elem)][0] \
+                                   for elem in range(1, 1+int(PartX.replace('_part','')))]) < UpperRow):
+                                Looper.append((trajX, trajY, PartX, PartY))
+                                NP.sum([TrajLenDict['%s_part%s' % (trajX, elem)][0] \
+                                       for elem in range(1, int(PartX.replace('_part','')))]),\
+                                NP.sum([TrajLenDict['%s_part%s' % (trajX, elem)][0] \
+                                       for elem in range(1, 1+int(PartX.replace('_part','')))])
+                    else:
+                        Looper.append((trajX, trajY, PartX, PartY))
 #### #### #### #### #### 
 #### LOAD RMSD matrix
 #### #### #### #### #### 
-    RowIndex = 0; ColIndex = 0
-    LenX = 0
-    LenY = 0
-    temptrajX = Looper[0][0]; temptrajY = Looper[0][1]; tempPartX = Looper[0][2]; tempPartY = Looper[0][3]
+    RowIndex = 0; ColIndex = 0;
+    LenX = 0; LenY = 0;
+    if Looper != []:
+        temptrajX = Looper[0][0]; temptrajY = Looper[0][1]; tempPartX = Looper[0][2]; tempPartY = Looper[0][3]
     for (trajX, trajY, PartX, PartY) in Looper:
         #---------- if LOCAL: only diagonals must be used, if GLOBAL: all trajY are used
         if trajX == trajY or GLOBAL:
-            ####
-            if PartX == '' or PartX == '_part1': ## NO SPLIT or PART1 for trajX ##
-                BeginX = StartFrame;  EndX = min(EndingFrame, TrajLenDict['%s%s' % (trajX, PartX)][0])
+    #### INIT BeginX | EndX, for EventCurve all frames are used
+            if EventCurve:
+                BeginX = 0; EndX = TrajLenDict['%s%s' % (trajX, PartX)][0]
             else:
-                BeginX = max(0,StartFrame-NP.sum([TrajLenDict['%s_part%s' % (trajX, elem)][0] \
-                                              for elem in range(1,int(PartX.split('_part')[1]))]))
-                EndX   = min(EndingFrame, NP.sum([TrajLenDict['%s_part%s' % (trajX, elem)][0] \
-                                              for elem in range(1,1+int(PartX.split('_part')[1]))]))
-                # v03.06.16: EndY must be subtracted by the LENGTHS of all SMALLER parts
-                EndX   = EndX - NP.sum([TrajLenDict['%s_part%s' % (trajX, elem)][0] \
-                                              for elem in range(1,int(PartX.split('_part')[1]))])
-            ####
+                if PartX == '' or PartX == '_part1': ## NO SPLIT or PART1 for trajX ##
+                    BeginX = StartFrame;  EndX = min(EndingFrame, TrajLenDict['%s%s' % (trajX, PartX)][0])
+                else:
+                    BeginX = max(0,StartFrame-NP.sum([TrajLenDict['%s_part%s' % (trajX, elem)][0] \
+                                                  for elem in range(1,int(PartX.split('_part')[1]))]))
+                    EndX   = min(EndingFrame, NP.sum([TrajLenDict['%s_part%s' % (trajX, elem)][0] \
+                                                  for elem in range(1,1+int(PartX.split('_part')[1]))]))
+                    # v03.06.16: EndY must be subtracted by the LENGTHS of all SMALLER parts
+                    EndX   = EndX - NP.sum([TrajLenDict['%s_part%s' % (trajX, elem)][0] \
+                                                  for elem in range(1,int(PartX.split('_part')[1]))])
+    #### INIT BeginY | EndY
             if PartY == '' or PartY == '_part1': ## NO SPLIT or PART1 for trajY ##
                 BeginY = StartFrame;  EndY = min(EndingFrame, TrajLenDict['%s%s' % (trajY, PartY)][0])
             else:
@@ -3224,6 +3290,7 @@ OUTPUT:
                 # v03.06.16: EndY must be subtracted by the LENGTHS of all SMALLER parts
                 EndY   = EndY - NP.sum([TrajLenDict['%s_part%s' % (trajY, elem)][0] \
                                               for elem in range(1,int(PartY.split('_part')[1]))])
+    #### DEFINE RowIndex | ColIndex for FullColRMSD matrix
             if BeginX < EndX and BeginY < EndY:
               #### if trajY or PartY changes, increment ColIndex by lastly stored len(temp[0,:])
                 if temptrajY != trajY or tempPartY != PartY:
@@ -3234,10 +3301,36 @@ OUTPUT:
                     temptrajX = trajX; tempPartX = PartX
                     RowIndex += LenX
                     ColIndex = 0
-              #### #### ####
-            #####
-            ## Diagonal RMSD matrix - single traj
-            #####
+  ###########################
+                if (EventCurve and MaxNumberLines >= FullCumTrajLenList[trajX+1]-FullCumTrajLenList[trajX]) or \
+                   (MaxNumberLines >= FullCumTrajLenList[-1]) or \
+                   (not GLOBAL and MaxNumberLines >= FullCumTrajLenList[trajX+1]-FullCumTrajLenList[trajX]):
+                    LowerRow = 0
+                    UpperRow = MaxNumberLines
+                elif PartX == '':
+                    LowerRow = max(0,CurrentRow-FullCumTrajLenList[trajX] - (0 if EventCurve else MaxNumberLines/2) )
+                    UpperRow = LowerRow+MaxNumberLines
+                    if not EventCurve and UpperRow > FullCumTrajLenList[trajX+1]-FullCumTrajLenList[trajX]:
+                        UpperRow = FullCumTrajLenList[trajX+1]-FullCumTrajLenList[trajX]
+                        LowerRow = UpperRow - MaxNumberLines
+                else:
+             #### LOWER BOUND ####
+                    if max(0,CurrentRow-FullCumTrajLenList[trajX]-MaxNumberLines/2)+MaxNumberLines <= \
+                                FullCumTrajLenList[trajX+1]-FullCumTrajLenList[trajX]:
+                        LowerRow = int(max(0,CurrentRow-FullCumTrajLenList[trajX] - (0 if EventCurve else MaxNumberLines/2) -\
+                               NP.sum([TrajLenDict['%s_part%s' % (trajX,elem)][2] 
+                                       for elem in range(1,int(PartX.replace('_part','')))])))
+                        UpperRow = int(min(LowerRow+MaxNumberLines-RowIndex, TrajLenDict['%s%s' % (trajX,PartX)][2]))
+             #### UPPER BOUND ####
+                    else:
+                        UpperRow = TrajLenDict['%s%s' % (trajX,PartX)][2]
+                        LowerRow = int(max(0, FullCumTrajLenList[trajX+1]-FullCumTrajLenList[trajX]-\
+                                   NP.sum([TrajLenDict['%s_part%s' % (trajX,elem)][2] \
+                                           for elem in range(1,int(PartX.replace('_part','')))]) - MaxNumberLines))
+  ##########################
+    #####
+    ## Diagonal RMSD matrix - single traj
+    #####
             if trajX == trajY and PartX == PartY and BeginX < EndX and BeginY < EndY:
                 FileName = '%s%s%s_bin.dat' % (TrajNameList[trajX], PartX, RMSD_SaveAdder)
                 try:
@@ -3258,11 +3351,14 @@ OUTPUT:
                     raise ValueError('submitted TrajLenghtList does not match length of the RMSD matrix\n\t'+\
                                      '%s (%s) != %s' % \
                          (FileName, LenX, TrajLenDict['%s%s' % (trajX, PartX)][0]))
+                #if  EventCurve:
                 RMSD_mat = RMSD_mat[BeginX:EndX, BeginY:EndY]
+                #else:
+                #    RMSD_mat = RMSD_mat[BeginX:EndX, :]
                 LenX, LenY = RMSD_mat.shape
-            #####
-            ## Off-Diagonal RMSD matrix - trajX vs trajY
-            #####
+    #####
+    ## Off-Diagonal RMSD matrix - trajX vs trajY
+    #####
             elif BeginX < EndX and BeginY < EndY:
                 if os.path.exists('%s%s%s_%s%s%s_bin.dat' % \
                                   (MatrixDir, TrajNameList[trajX], PartX, TrajNameList[trajY], PartY, RMSD_SaveAdder)):
@@ -3297,24 +3393,36 @@ OUTPUT:
                     raise ValueError('submitted TrajLenghtList does not match length of the RMSD matrix\n\t'+\
                                      '%s (%s, %s) != %s' % \
                                      (FileName, LenX, LenY, RMSD_mat.shape))
+                #if  EventCurve:
                 RMSD_mat = RMSD_mat[BeginX:EndX, BeginY:EndY]
+                #else:
+                #    RMSD_mat = RMSD_mat[BeginX:EndX, :]
                 LenX, LenY = RMSD_mat.shape
          #------- for Rows: use only MaxNumberLines
-            if BeginX < EndX and BeginY < EndY:   
+            if BeginX < EndX and BeginY < EndY:
                 RMSD_mat = RMSD_mat[LowerRow:UpperRow,:]
                 LenX, LenY = RMSD_mat.shape
-        ################################
-        ###                          ###
-                #print 'FileName', FileName, FullColRMSD.shape, RowIndex, RowIndex+LenX, ColIndex, ColIndex+LenY, RMSD_mat.shape
+    #######
+    ## Store RMSD_mat to FullColRMSD
+    #######
                 FullColRMSD[RowIndex:(RowIndex+LenX), ColIndex:(ColIndex+LenY)] = RMSD_mat
                 del RMSD_mat
-            
-    #--- DEFINE indices which defines the limits of FullColRMSD within the FullRMSD
-    #    if all RMSD matrices are concatenated, LowerEnd = 0 & UpperEnd = last
-    LowerEnd = FullCumTrajLenList[trajXList[0]]+LowerRow
-    UpperEnd = LowerEnd+len(FullColRMSD[:,0])
     CurrentTrajNr = NP.searchsorted(FullCumTrajLenList, CurrentRow, side='right')
-    return FullColRMSD, CurrentTrajNr, LowerEnd, UpperEnd
+  ####################### adjust BeginX|EndX & BeginY|EndY for FULL RMSD matrices, which has to be returned
+    if PartList[trajX] > 1:
+        BeginX = 0;  EndX = NP.sum([TrajLenDict['%s_part%s' % (trajX, PayX)][0] \
+                                             for PayX in range(1,1+PartList[trajX]) \
+                                             if TrajLenDict['%s_part%s' % (trajX, PayX)][0] > 0])
+    if PartList[trajY] > 1:
+        BeginY = StartFrame;  EndY = min(EndingFrame, 
+                                         NP.sum([TrajLenDict['%s_part%s' % (trajY, PayY)][0] \
+                                                 for PayY in range(1,1+PartList[trajY]) \
+                                                 if TrajLenDict['%s_part%s' % (trajY, PayY)][0] > 0]))
+  ####################### RETURN
+    if EventCurve:
+        return FullColRMSD, BeginX, EndX, BeginY, EndY, LowerEnd, UpperEnd
+    else:
+        return FullColRMSD, CurrentTrajNr, LowerEnd, UpperEnd
 
 ###############
 #-------------
