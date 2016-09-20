@@ -1,0 +1,94 @@
+#### #### ####
+    # Config-File for the module <Generate_EventCurves()>. Ensure, that every parameter is set with the certain format
+    # given as an example (WITHIN ""). All optional parameters are initialized with their default parameters.
+    #### #### ####
+##  ##  ##  ##  ##
+### DESCRIPTION: ###
+#  
+# v13.09.16
+#     This function calculates the EventCurves using calculated RMSD matrices and possible aMD/sMD Weights: 
+#         - Events are the number of neighboring frames with Threshold < RMSD for each reference frame and for each traj
+#         - Events as a function of Simulation time
+#         - generates Events & corresponding Normalization factors = total number of (re-weighted) frames
+#         - the corresponding TrajNr is monitored for corresponding frames to easily detect, which reference frames refer to which trajectory
+#         - different Thresholds can be collected in one file
+#         - uses re-weighting for aMD/sMD
+#         - RMSD matrices with name format "TRAJNAME1_bin.dat", "TRAJNAME2_bin.dat", ... have to exist
+# 1. possibility, to select ROW_TrajNrList, to which the Events are counted
+# 2. possibility, to select COL_TrajNrList, which defines the trajectories the Events are counted for
+# 3. Weight Generation can be done by submitting ONLY the aMD/sMD trajectory with the corresponding number of Iterations
+# 
+# 
+##  ##  ##  ##  ##
+#-------------------------------------------
+# List of Names of the trajectories, NAMES NEED TO CORRESPOND TO RMSD_matrix TrajName1 -> TrajName1_bin.dat & TrajName1_TrajName2_bin.dat
+TrajNameList = "Met_Amber1_stripped Met_Amber2_stripped"               # <LIST> format example: "Name1 Name2 Name3 Name4"
+#-------------------------------------------
+# number of frames for corresponding TrajName, have to match RMSD matrix shape & length of TrajNameList, e.g. [2000, 2000, 1000, ...] if PartList != None, TrajNameList must store the NrOfFrames for each SPLIT
+TrajLengthList = "1000 1000"             # <INT-LIST> format example: "2 4 65 12 4 22"
+#-------------------------------------------
+# Name of the save directory for RMSD matrices, e.g. 'RMSD_files/BinFiles/'
+MatrixDir = "RMSD_matrices/"                  # <STRING> format example: (non-directory) "TEXT" | (directory) "TEXT/"
+#-------------------------------------------
+# Name of the save directory for the EventCurves, e.g. 'EventCurves/'
+SaveDir = "EventCurves/"                    # <STRING> format example: (non-directory) "TEXT" | (directory) "TEXT/"
+#-------------------------------------------
+# Save PREFIX, e.g. 'V3_S1-S10' -> 'V3_S1-S10_StartFrame-EndingFrame_SamplingMethod.npy'
+SaveName = "Met_Amber"                   # <STRING> format example: (non-directory) "TEXT" | (directory) "TEXT/"
+#-------------------------------------------
+# different thresholds r for which the Events are counted [nm], e.g. [0.1, 0.2, 0.3, ...]
+ThresholdList = "0.05 0.1 0.15 0.2 0.25 0.3 0.35 0.4"              # <FLOAT-LIST> format example: "0.1 0.2 0.3 0.4"
+#-------------------------------------------
+# Maximal number of lines which are loaded from the FullRMSD matrix, it inflicts directly the memory usage, if MaxNumberLines > sum(TrajLengthList), all RMSD matrices are loaded at once, recommended using length of one RMSD block, e.g. if one block RMSDmatrix.shape == (2000,2000), try to use MaxNumberLines = 2000
+MaxNumberLines = "1000"             # <INT> format example: "502"
+#-------------------------------------------
+# <default None>, reference trajectories, to which the Events are counted, None means ALL trajectories are used
+ROW_TrajNrList = "None"         # <INT-LIST> format example: "2 4 65 12 4 22"
+#-------------------------------------------
+# <default None>, the Events are counted for these trajectories, e.g. [2,3,4], None means ALL trajectories are used
+COL_TrajNrList = "None"         # <INT-LIST> format example: "2 4 65 12 4 22"
+#-------------------------------------------
+# <default 0> starting frame of Trajectories/RMSD matrices, to select different simulation times/lengths together with 'EndingFrame'
+StartFrame = "0"                # <INT> format example: "502"
+#-------------------------------------------
+# <default NP.infty> ending frame of Trajectories/RMSD matrices, to select different simulation times/lengths together with 'StartingFrame'
+EndingFrame = "600"        # <INT> format example: "502"
+#-------------------------------------------
+# <default None> defines into how many parts the single trajectories are split, due to memory reasons, 1. len(PartList) == len(TrajNameList) !! || 2. PartList = [1,2,3], (MD1.xtc -> MD1.xtc), (MD2.xtc -> MD2_part1.xtc, MD2_part2.xtc), (MD3.xtc -> MD3_part1.xtc, MD3_part2.xtc, MD3_part3.xtc), || 3. default PartList = None -> PartList = [1]*len(TrajNameList)
+PartList = "None"               # <INT-LIST> format example: "2 4 65 12 4 22"
+#-------------------------------------------
+# <default []> FOR RE-WEIGHTING ONLY, trajectory numbers which are generated with aMD e.g. [1,3,5] means trajNr 1,3,5 of TrajNameList are aMD trajectories
+aMD_Nrs = "[]"                  # <INT-LIST> format example: "2 4 65 12 4 22"
+#-------------------------------------------
+# <default MF> FOR RE-WEIGHTING ONLY, reweighting method if aMD trajs are present, default Mean-Field-Approach | possibilities - 'MF', 'Exp', 'McL'
+aMD_reweight = "MF"             # <STRING> format example: (non-directory) "TEXT" | (directory) "TEXT/"
+#-------------------------------------------
+# <default None> FOR RE-WEIGHTING ONLY, ['directory/'], for aMD.log '%s%s' % (aMDlogDir, aMDlogName) from AMBER14/12, len(aMDlogDir) == 1 OR len(aMDlogDir) == len(aMD_Nrs) for different traj directories
+aMDlogDir = "None"              # <LIST> format example: "Name1 Name2 Name3 Name4"
+#-------------------------------------------
+# <default None> FOR RE-WEIGHTING ONLY, Names for aMD.log '%s%s' % (aMDlogDir, aMDlogName) from AMBER14/12, necessary for re-weighting, if weights are NOT already present, len(aMDlogName) == len(aMD_Nrs), each name corresponds to aMD_Nrs
+aMDlogName = "None"             # <LIST> format example: "Name1 Name2 Name3 Name4"
+#-------------------------------------------
+# <default Amber14> FOR RE-WEIGHTING ONLY, Amber14 OR Amber12, because the units are different in both versions
+AmberVersion = "Amber14"        # <STRING> format example: (non-directory) "TEXT" | (directory) "TEXT/"
+#-------------------------------------------
+# <default 1> FOR RE-WEIGHTING ONLY, every WeightStep-th Row is used from the aMD.log, this HAS TO correspond to the same frames from the trajectories which are used for RMSD matrices
+WeightStep = "1"                # <INT> format example: "502"
+#-------------------------------------------
+# <default 300> FOR RE-WEIGHTING ONLY, simulation temperature of the system (for correct units)
+Temp = "300"                    # <FLOAT> format example: "203.12"
+#-------------------------------------------
+# <default []> FOR RE-WEIGHTING ONLY, trajectory numbers which are generated with scaledMD e.g. [1,3,5] means trajNr 1,3,5 of TrajNameList are scaledMD trajectories
+sMD_Nrs = "[]"                  # <INT-LIST> format example: "2 4 65 12 4 22"
+#-------------------------------------------
+# <default 1> FOR RE-WEIGHTING ONLY, scaling factor for scaledMD, e.g. 0.7, 1 means no scaling
+Lambda = "1"                    # <FLOAT> format example: "203.12"
+#-------------------------------------------
+# <default 10> FOR RE-WEIGHTING ONLY, Order for the MacLaurin expansion, ONLY NECESSARY IF aMD_reweight = 'McL'
+Order = "10"                    # <INT> format example: "502"
+#-------------------------------------------
+# FORMAT, [GROMACS/BINARY] single precision 'float32', double precision 'float64', [AMBER/ELSE] 'None'
+BinFile_precision = "None"          # <TYPE> format example: "float32" or "float64"
+#-------------------------------------------
+# <default 1> FOR RE-WEIGHTING ONLY, defines the number of MF iterations if aMD (aMD_reweight=MF) or sMD trajectories are present
+Iterations = "1"                # <INT> format example: "502"

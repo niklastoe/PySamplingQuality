@@ -1,0 +1,54 @@
+#### #### ####
+    # Config-File for the module <Calc_Overlap()>. Ensure, that every parameter is set with the certain format
+    # given as an example (WITHIN ""). All optional parameters are initialized with their default parameters.
+    #### #### ####
+##  ##  ##  ##  ##
+### DESCRIPTION: ###
+#  
+# v13.09.16
+# - calculates <conformational overlap> and <density overlap> : Overlap between different trajectories/groups 
+#   for different Threshold and reference Trajectories
+# - CompareList has to match the TrajNr in the EventCurves: the overlap is than calculated between the sets of trajectory numbers defined in CompareList
+# - EventNames can be splitted into different reference trajectories [_RowX] or different trajectories for which the 
+#     Events are counted for [_ColX]
+# - currently: (1) EventCurves with different reference trajectories [_RowX] are combined according to the submitted order
+#                  of EventNames, e.g. = [EventCurve_Row1_2_3.npy, EventCurve_Row4_5_6.npy] are merged to one 
+#                                        corresponding EventCurve containing all 6 reference TrajNrs
+#              (2) EventCurves with different trajectories, for which the Events are counted for [_ColX] are ALSO merged, 
+#                  defining (sorted) COL_TrajNrList (automatically by the EventNames name) 
+#                      e.g. = [EventCurve_Col2_3.npy, EventCurve_Col3_52_65.npy] are merged to one _Col2_3_52_45
+#                  -> COL_TrajNrList is detected by the EventNames automatically, 
+#                     defining which column represents which trajectory (number)
+# 
+# 
+##  ##  ##  ##  ##
+#-------------------------------------------
+# Directory, where the EventCurves are stored, e.g. 'EventCurves/'
+EventDir = "EventCurves/"                   # <STRING> format example: (non-directory) "TEXT" | (directory) "TEXT/"
+#-------------------------------------------
+# Name of the EventCurve, can also be a list to combine different _RowX, _ColY files | if SameTraj is not None, submit multiple simulation times of SAME trajectory, to calculate the overlap between different time parts of the SAME trajectory | e.g. 'V3_S1-S10_0-500_noWeight.npy'
+EventNames = "Met_Amber_0-600_noWeight.npy"                 # <STRING/LIST> format example: (STRING) "Name" | (LIST) "Name1 Name2 Name3"
+#-------------------------------------------
+# storing directory, e.g. 'Overlap/'
+SaveDir = "Overlap/"                    # <STRING> format example: (non-directory) "TEXT" | (directory) "TEXT/"
+#-------------------------------------------
+# savename PREFIX for the overlap, e.g. 'Overlap_R5_Pairs' -> 'Overlap_R5_Pairs_StartFrame-EndingFrame_reweight.txt', if SameTraj == True, then savename is the COMPLETE savename
+SaveName = "Overlap_Met_Amber"                   # <STRING> format example: (non-directory) "TEXT" | (directory) "TEXT/"
+#-------------------------------------------
+# list of groups of trajectories, which are compared and the overlap is calculated e.g. [([1],[3]), ([1,2],[3,4]), ([1,2],[3])] for (1)vs(3) AND (1+2)vs(3+4) AND (1+2)vs(3)
+CompareList = "[([1],[2])]"                # <LIST,TUPLE,LIST> format example: "[([1],[3]), ([1,2],[3,4]), ([1,2],[3])]"
+#-------------------------------------------
+# <default None>, FOR RE-WEIGHTING ONLY, directory, where the Weights are located for aMD OR sMD trajectory re-weighting
+WeightDir = "None"              # <STRING> format example: (non-directory) "TEXT" | (directory) "TEXT/"
+#-------------------------------------------
+# <default []>, FOR RE-WEIGHTING ONLY, trajectory numbers which are generated with aMD, e.g. [1,3,5] means trajNr 1,3,5 of TrajNameList are aMD trajectories | has to correspond to possible _ColY EventCurves
+aMD_Nrs = "[]"                  # <INT-LIST> format example: "2 4 65 12 4 22"
+#-------------------------------------------
+# <default []>, FOR RE-WEIGHTING ONLY, trajectory numbers which are generated with scaledMD, e.g. [1,3,5] means trajNr 1,3,5 of TrajNameList are scaledMD trajectories | has to correspond to possible _ColY EventCurves
+sMD_Nrs = "[]"                  # <INT-LIST> format example: "2 4 65 12 4 22"
+#-------------------------------------------
+# <default None> IF MULTIPLE EventNames are submitted with different sim times, SameTraj defines TrajNr, for which different parts are compared, e.g. 1 for comparing traj1 of different simulation times
+SameTraj = "None"               # <INT> format example: "502"
+#-------------------------------------------
+# <default True>, if True , overlap value is calculated using all groups as references, projecting all groups on top of each other | if False, overlap value is reported for each compare/reference group separately, the overall projection is than the average of the overlap over all groups
+AllPrject = "True"              # <BOOL> format example: "False" or "True"

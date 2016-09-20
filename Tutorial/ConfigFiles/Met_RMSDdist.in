@@ -1,0 +1,47 @@
+#### #### ####
+    # Config-File for the module <determineR_using_RMSD_distributions()>. Ensure, that every parameter is set with the certain format
+    # given as an example (WITHIN ""). All optional parameters are initialized with their default parameters.
+    #### #### ####
+##  ##  ##  ##  ##
+### DESCRIPTION: ###
+# 
+# v12.09.16
+#     this function plots the RMSD distributions within a certain interval 
+#     containing Percent-amount of the Full RMSD distribution
+#     
+#     1. extract from all RMSD distributions the maximal value
+#     2. generate an adequate BINS binning for the range of RMSD values
+#     3. generate multiple analysis cases:
+#         a) only diagonals     = each single trajectories
+#         b) only off-diagonals = concatenate histrograms of off-diagonals due to size n*(n-1)/2
+#         c) all trajectories at once for one concatenated RMSD distribution
+# 
+# 
+##  ##  ##  ##  ##
+#-------------------------------------------
+# list of Trajectory name prefixes WITHOUT ENDING, Names of the Block RMSD matrices / distributions refer to these names, e.g. ['MD1', 'MD2', ...] <-> MD1_bin.dat, MD2_bin.dat, MD1_MD2_bin.dat, ...
+TrajNameList = "Met_Amber1_stripped Met_Amber2_stripped"               # <LIST> format example: "Name1 Name2 Name3 Name4"
+#-------------------------------------------
+# Name for the RMSD distributions, e.g. 'Diag_%s_ALL_dist_Bins%s.txt' % (SaveName, Bins)
+SaveName = "Met_Amber"                   # <STRING> format example: (non-directory) "TEXT" | (directory) "TEXT/"
+#-------------------------------------------
+# Savename for the PDF, e.g. 'MoleculeName+Specification.pdf'
+SaveNamePdf = "Met_Amber_dist.png"                # <STRING> format example: (non-directory) "TEXT" | (directory) "TEXT/"
+#-------------------------------------------
+# <default RMSD_distributions/>, Directory, where RMSD distributions, the MaxMinValue and the PDF will be stored
+SaveDIR = "RMSD_distributions/" # <STRING> format example: (non-directory) "TEXT" | (directory) "TEXT/"
+#-------------------------------------------
+# <default ''> Directory, where (possible) RMSD distributions are located (from GROMACS), e.g. 'RMSD_files/', if it does not exist, RMSD matrices are used instead
+RMSD_dist_DIR = "''"            # <STRING> format example: (non-directory) "TEXT" | (directory) "TEXT/"
+#-------------------------------------------
+# Directory, where RMSD matrices are stored, e.g. 'RMSD_files/BinFiles/'
+BinFiles_DIR = "RMSD_matrices/"               # <STRING> format example: (non-directory) "TEXT" | (directory) "TEXT/"
+#-------------------------------------------
+# FORMAT, [GROMACS/BINARY] single precision 'float32', double precision 'float64', [AMBER/ELSE] 'None'
+BinFile_precision = "None"          # <TYPE> format example: "float32" or "float64"
+#-------------------------------------------
+# <default 250>, number of BINS used for RMSD histrogram between 0-MaxRMSD
+Bins = "250"                    # <INT> format example: "502"
+#-------------------------------------------
+# <default 1> plotting interval, where the Percent-amount of all RMSD distributions are located in, for Percent = 1, it plots the minimal and maximal values, e.g. 0.99
+Percent = "0.99"                   # <FLOAT> format example: "203.12"

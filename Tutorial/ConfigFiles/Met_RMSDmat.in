@@ -1,0 +1,65 @@
+#### #### ####
+    # Config-File for the module <Generate_RMSDmatrices()>. Ensure, that every parameter is set with the certain format
+    # given as an example (WITHIN ""). All optional parameters are initialized with their default parameters.
+    #### #### ####
+##  ##  ##  ##  ##
+### DESCRIPTION: ###
+#  
+# v12.09.16 
+#     - using <Generate_RMSDmatrix()>
+#     - Calculates every RMSD diagonal & off-diagonal matrix part for <Generate_EventCurves()>
+#     - RMSD matrix generation for given Trajectory-List using Gromacs v4.6.7|5.1.2 or AmberTools14
+#     - Trajectories should already be preprocessed, making the protein whole, strip e.g. unnecessary residues, etc.
+#     - uses the FULL trajectories without Begin | End
+#     - for very large trajectories (>> 10000 frames) or low memory
+#         (1) split trajectories into smaller parts BY HAND like 
+#             TrajName -> TrajName_partX : e.g. MD.xtc -> MD_part1.xtc, MD_part2.xtc, ...
+#         (2) submit a >> PartList = [1,5,2,7, ...] << which defines automatically the number of splits
+#             -> MD1.xtc -> MD1.xtc | MD2.xtc -> MD2_part1.xtc, ..., MD2_part5.xtc | MD3.xtc -> MD3_part1.xtc, ...
+#         (3) This PartList works also for the EventCurves & effective Clustering
+#             -> loading corresponding parts one-by-one into the RAM
+# 
+# 
+##  ##  ##  ##  ##
+#-------------------------------------------
+# Directory, where the trajectory is located, e.g. FullTrajs/
+TrajDIR = "Trajectories/"                    # <STRING> format example: (non-directory) "TEXT" | (directory) "TEXT/"
+#-------------------------------------------
+# Directory, where the topology is located, e.g. FullTrajs/
+TopologyDIR = "Trajectories/"                # <STRING> format example: (non-directory) "TEXT" | (directory) "TEXT/"
+#-------------------------------------------
+# List of Names of the trajectories, WITH ENDING, e.g. ['MD1.xtc', 'MD2.netcdf', ...] it tries to automatically detect AMBER/GROMACS Trajectories by the ending 1. .nc or .netcdf -> AMBER 2. .xtc or .trr -> GROMACS 3. if Select2 is None -> AMBER else GROMACS
+TrajNameList = "Met_Amber1_stripped.netcdf Met_Amber2_stripped.netcdf"               # <LIST> format example: "Name1 Name2 Name3 Name4"
+#-------------------------------------------
+# Name of the Topology file, WITH ENDING .pdb|.tpr (GROMACS) OR .top (AMBER)
+TopologyName = "Met_Amber_stripped.top"               # <STRING> format example: (non-directory) "TEXT" | (directory) "TEXT/"
+#-------------------------------------------
+# Directory, where the distributions are stored (Gromacs), e.g. RMSD_files/, FOR AMBER (trajectories) THIS VALUE IS NOT NECESSARY and can be set to 'None'
+DistSaveDir = "None"                # <STRING> format example: (non-directory) "TEXT" | (directory) "TEXT/"
+#-------------------------------------------
+# Directory, where the RMSD matrices are stored, e.g. RMSD_files/BinFiles/
+MatrixSaveDir = "RMSD_matrices/"              # <STRING> format example: (non-directory) "TEXT" | (directory) "TEXT/"
+#-------------------------------------------
+# -dt for GROMACS 't MOD dt = first [ns]' OR skip dt-th frame for AMBER 'first last skip'
+TimeStep = "1"                   # <FLOAT/INT> format example: (FLOAT) "0.1" | (INT) "3"
+#-------------------------------------------
+# FIT selection Gromacs, e.g. 'Backbone' CALC selection Amber , e.g. '@N,CA,C', see Amber syntax
+Select1 = "@N,CA,C"                    # <STRING> format example: (non-directory) "TEXT" | (directory) "TEXT/"
+#-------------------------------------------
+# CALC selection Gromacs, e.g. 'Backbone', FOR AMBER (trajectories), THIS VALUE IS NOT NECESSARY and should be set to 'None'
+Select2 = "None"                    # <STRING> format example: (non-directory) "TEXT" | (directory) "TEXT/"
+#-------------------------------------------
+# <default ''> if cpptraj is not in environmental variables, define directory to 'cpptraj', e.g. /home/user/Software/amber14/bin/
+AmberHome = "/home/mike/Software/amber14/bin/"                # <STRING> format example: (non-directory) "TEXT" | (directory) "TEXT/"
+#-------------------------------------------
+# <default ''> if g_rms | gmx_suffix rms is not in environmental variables, define directory to them, e.g. /home/user/Software/gromacs/bin/
+GromacsHome = "''"              # <STRING> format example: (non-directory) "TEXT" | (directory) "TEXT/"
+#-------------------------------------------
+# <default rot+trans>, selects, if trajectories are FIT on top of each other or not, 'none' or 'rot+trans'
+Fit = "rot+trans"               # <STRING> format example: (non-directory) "TEXT" | (directory) "TEXT/"
+#-------------------------------------------
+# <default ''> gmx_suffix for Gromacs installation, e.g. '_467' for 'g_rms_467'
+Program_Suffix = "''"           # <STRING> format example: (non-directory) "TEXT" | (directory) "TEXT/"
+#-------------------------------------------
+# <default None> defines into how many parts the single trajectories are split, due to memory reasons, 1. len(PartList) == len(TrajNameList) !! || 2. PartList = [1,2,3], (MD1.xtc -> MD1.xtc), (MD2.xtc -> MD2_part1.xtc, MD2_part2.xtc), (MD3.xtc -> MD3_part1.xtc, MD3_part2.xtc, MD3_part3.xtc), || 3. default PartList = None -> PartList = [1]*len(TrajNameList)
+PartList = "None"               # <INT-LIST> format example: "2 4 65 12 4 22"

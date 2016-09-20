@@ -1,0 +1,2 @@
+trajin Trajectories/Met_Amber1_stripped.netcdf 1 last 1
+rms2d out RMSD_matrices/Met_Amber1_stripped_Met_Amber2_stripped_bin.dat mass @N,CA,C  reftraj Trajectories/Met_Amber2_stripped.netcdf

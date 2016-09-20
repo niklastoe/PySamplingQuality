@@ -1,0 +1,46 @@
+#### #### ####
+    # Config-File for the module <Plot_Overlap_VS_Threshold()>. Ensure, that every parameter is set with the certain format
+    # given as an example (WITHIN ""). All optional parameters are initialized with their default parameters.
+    #### #### ####
+##  ##  ##  ##  ##
+### DESCRIPTION: ###
+# 
+# v08.09.16
+# This function generates the plots "Overlap vs Threshold r" for conf/dens + the corresponding integral.
+# - possibility to submit multiple OverlapMatrices to plot for instance multiple groups together
+# - possibility to submit a second OverlapMatrix to compare a second molecule with its own x-axis
+# - possibility to submit different X-limites to "normalize" the curves for instance on a certain threshold interval
+# - all Groups from one OverlapList are used
+# - XLIM1 & XLIM2 are used also for the integral limits
+# 
+##  ##  ##  ##  ##
+#-------------------------------------------
+# Directory, where the Overlap is located, e.g. 'Overlap/'
+OverlapDir = "Overlap/"                 # <STRING> format example: (non-directory) "TEXT" | (directory) "TEXT/"
+#-------------------------------------------
+# List of Overlap filenames containing different cases, e.g. Pairs, different Groups, which are then plotted separately in one plot e.g. ['Overlap_ALLvsALL.txt' 'Overlap_AvsB.txt']
+OverlapList = "Overlap_Met_Amber_0-1000_noWeight.txt Overlap_Met_Amber_0-600_noWeight.txt Overlap_Met_Amber_0-300_noWeight.txt"                # <LIST> format example: "Name1 Name2 Name3 Name4"
+#-------------------------------------------
+# <default None> second List, with same properties as OverlapList2, e.g. a second molecule to compare
+OverlapList2 = "None"           # <LIST> format example: "Name1 Name2 Name3 Name4"
+#-------------------------------------------
+# <default [None,None]>, x-limits for the first OverlapList, plt.xlim(XLIM1)
+XLIM1 = "0.05 0.3933"           # <FLOAT-LIST> format example: "0.1 0.2 0.3 0.4"
+#-------------------------------------------
+# <default [None,None]>, x-limits2 for the second axis of the 2nd OverlapList2
+XLIM2 = "[None,None]"           # <FLOAT-LIST> format example: "0.1 0.2 0.3 0.4"
+#-------------------------------------------
+# <default ''> name to specify the first OverlapList1, e.g. 'Molecule1'
+MolName1 = "''"                 # <STRING> format example: (non-directory) "TEXT" | (directory) "TEXT/"
+#-------------------------------------------
+# <default ''> name to specify the 2nd OverlapList2, e.g. 'Molecule2'
+MolName2 = "''"                 # <STRING> format example: (non-directory) "TEXT" | (directory) "TEXT/"
+#-------------------------------------------
+# <default [None]> Legend for the single elements of the OverlapList1, e.g. ['ALL','AvsB']
+LegendList = "100ns 60ns 30ns"           # <LIST> format example: "Name1 Name2 Name3 Name4"
+#-------------------------------------------
+# saving directory for the PDF, e.g. 'PDFs/'
+SaveDir = "PDFs/"                    # <STRING> format example: (non-directory) "TEXT" | (directory) "TEXT/"
+#-------------------------------------------
+# savename, e.g. 'OverlaPvsThreshold.pdf'
+SaveName = "Met_Amber_OverlaPvsThreshold.png"                   # <STRING> format example: (non-directory) "TEXT" | (directory) "TEXT/"

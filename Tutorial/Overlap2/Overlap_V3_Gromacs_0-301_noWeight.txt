@@ -1,0 +1,50 @@
+# this file contains the <density overlap | conformational overlap | total # frames> for the different CompareList 
+# 
+# ensure, that the columns and the submitted CompareList do match
+# 
+# INPUT:
+# 	EventDir                 = EventCurves2/
+# 	EventNames               = V3_Gromacs_0-301_noWeight.npy
+# 	CompareList              = [([1], [2])]
+# 	COL_TrajNrList           = None
+# 	aMD_Nrs                  = []
+# 	sMD_Nrs                  = []
+# 	AllPrject                = False
+# 		TrajNameList           = ['V3_Gromacs1_stripped', 'V3_Gromacs2_stripped']
+# 		ThresholdList             = [0.15, 0.25, 0.35, 0.45, 0.55, 0.65, 0.75, 0.85]
+# 		StartFrame             = [0, 0]
+# 		EndingFrame            = [301, 301]
+# 		aMD/sMD MF Iterations  = [1, 1]
+# 		updated_TrajLengthList = [301, 301]
+# 		aMD_reweight           = MF
+# 		Lambda                 = 1
+# 		Order                  = 10
+# 
+# calculation time = 0.01 seconds
+# 
+# 	densO has to be averaged for different trajectory Nr projections
+# 	confO means the number of frames which have at least 1 event for each trajectory group
+# 	TotFrames means the total number of frames of the certain trajectory group
+# 	confO and TotFrames have to be summed for different trajectory Nr projections
+# 		and then divided to obtain the real conformational overlap value
+# 	GroupNr monitors the number of the comparing group of [X]vs[Y]vs... meaning that
+# 		the overlap value corresponds to the projection on the i-th group
+# 		-1 means projection on all groups
+# 
+# GroupNr | Threshold | [densO|confO|TotFrames] of [1]vs.[2] | 
+1 0.15    0.0000 0 301
+2 0.15    0.0000 0 301
+1 0.25    0.0000 0 301
+2 0.25    0.0000 0 301
+1 0.35    0.0000 0 301
+2 0.35    0.0000 0 301
+1 0.45    0.0003 15 301
+2 0.45    0.0005 5 301
+1 0.55    0.0223 250 301
+2 0.55    0.0226 139 301
+1 0.65    0.4158 301 301
+2 0.65    0.4143 297 301
+1 0.75    0.9208 301 301
+2 0.75    0.9207 301 301
+1 0.85    0.9968 301 301
+2 0.85    0.9968 301 301

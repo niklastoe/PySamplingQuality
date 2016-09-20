@@ -1,0 +1,38 @@
+#### #### ####
+    # Config-File for the module <Merge_Clustering_different_Thresholds()>. Ensure, that every parameter is set with the certain format
+    # given as an example (WITHIN ""). All optional parameters are initialized with their default parameters.
+    #### #### ####
+##  ##  ##  ##  ##
+### DESCRIPTION: ###
+# 
+# v09.09.16
+# - function to merge different clustering files with different cluster thresholds but same trajectories 
+#   and [StartFrame,EndingFrame]
+# - beforehand, clusterings <Generate_Clustering()> are calculated for each threshold separately (possibly on multiple machines/cores simultanously)
+# - these are stored for simplicity in separate files, to not limit the speed waiting on the slowest cluster threshold
+# - aterwards, collect single files to one agglomerated file
+# - the program checks, if the clusterings for the single thresholds exist, and strips values which are not present
+# 
+# 
+##  ##  ##  ##  ##
+#-------------------------------------------
+# Directory, where the clusterings are stored with single threshold parameters, e.g. 'Clustering/'
+SingleClustDir = "Clustering/"             # <STRING> format example: (non-directory) "TEXT" | (directory) "TEXT/"
+#-------------------------------------------
+# Directory, where to save the merged clusterings with multiple thresholds, e.g. 'Clustering/'
+SaveDir = "Clustering/"                    # <STRING> format example: (non-directory) "TEXT" | (directory) "TEXT/"
+#-------------------------------------------
+# SaveName PREFIX, identical to Generate_Clustering() '%s_R%s_%s-%s_%s.txt' % (SaveName, Threshold, StartFrame, EndingFrame, 'GLOBAL' / 'LOCAL') leads to '%s_R%s-%s_%s-%s_%s.txt' % (SaveName, ThresholdList[0], ThresholdList[-1], StartFrame, EndingFrame, 'GLOBAL' / 'LOCAL')
+SaveName = "Met_Amber"                   # <STRING> format example: (non-directory) "TEXT" | (directory) "TEXT/"
+#-------------------------------------------
+# List of thresholds, which should be merged, e.g. [0.2, 0.25, 0.3, 0.35, 0.4]
+ThresholdList = "0.1 0.15"              # <FLOAT-LIST> format example: "0.1 0.2 0.3 0.4"
+#-------------------------------------------
+# starting frame of Trajectories/RMSD matrices, to select different simulation times/lengths together with 'EndingFrame'
+StartFrame = "0"                 # <INT> format example: "502"
+#-------------------------------------------
+# ending frame of Trajectories/RMSD matrices, to select different simulation times/lengths together with 'StartingFrame'
+EndingFrame = "1000"                # <INT> format example: "502"
+#-------------------------------------------
+# if True, a GLOBAL clustering was applied for all concatenated trajectories if False, every trajectory is clustered separately
+GLOBAL = "True"                     # <BOOL> format example: "False" or "True"

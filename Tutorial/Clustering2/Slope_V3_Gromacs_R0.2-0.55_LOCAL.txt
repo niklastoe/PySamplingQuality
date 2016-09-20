@@ -1,0 +1,24 @@
+# this file stores the SLOPE & standard ERROR (entropy & cluster) for different cases
+# 	(i) clustsize == 1
+# 	(ii) largest cluster plateau
+# 	(iii) last 100 frames
+# 	(iv) last 250 frames
+# 	(v) last 500 frames
+# elapsed time = 1474148990.37 seconds
+# SlopeTimeArray = [100, 250, 500]
+#   TrajNameList = ['V3_Gromacs1_stripped', 'V3_Gromacs2_stripped']
+#   TrjLenList = [1001, 1001]
+#   updated TrjLenList = [1001, 1001]
+#   TimeStep = 0.1
+#   StartFrame = 0
+#   EndingFrame = 1001
+# ThresholdList = [0.2, 0.4, 0.55]
+#        >> ES = Entropy Slope | EE = Entropy Error | CS = Cluster Slope | CE = Cluster Error <<
+#        >> #Fr= number of frames of last cluster   | #tot = total number of clusters  
+#         
+#          |                                 Threshold = r1                                                         | r2 
+#          |      clustsize=1     | largest cluster plateau         | last 100      | last 250      | last 500      | ...
+#   TrajNr | ES | EE | #Fr | #tot | ES | EE | #Frames | cluster [%] | ES|EE | CS|CE | ES|EE | CS|CE | ES|EE | CS|CE | ...
+#     
+1   0.304 0.023 48 53   -0.088 0.011 251 0.98   0.613 0.014 14.977 0.876   0.112 0.013 3.723 0.253   -0.104 0.007 11.470 0.229   0.159 0.008 639 8   0.159 0.008 639 1.00   0.270 0.007 0.000 0.000   0.025 0.007 0.000 0.000   0.037 0.003 0.000 0.000   0.893 0.027 793 3   0.893 0.027 793 1.00   0.480 0.003 0.000 0.000   0.451 0.007 0.000 0.000   0.158 0.006 0.000 0.000
+2   0.383 0.043 52 88   -0.806 0.023 75 0.58   1.030 0.030 53.681 2.495   1.170 0.012 71.754 1.197   1.205 0.007 63.929 0.388   0.846 0.013 540 8   0.846 0.013 540 1.00   0.680 0.009 0.000 0.000   0.688 0.011 0.000 0.000   0.892 0.015 0.000 0.000   -0.108 0.003 966 3   -0.108 0.003 966 1.00   -0.286 0.000 0.000 0.000   -0.218 0.002 0.000 0.000   -0.153 0.003 0.000 0.000

@@ -1,0 +1,3 @@
+trajin Trajectories/Met_Amber2_stripped.netcdf 1 last 1
+reference Trajectories/Met_Amber2_stripped.pdb
+rms reference mass out Clustering/RMSD_Met_Amber2_stripped_refMet_Amber2_stripped.xvg @N,CA,C 

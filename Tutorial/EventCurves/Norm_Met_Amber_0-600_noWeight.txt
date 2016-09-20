@@ -1,0 +1,30 @@
+# this file contains the <EventMatrix> / <NormMatrix> / <enhancedMatrix> / <enhancedNorm> for the different trajectories calculating
+# 		>> EventMatrix/enhancedMatrix: << the amount of frames (re-weighted) within a certain threshold r
+# 		>> NormMatrix/enhancedNorm:    << the total amount of frames (re-weighted) for a certain threshold
+# 	calculation time: 2.83 seconds
+# 	INPUT:
+# 		TrajNameList = ['Met_Amber1_stripped', 'Met_Amber2_stripped']
+# 		ThresholdList = [0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4]
+# 		reference trajectories = ALL
+# 		event counting trajectories = ALL
+# 		StartFrame = 0
+# 		EndingFrame = 600
+# 		PartList = [1, 1]
+# 		aMD_Nrs = []
+# 		aMD_reweight = MF
+# 		AmberVersion = Amber14
+# 		Temp = 300
+# 		WeightStep = 1
+# 		sMD_Nrs = []
+# 		Lambda = 1
+# 		Order = 10
+# 		BinFile_precision = None
+# 		Weight Iterations for aMD<MF>/sMD = 1
+# 		TrajLengthList = [1000, 1000]
+# 		updated_TrajLengthList = [600, 600]
+# each row corresponds to:
+# 	Frame | reference Traj for the corresp. frame | Events of trajY1,trajY2,...,trajYN of threshold r1 | ... of r2 | ...
+# 
+# Frames | TrajNr | r=0.05 | r=0.1  | r=0.15 | r=0.2  | r=0.25 | r=0.3  | r=0.35 | r=0.4 
+#                 | 1 - 2  | 1 - 2  | 1 - 2  | 1 - 2  | 1 - 2  | 1 - 2  | 1 - 2  | 1 - 2 
+1 1   600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 600 

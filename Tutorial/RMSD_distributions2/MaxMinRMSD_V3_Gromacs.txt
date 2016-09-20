@@ -1,0 +1,8 @@
+# This file stores the maximal AND minimal RMSD value for the given TrajNameList
+# TrajNameList = ['V3_Gromacs1_stripped', 'V3_Gromacs2_stripped']
+# SaveDIR = RMSD_distributions2/
+# RMSD_dist_DIR = RMSD_distributions2/
+# BinFiles_DIR = RMSD_matrices2/
+# BinFile_precision = float32
+1.10005	#maximal RMSD
+0.04444	#minimal RMSD
