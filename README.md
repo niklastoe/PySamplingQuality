@@ -1,10 +1,36 @@
 # PySamplingQuality
 _Released under the GNU General Public License version 3 by MikeN12_
 
-Python tool to assess the sampling quality if MD simulation using multiple trajectories
+v20.09.16
 
+Python tool to assess the sampling quality of Molecular Dynamics (MD) simulations using multiple trajectories
 
+Checked version is released (v19.09.16) with the following modules:
 
-First working version is released. 
-Some special features will follow soon.
-A tutorial and description will follow.
+1. Overlap calculation
+
+        Generate_RMSDmatrices()
+        determineR_using_RMSD_distributions()
+        Generate_EventCurves()
+        Calc_Overlap()
+
+2. Clustering
+
+        Generate_Clustering()
+        Merge_Clustering_different_Thresholds()
+        Generate_Centers_GLOBAL_singles()
+        Generate_CDE_to_File()
+        Generate_Slope_Error()
+
+3. Visualization
+
+        Plot_ClusterProfile()
+        Plot_Slope_Error_Plateau_NrClust()
+        Plot_Overlap_VS_Threshold()
+        Plot_HeatMap_1vs1()
+        Plot_HeatMap_as_Dendro()
+        Plot_Overlap_VS_Time()
+
+It is possible, to split trajectories into smaller pieces to fit into the memory of the computation node.
+
+A tutorial and description is provided as a JuPyteR notebook __PySamplingQuality\_Tutorial.ipynb__. The tutorial contains the general syntax in two representations, and all necessary parameter descriptions. The corresponding files (configurations, results and plots) are located in __Tutorial/__.
