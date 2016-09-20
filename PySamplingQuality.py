@@ -9,14 +9,14 @@
 #
 # Author:     Mike Nemec <mike.nemec@uni-due.de>
 #
-# current version: v06.09.16
+# current version: v19.09.16
 #######################################################
 #######################################################
 
 ## IMPORT NECESSARY MODULES ##
 import os, sys
 import subprocess as SB
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 import numpy as NP
 import scipy.misc
 import time
@@ -25,6 +25,9 @@ from collections import defaultdict
 from scipy.cluster.hierarchy import linkage, dendrogram
 from scipy.spatial.distance import squareform
 from multiprocessing import Pool
+from argparse import ArgumentParser
+## String to literal
+import ast
 ## Simpson integration | trapezoidal integration
 from scipy.integrate import trapz, simps
 ## linear regression
@@ -40,10 +43,10 @@ from scipy.stats import t as TPPF
 def Calc_Overlap(EventDir, EventNames, SaveDir, SaveName, CompareList, 
                  WeightDir=None, aMD_Nrs=[], sMD_Nrs=[], SameTraj=None, AllPrject=True):
     """ 
-v25.07.16
-- calculates AnalogousOverlap: Overlap between different trajectories/groups 
-                               for different Threshold and TrajNr-windows
-- CompareList has to match the TrajNr in the EventCurves, meaning the references
+v13.09.16
+- calculates <conformational overlap> and <density overlap> : Overlap between different trajectories/groups 
+  for different Threshold and reference Trajectories
+- CompareList has to match the TrajNr in the EventCurves: the overlap is than calculated between the sets of trajectory numbers defined in CompareList
 - EventNames can be splitted into different reference trajectories [_RowX] or different trajectories for which the 
     Events are counted for [_ColX]
 - currently: (1) EventCurves with different reference trajectories [_RowX] are combined according to the submitted order
@@ -57,25 +60,29 @@ v25.07.16
 
 INPUT:
     EventDir       : {STRING}          Directory, where the EventCurves are stored, e.g. 'EventCurves/';
-    EventNames     : {STRING/List}     Name of the EventCurve, can also be a list to combine different _RowX, _ColY files,
+    EventNames     : {STRING/LIST}     Name of the EventCurve, can also be a list to combine different _RowX, _ColY files |
                                         if SameTraj is not None, submit multiple simulation times of SAME trajectory,
-                                        to calculate the overlap between different time parts of the SAME trajectory,
-                                        e.g. 'Events_R5_C_S3vsR5_aMD_C_S3_0-500_MF.txt';
+                                        to calculate the overlap between different time parts of the SAME trajectory | 
+                                        e.g. 'V3_S1-S10_0-500_noWeight.npy';
     SaveDir        : {STRING}          storing directory, e.g. 'Overlap/';
-    SaveName       : {STRING}          save name where the overlap is stored, e.g. 'Overlap_R5_Pairs_MF+sMD.txt';
+    SaveName       : {STRING}          savename PREFIX for the overlap, 
+                            e.g. 'Overlap_R5_Pairs' -> 'Overlap_R5_Pairs_StartFrame-EndingFrame_reweight.txt',
+                            if SameTraj == True, then savename is the COMPLETE savename;
     CompareList    : {LIST,TUPLE,LIST} list of groups of trajectories, which are compared and the overlap is calculated
                         e.g. [([1],[3]), ([1,2],[3,4]), ([1,2],[3])] for (1)vs(3) AND (1+2)vs(3+4) AND (1+2)vs(3);
-    WeightDir      : {STRING}          <default None>, directory, where the Weights are located for aMD OR sMD 
+    WeightDir      : {STRING}          <default None>, FOR RE-WEIGHTING ONLY, directory, where the Weights are located for aMD OR sMD 
                                         trajectory re-weighting;
-    aMD_Nrs        : {INT-LIST}        <default []>, trajectory numbers which are generated with aMD,
-                                        e.g. [1,3,5] means trajNr 1,3,5 of TrajNameList are aMD trajectories;
-    sMD_Nrs        : {INT-LIST}        <default []>, trajectory numbers which are generated with scaledMD,
-                                        e.g. [1,3,5] means trajNr 1,3,5 of TrajNameList are scaledMD trajectories;
+    aMD_Nrs        : {INT-LIST}        <default []>, FOR RE-WEIGHTING ONLY, trajectory numbers which are generated with aMD,
+                                        e.g. [1,3,5] means trajNr 1,3,5 of TrajNameList are aMD trajectories | has to correspond to possible _ColY EventCurves;
+    sMD_Nrs        : {INT-LIST}        <default []>, FOR RE-WEIGHTING ONLY, trajectory numbers which are generated with scaledMD,
+                                        e.g. [1,3,5] means trajNr 1,3,5 of TrajNameList are scaledMD trajectories | has to correspond to possible _ColY EventCurves;
     SameTraj       : {INT}             <default None> IF MULTIPLE EventNames are submitted with different sim times,
                                         SameTraj defines TrajNr, for which different parts are compared, 
                                         e.g. 1 for comparing traj1 of different simulation times;
-    AllPrject      : {BOOL}            <default True>, if True , all groups are concatenated on top of each other
-                                                       if False, overlap value is reported for each compare/reference group
+    AllPrject      : {BOOL}            <default True>, if True , overlap value is calculated using all groups as references, 
+                                                                    projecting all groups on top of each other | 
+                                                       if False, overlap value is reported for each compare/reference group separately,
+                                                                    the overall projection is than the average of the overlap over all groups;
 OUTPUT:
     stores the overlap in a text-file
         GroupNr | Threshold | [densO|confO|TotFrames] of full submitted CompareList
@@ -86,6 +93,20 @@ OUTPUT:
 #### #### #### #### #### 
 #### INITIALIZATION
 #### #### #### #### ####    
+    #-- set complete SaveName for SameTraj != True 
+    if not SameTraj:
+        ReweightList = ['noWeight', 'sMD', 'MF', 'McL', 'Exp', 'MF+sMD', 'McL+sMD', 'Exp+sMD']
+        if type(EventNames) == list:
+            reweight    = [elem for elem in ReweightList if EventNames[0].find(elem) != -1][0]
+            EndingFrame = int(EventNames[0].split('_%s' % reweight)[0].split('-')[-1])
+            StartFrame  = int(EventNames[0].split('_%s' % reweight)[0].split('-')[-2].split('_')[-1])
+            SaveName    = '%s_%s-%s_%s.txt' % (SaveName, StartFrame, EndingFrame, reweight)
+        else:
+            reweight    = [elem for elem in ReweightList if EventNames.find(elem) != -1][0]
+            EndingFrame = int(EventNames.split('_%s' % reweight)[0].split('-')[-1])
+            StartFrame  = int(EventNames.split('_%s' % reweight)[0].split('-')[-2].split('_')[-1])
+            SaveName    = '%s_%s-%s_%s.txt' % (SaveName, StartFrame, EndingFrame, reweight)
+    #####
     if os.path.exists('%s%s' % (SaveDir, SaveName)):
         print 'The overlap file already exist\n\tSaveDir = %s\n\tSaveName = %s' % (SaveDir, SaveName)
     else:
@@ -474,6 +495,7 @@ OUTPUT:
  ################################
     def MergeRows(EventDir, EventNames):
         """
+    v25.07.16
     EventDir    :  directory
     EventNames  :  EventNames with same Cols merges different Rows
         """
@@ -741,21 +763,20 @@ OUTPUT:
 def Generate_EventCurves(TrajNameList, TrajLengthList, MatrixDir, SaveDir, SaveName, ThresholdList, MaxNumberLines, \
      ROW_TrajNrList=None, COL_TrajNrList=None, StartFrame=0, EndingFrame=NP.infty, PartList=None,
      aMD_Nrs=[], aMD_reweight='MF', aMDlogDir=None, aMDlogName=None, AmberVersion='Amber14', WeightStep=1, Temp=300,
-     sMD_Nrs=[], Lambda=1, Order=10, BinFile_precision = NP.float32, Iterations=1, RMSD_SaveAdder=''):
+     sMD_Nrs=[], Lambda=1, Order=10, BinFile_precision=NP.float32, Iterations=1, RMSD_SaveAdder=''):
     """ 
-v06.09.16
+v19.09.16
     This function calculates the EventCurves using calculated RMSD matrices and possible aMD/sMD Weights: 
         - Events are the number of neighboring frames with Threshold < RMSD for each reference frame and for each traj
         - Events as a function of Simulation time
         - generates Events & corresponding Normalization factors = total number of (re-weighted) frames
-        - the corresponding TrajNr is monitored for the simulation time
+        - the corresponding TrajNr is monitored for corresponding frames to easily detect, which reference frames refer to which trajectory
         - different Thresholds can be collected in one file
         - uses re-weighting for aMD/sMD
+        - RMSD matrices with name format "TRAJNAME1_bin.dat", "TRAJNAME2_bin.dat", ... have to exist
 1. possibility, to select ROW_TrajNrList, to which the Events are counted
 2. possibility, to select COL_TrajNrList, which defines the trajectories the Events are counted for
-3. one can use > Merge_EventCurves() < to merge all Data which are e.g. generated on different clusters/machines
-   or use them separately
-4. Weight Generation can be done by submitting ONLY the aMD/sMD trajectory with the corresponding Iterations
+3. Weight Generation can be done by submitting ONLY the aMD/sMD trajectory with the corresponding number of Iterations
 
 INPUT:
     TrajNameList   : {LIST}      List of Names of the trajectories, NAMES NEED TO CORRESPOND TO RMSD_matrix
@@ -765,42 +786,44 @@ INPUT:
                                     if PartList != None, TrajNameList must store the NrOfFrames for each SPLIT;
     MatrixDir      : {STRING}    Name of the save directory for RMSD matrices, e.g. 'RMSD_files/BinFiles/';
     SaveDir        : {STRING}    Name of the save directory for the EventCurves, e.g. 'EventCurves/';
-    SaveName       : {STRING}    Save PREFIX, e.g. 'V3_S1-S10' -> with possible StartFrame/EndingFrame/SamplingMethod
-                                     'Events_V3_S1-S10_StartFrame_EndingFrame_SamplingMethod.txt';
-    ThresholdList  : {FLOAT-LIST} different thresholds r for which the Events are counted, e.g. [0.1, 0.2, 0.3, ...];
-    MaxNumberLines : {INT}
-    ROW_TrajNrList : {INT-LIST}  <default None>, reference trajectories, to which the Events are counted;
-    COL_TrajNrList : {INT-LIST}  <default None>, the Events are counted for these trajectories, e.g. [2,3,4];
+    SaveName       : {STRING}    Save PREFIX, e.g. 'V3_S1-S10' -> 'V3_S1-S10_StartFrame-EndingFrame_SamplingMethod.npy';
+    ThresholdList  : {FLOAT-LIST} different thresholds r for which the Events are counted [nm], e.g. [0.1, 0.2, 0.3, ...];
+    MaxNumberLines : {INT}          Maximal number of lines which are loaded from the FullRMSD matrix, 
+                                    it inflicts directly the memory usage, if MaxNumberLines > sum(TrajLengthList), all
+                                    RMSD matrices are loaded at once, recommended using length of one RMSD block,
+                                    e.g. if one block RMSDmatrix.shape == (2000,2000), try to use MaxNumberLines = 2000;
+    ROW_TrajNrList : {INT-LIST}  <default None>, reference trajectories, to which the Events are counted, None means ALL trajectories are used;
+    COL_TrajNrList : {INT-LIST}  <default None>, the Events are counted for these trajectories, e.g. [2,3,4], None means ALL trajectories are used;
     StartFrame     : {INT}       <default 0>    starting frame of Trajectories/RMSD matrices,
                                     to select different simulation times/lengths together with 'EndingFrame';
     EndingFrame    : {INT}       <default NP.infty> ending frame of Trajectories/RMSD matrices,
                                     to select different simulation times/lengths together with 'StartingFrame';
-    PartList       : {LIST}      <default None> defines into how many parts the single trajectories are split, due to
-                                    memory reasons
-                        1. len(PartList) == len(TrajNameList) !!    
-                        2. PartList = [1,2,3], MD1.xtc -> MD1.xtc                                        have to exist
-                                               MD2.xtc -> MD2_part1.xtc, MD2_part2.xtc                   have to exist
-                                               MD3.xtc -> MD3_part1.xtc, MD3_part2.xtc, MD3_part3.xtc    have to exist
-                        3. default PartList = None -> PartList = [1]*len(TrajNameList);                   
-    aMD_Nrs        : {INT-LIST}  <default []> trajectory numbers which are generated with aMD
+    PartList       : {INT-LIST}  <default None> defines into how many parts the single trajectories are split, due to
+                                    memory reasons,
+                                        1. len(PartList) == len(TrajNameList) !!  ||   
+                                        2. PartList = [1,2,3], (MD1.xtc -> MD1.xtc),
+                                                               (MD2.xtc -> MD2_part1.xtc, MD2_part2.xtc),
+                                                               (MD3.xtc -> MD3_part1.xtc, MD3_part2.xtc, MD3_part3.xtc), ||
+                                        3. default PartList = None -> PartList = [1]*len(TrajNameList);    
+    aMD_Nrs        : {INT-LIST}  <default []> FOR RE-WEIGHTING ONLY, trajectory numbers which are generated with aMD
                                     e.g. [1,3,5] means trajNr 1,3,5 of TrajNameList are aMD trajectories;
-    aMD_reweight   : {STRING}    <default 'MF'> reweighting method if aMD trajs are present, default Mean-Field-Approach
-                                    possibilitie 'MF', 'Exp', 'McL';
-    aMDlogDir      : {LIST}      <default None> ['directory/'], for aMD.log '%s%s' % (aMDlogDir, aMDlogName) from AMBER14/12,
+    aMD_reweight   : {STRING}    <default MF> FOR RE-WEIGHTING ONLY, reweighting method if aMD trajs are present, default Mean-Field-Approach | 
+                                    possibilities - 'MF', 'Exp', 'McL';
+    aMDlogDir      : {LIST}      <default None> FOR RE-WEIGHTING ONLY, ['directory/'], for aMD.log '%s%s' % (aMDlogDir, aMDlogName) from AMBER14/12,
                                     len(aMDlogDir) == 1 OR len(aMDlogDir) == len(aMD_Nrs) for different traj directories;
-    aMDlogName     : {LIST}      <default None> Names for aMD.log '%s%s' % (aMDlogDir, aMDlogName) from AMBER14/12,
-                                    necessary for re-weighting, if no weights are already present,
-                                    len(aMDlogName) == len(aMD_Nrs), each name correspond to aMD_Nrs;
-    AmberVersion   : {STRING}    <default Amber14> Amber14 OR Amber12, because the units are different in both versions;
-    WeightStep     : {INT}       <default 1> every WeightStep-th Row is used from the aMD.log, this HAS TO correspond
+    aMDlogName     : {LIST}      <default None> FOR RE-WEIGHTING ONLY, Names for aMD.log '%s%s' % (aMDlogDir, aMDlogName) from AMBER14/12,
+                                    necessary for re-weighting, if weights are NOT already present,
+                                    len(aMDlogName) == len(aMD_Nrs), each name corresponds to aMD_Nrs;
+    AmberVersion   : {STRING}    <default Amber14> FOR RE-WEIGHTING ONLY, Amber14 OR Amber12, because the units are different in both versions;
+    WeightStep     : {INT}       <default 1> FOR RE-WEIGHTING ONLY, every WeightStep-th Row is used from the aMD.log, this HAS TO correspond
                                     to the same frames from the trajectories which are used for RMSD matrices;
-    Temp           : {FLOAT}     <default 300> simulation temperature of the system (for correct units)
-    sMD_Nrs        : {INT-LIST}  <default []> trajectory numbers which are generated with scaledMD
+    Temp           : {FLOAT}     <default 300> FOR RE-WEIGHTING ONLY, simulation temperature of the system (for correct units);
+    sMD_Nrs        : {INT-LIST}  <default []> FOR RE-WEIGHTING ONLY, trajectory numbers which are generated with scaledMD
                                    e.g. [1,3,5] means trajNr 1,3,5 of TrajNameList are scaledMD trajectories;
-    Lambda         : {FLOAT}     <default 1> scaling factor for scaledMD, e.g. 0.7, 1 means no scaling;
-    Order          : {INT}       <default 10> Order for the MacLaurin expansion, aMD_reweight = 'McL';
- BinFile_precision : {TYPE}      <default NP.float32> FORMAT , RMSD matrix [GROMACS/BINARY], double prec = NP.float64;
-    Iterations     : {INT}       <default 1> defines the number of MF iterations if aMD (MF) or sMD are present;
+    Lambda         : {FLOAT}     <default 1> FOR RE-WEIGHTING ONLY, scaling factor for scaledMD, e.g. 0.7, 1 means no scaling;
+    Order          : {INT}       <default 10> FOR RE-WEIGHTING ONLY, Order for the MacLaurin expansion, ONLY NECESSARY IF aMD_reweight = 'McL';
+ BinFile_precision : {TYPE}      FORMAT, [GROMACS/BINARY] single precision 'float32', double precision 'float64', [AMBER/ELSE] 'None';
+    Iterations     : {INT}       <default 1> FOR RE-WEIGHTING ONLY, defines the number of MF iterations if aMD (aMD_reweight=MF) or sMD trajectories are present;
 OUTPUT:
     STORE noWeight & possible enhancedMatrix
     """
@@ -849,7 +872,7 @@ OUTPUT:
   #---- ADJUST AND CHECK aMDlogDir & aMDlogName
     # (1) if aMDlogDir/aMDlogName NOT None: len(aMDlogDir)+len(aMDlogName) == len(aMD_Nrs)
     # (2) merge both to ONE list, adjust that they match COL_TrajNrList
-    # (3) use same "list-indices" like aMD_Nrs for GenerateWeights()
+    # (3) use same "list-indices" like aMD_Nrs for Generate_Weights()
     if (aMDlogName is None or aMDlogDir is None) or len(aMDlogName) != len(aMD_Nrs) or len(aMDlogDir) > len(aMDlogName):
         aMDlogCombo = None;
     elif len(aMDlogDir) == 1:
@@ -921,6 +944,9 @@ OUTPUT:
 #### #### #### #### #### 
 #### ERROR DETECTION
 #### #### #### #### ####         
+    #---- CHECK if correct aMD_reweight is submitted
+        if ['MF', 'McL', 'Exp'].count(aMD_reweight) == 0:
+            raise ValueError('wrong aMD_reweight = %s is set! Use "MF" or "McL" or "Exp"' % aMD_reweight)
     #---- CHECK and define PartList for trajectory Splits
         if len(TrajNameList) != len(PartList):
             raise ValueError('length of >TrajNameList (%s)< and >PartList (%s)< must be the same' % \
@@ -978,12 +1004,10 @@ OUTPUT:
                                 pass
                             else:
                                 if PartList[Kai-1] > 1: 
-                                    print PartList[Kai-1]
                                     LENGO = NP.sum([TrajLenDict['%s_part%s' % (Kai-1, elem)][0] \
                                                     for elem in range(1,1+PartList[Kai-1])])
                                 else:
                                     LENGO = TrajLenDict['%s' % (Kai-1)][0]
-                                    print 'komische'
                                 raise ValueError('aMD Weight Check failed: length of the trajectory does not match the '+\
                                                  ('length of the aMD.log file\n\t%s\n\t%s != %s\n' % \
                                                   (aMDlogCombo[aMD_Nrs.index(Kai)], len(temp[:,0]), LENGO))+\
@@ -1155,7 +1179,7 @@ OUTPUT:
                         SpecEventRow = sum(TrajLengthList[:TrajLenDict['%s' % (trajY)][1]])
                 else:
                     SpecEventRow = 0
-                Weights = GenerateWeights(TrajNameList[trajY], 
+                Weights = Generate_Weights(TrajNameList[trajY], 
                               EventMatrix[(SpecEventRow+BeginY):(SpecEventRow+EndY),
                                           [2+trajYList.index(trajY)+elem*len(trajYList) \
                                            for elem in range(len(ThresholdList))]],
@@ -1232,7 +1256,7 @@ OUTPUT:
                     SpecEventRow = sum(TrajLengthList[:TrajLenDict['%s_part1' % (trajY)][1]])
                 else:
                     SpecEventRow = sum(TrajLengthList[:TrajLenDict['%s' % (trajY)][1]])
-                Weights = GenerateWeights(TrajNameList[trajY], 
+                Weights = Generate_Weights(TrajNameList[trajY], 
                               EventMatrix[(SpecEventRow+BeginY):(SpecEventRow+EndY),
                                           [2+trajYList.index(trajY)+elem*len(trajYList) \
                                            for elem in range(len(ThresholdList))]],
@@ -1389,11 +1413,11 @@ OUTPUT:
 #-------------
 ###############
 
-def GenerateWeights(TrajName, noWeights, Indices, RangeArray, SaveDir, SaveName, BeginY, EndY, ThresholdList, 
+def Generate_Weights(TrajName, noWeights, Indices, RangeArray, SaveDir, SaveName, BeginY, EndY, ThresholdList, 
                     aMD_reweight='MF', Iterations=1, Lambda=1, aMDlogCombo=None, WeightStep=1, 
                     AmberVersion='Amber14', Temp=300):
     """ 
-v06.09.16
+v19.09.16
     This function calculates the >Mean-Field< approach for aMD/sMD using the 
         >Events< (noWeight) and RMSD matrix >Indices< and the standard aMD.log Weights, 
         >Indices< store the frames for the corresponding Weights
@@ -1413,13 +1437,13 @@ INPUT:
     BeginY       : {INT}        Starting frame of the trajectory, correspond to BeginY of RMSD_mat, e.g. 0;
     EndY         : {INT}        Ending frame of the trajectory,   correspond to EndY   of RMSD_mat, e.g. 2000;
     ThresholdList: {FLOAT-LIST} different thresholds r for which the Events are counted, e.g. [0.1, 0.2, 0.3, ...];
-    aMD_reweight : {STRING}     <default 'MF'>      reweighting Method -> 'MF', 'Exp', 'McL' OR 'sMD';
+    aMD_reweight : {STRING}     <default MF>      reweighting Method -> 'MF', 'Exp', 'McL' OR 'sMD';
     Iterations   : {INT}        <default 1>         number of iterations for the Mean-Field approach of 'MF' OR 'sMD';      
     Lambda       : {FLOAT}      <default 1>         scaling factor lambda for 'sMD', 1 means no rescaling;
     aMDlogCombo  : {STRING}     <default None>      name of the reweighting file WITH DIRECTORY 'Dir/aMD.log' produced by Amber;
     WeightStep   : {INT}        <default 1>         skip every WeightStep-th frame, i.e. Weight[0-last, every WeightStep], 
                                     HAS TO MATCH THE FRAMES EXTRACTED FROM THE TRAJECTORY WHICH ARE USED FOR RMSD_mat;
-    AmberVersion : {STRING}     <default 'Amber14'> AmberVersion, either 'Amber14' OR 'Amber12', 
+    AmberVersion : {STRING}     <default Amber14> AmberVersion, either 'Amber14' OR 'Amber12', 
                                     defines the unit of the aMD.log deltaV's;
     Temp         : {FLOAT}      <default 300>       temperature of the simulation in Kelvin;
 OUTPUT:
@@ -1625,11 +1649,11 @@ Helper function to return TrajLenDict[trajX_PartX] = (len(trajX_PartX), Index, E
 #---             RMSD matrices
 #------------------------------------------------------
 #######################################################
-def Generate_RMSDmatrix(TrajDIR, TopologyDIR, TrajName, TopologyName, DistSaveDir, MatrixSaveDir, SaveName,  
+def Generate_RMSD_Matrix(TrajDIR, TopologyDIR, TrajName, TopologyName, DistSaveDir, MatrixSaveDir, SaveName,  
                         Select1, Select2=None, TimeStep=None, AmberHome='', GromacsHome='', Begin=None, End=None, 
                         SecondTraj=None, Fit='rot+trans', Program_Suffix='', ReferencePDB=None, Bin=True):
     """
-v27.07.16
+v19.09.16
     - RMSD matrix generation for given Trajectory using Gromacs v4.6.7|5.1.2 or AmberTools14
     - it tries to automatically detect AMBER/GROMACS Trajs:
         1. if Select2 is     None or TrajName = <.netcdf or .nc> -> AMBER
@@ -1669,7 +1693,7 @@ INPUT:
                                     e.g. '200  | last';
     SecondTraj     : {STRING}    <default None> Name of a possible second trajectory, e.g. 'MD2.xtc' | 'MD2.netcdf'
                                     to calculate Traj1 vs Traj2 RMSD matrix;
-    Fit            : {STRING}    <default rot+trans>, FIT or not, 'none' or 'rot+trans';
+    Fit            : {STRING}    <default rot+trans>, selects, if trajectories are FIT on top of each other or not, 'none' or 'rot+trans';
     Program_Suffix : {STRING}    <default ''> gmx_suffix for Gromacs installation, e.g. '_467' for 'g_rms_467';
     ReferencePDB   : {STRING}    <default None>, only for AMBER, RMSD to reference calculation, WITH possible DIRECTORY
                                     e.g. Directory/Reference.pdb;
@@ -1696,7 +1720,7 @@ OUTPUT:
             if End is not None and type(End) != int and End != 'last':
                 raise ValueError(('The >End = %s< you have specified is not an >int< or not "last"\n' % End)+\
                                   'define the ending frame of the trajectory, try >"last"< for all frames')
-            if not os.path.exists('%scpptraj'):
+            if not os.path.exists('%scpptraj' % AmberHome):
                 raise NameError('You are trying to calculate RMSD (matrix) using Amber\n\t'+\
                                 ('>> %scpptraj << not found\n' % AmberHome)+\
                                 ('CHECK your >> AmberHome=%s<< value' % AmberHome))
@@ -1710,13 +1734,14 @@ OUTPUT:
                                                          Begin if Begin is not None else 1, 
                                                          End if End is not None else 'last',
                                                          TimeStep))
-                if not os.path.exists(ReferencePDB):
-                    raise NameError('>>%s<< \ndoes not exist! Check the directory and name')
-                OUTPUT.write('reference %s\n' % (ReferencePDB))
-                OUTPUT.write('rms reference mass out %s%s.xvg %s %s' % \
-                             (DistSaveDir, SaveName, 
-                              Select1, 
-                              '' if Fit is not None else 'nofit'))
+                if ReferencePDB is not None:
+                    if not os.path.exists(ReferencePDB):
+                        raise NameError('>>%s<< \ndoes not exist! Check the directory and name' % (ReferencePDB))
+                    OUTPUT.write('reference %s\n' % (ReferencePDB))
+                    OUTPUT.write('rms reference mass out %s%s.xvg %s %s' % \
+                                 (DistSaveDir, SaveName, 
+                                  Select1, 
+                                  '' if Fit is not None else 'nofit'))
                 if Bin:
                     OUTPUT.write('rms2d out %s%s_bin.dat mass %s %s %s %s%s\n' % \
                                  (MatrixSaveDir, SaveName, 
@@ -1776,7 +1801,6 @@ OUTPUT:
             RMSD = SB.Popen(Command, stdin=SB.PIPE, stdout=SB.PIPE, stderr=SB.STDOUT)
             Out, _ = RMSD.communicate('%s\n%s\n' % (Select1, Select2))
         t2 = time.time()
-        # print 'elapsed time = %ss\n\tCHECK Gromacs/Amber output' % round(t2-t1,2)
     else:
         print 'Either \n\t>>%s%s.xvg<< &\n\t>>%s%s_bin.dat<<\nalready exists or \n\t>>%s%s<< & >>%s%s<< \ndoes NOT exist' % \
                 (DistSaveDir,SaveName,  MatrixSaveDir,SaveName,  TrajDIR,TrajName,  TopologyDIR,TopologyName)
@@ -1785,12 +1809,12 @@ OUTPUT:
 #-------------
 ###############
 
-def Generate_RMSDmatrices(TrajDIR, TopologyDIR, TrajNameList, TopologyName, DistSaveDir, MatrixSaveDir, 
+def Generate_RMSD_Matrices(TrajDIR, TopologyDIR, TrajNameList, TopologyName, DistSaveDir, MatrixSaveDir, 
                           TimeStep, Select1, Select2=None, AmberHome='', GromacsHome='',
                           Fit='rot+trans', Program_Suffix='', PartList=None):
     """ 
-17.05.16 
-    - using <Generate_RMSDmatrix()>
+v19.09.16 
+    - using <Generate_RMSD_Matrix()>
     - Calculates every RMSD diagonal & off-diagonal matrix part for <Generate_EventCurves()>
     - RMSD matrix generation for given Trajectory-List using Gromacs v4.6.7|5.1.2 or AmberTools14
     - Trajectories should already be preprocessed, making the protein whole, strip e.g. unnecessary residues, etc.
@@ -1812,28 +1836,38 @@ INPUT:
                                     2. .xtc or .trr    -> GROMACS
                                     3. if Select2 is None -> AMBER else GROMACS;
     TopologyName   : {STRING}    Name of the Topology file, WITH ENDING .pdb|.tpr (GROMACS) OR .top (AMBER);
-    DistSaveDir    : {STRING}    Directory, where the distributions are stored (Gromacs), e.g. RMSD_files/;
+    DistSaveDir    : {STRING}    Directory, where the distributions are stored (Gromacs), e.g. RMSD_files/, 
+                                    FOR AMBER (trajectories) THIS VALUE IS NOT NECESSARY and can be set to 'None';
     MatrixSaveDir  : {STRING}    Directory, where the RMSD matrices are stored, e.g. RMSD_files/BinFiles/;
     TimeStep       : {FLOAT/INT} -dt for GROMACS 't MOD dt = first [ns]' OR skip dt-th frame for AMBER 'first last skip';
     Select1        : {STRING}    FIT  selection Gromacs, e.g. 'Backbone'
                                  CALC selection Amber  , e.g. '@N,CA,C', see Amber syntax;
-    Select2        : {STRING}    CALC selection Gromacs, e.g. 'Backbone';
-    AmberHome      : {STRING}    if cpptraj is not in environmental variables, define directory to 'cpptraj',
+    Select2        : {STRING}    CALC selection Gromacs, e.g. 'Backbone', FOR AMBER (trajectories), THIS VALUE IS NOT NECESSARY and should be set to 'None';
+    AmberHome      : {STRING}    <default ''> if cpptraj is not in environmental variables, define directory to 'cpptraj',
                                     e.g. /home/user/Software/amber14/bin/;
-    GromacsHome    : {STRING}    if g_rms | gmx_suffix rms is not in environmental variables, define directory to them,
+    GromacsHome    : {STRING}    <default ''> if g_rms | gmx_suffix rms is not in environmental variables, define directory to them,
                                     e.g. /home/user/Software/gromacs/bin/;
-    Fit            : {STRING}    <default rot+trans>, FIT or not, 'none' or 'rot+trans';
+    Fit            : {STRING}    <default rot+trans>, selects, if trajectories are FIT on top of each other or not, 'none' or 'rot+trans';
     Program_Suffix : {STRING}    <default ''> gmx_suffix for Gromacs installation, e.g. '_467' for 'g_rms_467';
-    PartList       : {LIST}      <default None> defines, into how many parts the single trajectories are split, due to
-                                    memory reasons
-                        1. len(PartList) == len(TrajNameList) !!    
-                        2. PartList = [1,2,3]: MD1.xtc -> MD1.xtc                                        have to exist
-                                               MD2.xtc -> MD2_part1.xtc, MD2_part2.xtc                   have to exist
-                                               MD3.xtc -> MD3_part1.xtc, MD3_part2.xtc, MD3_part3.xtc    have to exist
-                        3. (default) PartList = None -> PartList = [1]*len(TrajNameList);
+    PartList       : {INT-LIST}  <default None> defines into how many parts the single trajectories are split, due to
+                                    memory reasons,
+                                        1. len(PartList) == len(TrajNameList) !!  ||   
+                                        2. PartList = [1,2,3], (MD1.xtc -> MD1.xtc),
+                                                               (MD2.xtc -> MD2_part1.xtc, MD2_part2.xtc),
+                                                               (MD3.xtc -> MD3_part1.xtc, MD3_part2.xtc, MD3_part3.xtc), ||
+                                        3. default PartList = None -> PartList = [1]*len(TrajNameList);    
 OUTPUT:
     RMSD matrices (+ RMSD distribtions for Gromacs) in *SaveDIR using multiprocess
 """
+  #---- generate Directories  
+    if MatrixSaveDir is not None and MatrixSaveDir != '':
+        for Kai in range(1,len((MatrixSaveDir).split('/'))):
+            if not os.path.exists('/'.join((MatrixSaveDir).split('/')[:Kai])):
+                os.mkdir('/'.join((MatrixSaveDir).split('/')[:Kai]))
+    if DistSaveDir is not None and DistSaveDir != '':
+        for Kai in range(1,len((DistSaveDir).split('/'))):
+            if not os.path.exists('/'.join((DistSaveDir).split('/')[:Kai])):
+                os.mkdir('/'.join((DistSaveDir).split('/')[:Kai]))
     ######## ENABLE MULTIPROCESSING: Pool() enables all free nodes
     pool = Pool()
     ######## test if the trajectories are called differently ######## 
@@ -1860,12 +1894,13 @@ OUTPUT:
             raise NameError('Trajectory does not exist\n\t> %s%s <' % (TrajDIR, TrajNameList[Kai]))
         #----- extract possible standard endings
         for Ending in ['.xtc', '.trr', '.pdb', '.nc', '.netcdf', '.dhd']:
-            SaveName1 = TrajNameList[Kai].split(Ending)[0]
+            if TrajNameList[Kai].find(Ending) != -1:
+                SaveName1 = TrajNameList[Kai].split(Ending)[0]
         #######
         ## Diagonal = SINGLE Trajectory RMSD matrices
         #######
         if not os.path.exists('%s%s_bin.dat' % (MatrixSaveDir, SaveName1)):
-            pool.apply_async(Generate_RMSDmatrix, 
+            pool.apply_async(Generate_RMSD_Matrix, 
                              args=(TrajDIR, TopologyDIR, TrajNameList[Kai], TopologyName, DistSaveDir, MatrixSaveDir, 
                                    SaveName1, Select1, Select2, TimeStep, AmberHome, GromacsHome, None, None, None, 
                                    Fit, Program_Suffix, None, True))
@@ -1879,9 +1914,10 @@ OUTPUT:
             if Kai2 > Kai:
                 #----- extract possible standard endings
                 for Ending in ['.xtc', '.trr', '.pdb', '.nc', '.netcdf', '.dhd']:
-                    SaveName2 = TrajNameList[Kai].split(Ending)[0]+'_'+TrajNameList[Kai2].split(Ending)[0]
+                    if TrajNameList[Kai].find(Ending) != -1 and TrajNameList[Kai2].find(Ending) != -1:
+                        SaveName2 = TrajNameList[Kai].split(Ending)[0]+'_'+TrajNameList[Kai2].split(Ending)[0]
                 if not os.path.exists('%s%s_bin.dat' % (MatrixSaveDir, SaveName2)):
-                    pool.apply_async(Generate_RMSDmatrix,
+                    pool.apply_async(Generate_RMSD_Matrix,
                                      args=(TrajDIR, TopologyDIR, TrajNameList[Kai], TopologyName, DistSaveDir, 
                                            MatrixSaveDir, SaveName2, Select1, Select2, TimeStep, AmberHome, GromacsHome, 
                                            None, None, TrajNameList[Kai2], Fit, Program_Suffix, None, True))
@@ -1898,9 +1934,9 @@ def determineR_extract_MaxRMSD(TrajNameList, SaveName,
                                RMSD_dist_DIR = 'Amber14Trajs/RMSD_files/',
                                BinFiles_DIR = 'Amber14Trajs/RMSD_files/BinFiles/',
                                SaveDIR = 'Amber14Trajs/RMSD_distributions/',
-                               BinFile_precision = NP.float32, RMSD_SaveAdder=''):
+                               BinFile_precision=NP.float32, RMSD_SaveAdder=''):
     """
-v13.05.16
+v12.09.16
     extract and store MaxRMSD for the RMSD histrograms
     (1) EITHER uses the last "BIN" of RMSD_dist (GROMACS)
     (2) OR screen through every RMSD matrix
@@ -1912,10 +1948,11 @@ INPUT:
                                     Names of the Block RMSD matrices / distributions refer to these names,
                                     e.g. ['MD1', 'MD2', ...] <-> MD1_bin.dat, MD2_bin.dat, MD1_MD2_bin.dat, ...;
     SaveName           : {STRING}  Savename, 'MaxMinRMSD_%s.txt' % (SaveName);
-    RMSD_dist_DIR      : {STRING}  Directory, where (possible) RMSD distributions are located, e.g. 'RMSD_files/';
+    RMSD_dist_DIR      : {STRING}  <default ''> Directory, where (possible) RMSD distributions are located (from GROMACS), e.g. 'RMSD_files/', 
+                                    if it does not exist, RMSD matrices are used instead;
     BinFiles_DIR       : {STRING}  Directory, where RMSD matrices are stored, e.g. 'RMSD_files/BinFiles/';
     SaveDIR            : {STRING}  <default RMSD_distributions/>, Directory, where the maximal RMSD value is stored;
-    BinFile_precision  : {TYPE}    <default NP.float32>, FORMAT, RMSD matrix [GROMACS/BINARY], double prec = NP.float64;
+    BinFile_precision  : {TYPE}    FORMAT, [GROMACS/BINARY] single precision 'float32', double precision 'float64', [AMBER/ELSE] 'None';
 OUTPUT:
     return MaxRMSD and STORE it to <SaveDIR>
 
@@ -1956,18 +1993,18 @@ added:
                 del temp
             # TRY TO LOAD RMSD_bin.dat
             elif os.path.exists('%s%s%s_bin.dat' % (BinFiles_DIR, TrajNameList[Kai], RMSD_SaveAdder)):
-                try:
-                    temp = NP.fromfile('%s%s%s_bin.dat' % (BinFiles_DIR, TrajNameList[Kai]), dtype=BinFile_precision)
-                    MaxRMSD = max(MaxRMSD, NP.max(temp))
-                except ValueError:
+                if BinFile_precision is None:
                   #----- TRY TO LOAD NP.NDarray like input, like generated by AmberTools14
-                    temp = NP.genfromtxt('%s%s%s_bin.dat' % (BinFiles_DIR, TrajNameList[Kai]))
+                    temp = NP.genfromtxt('%s%s%s_bin.dat' % (BinFiles_DIR, TrajNameList[Kai], RMSD_SaveAdder))
                    #--- if FIRST COL = Indices: strip them (AmberTools14)
                     if NP.sum(NP.absolute(temp[:,0]-range(1,len(temp[:,0])+1))) < 10e-6: 
                        #--- AmberTool14 uses Angstrom, thus /10 for NM
                         MaxRMSD = max(MaxRMSD, NP.max(temp[:,1:])/10.)
                     else:
                         MaxRMSD = max(MaxRMSD, NP.max(temp))               
+                else:
+                    temp = NP.fromfile('%s%s%s_bin.dat' % (BinFiles_DIR, TrajNameList[Kai], RMSD_SaveAdder), dtype=BinFile_precision)
+                    MaxRMSD = max(MaxRMSD, NP.max(temp))
                 del temp
             else:
                 raise NameError('Error extracting the maximal RMSD for the given TrajNameList: \n'+\
@@ -1987,12 +2024,7 @@ added:
                         del temp
                     elif os.path.exists('%s%s_%s%s_bin.dat' % \
                                         (BinFiles_DIR, TrajNameList[Kai],TrajNameList[Kai2], RMSD_SaveAdder)):
-                        try:
-                            temp = NP.fromfile('%s%s_%s%s_bin.dat' % \
-                                   (BinFiles_DIR, TrajNameList[Kai], TrajNameList[Kai2], RMSD_SaveAdder), 
-                                               dtype=BinFile_precision)
-                            MaxRMSD = max(MaxRMSD, NP.max(temp)) 
-                        except ValueError:
+                        if BinFile_precision is None:
                          #----- TRY TO LOAD NP.NDarray like input, like generated by AmberTools14
                             temp = NP.genfromtxt('%s%s_%s%s_bin.dat' % \
                                    (BinFiles_DIR, TrajNameList[Kai], TrajNameList[Kai2], RMSD_SaveAdder))
@@ -2002,6 +2034,11 @@ added:
                                 MaxRMSD = max(MaxRMSD, NP.max(temp[:,1:])/10.)
                             else:
                                 MaxRMSD = max(MaxRMSD, NP.max(temp))               
+                        else: 
+                            temp = NP.fromfile('%s%s_%s%s_bin.dat' % \
+                                   (BinFiles_DIR, TrajNameList[Kai], TrajNameList[Kai2], RMSD_SaveAdder), 
+                                               dtype=BinFile_precision)
+                            MaxRMSD = max(MaxRMSD, NP.max(temp)) 
                         del temp
                     else:
                         raise NameError('Error extracting the maximal RMSD for the given TrajNameList: \n'+\
@@ -2023,10 +2060,10 @@ added:
 def determineR_generate_RMSD_distributions(TrajNameList, SaveName='V3', 
                                            BinFiles_DIR = 'RMSD_files/BinFiles/',
                                            SaveDIR = 'Amber14Trajs/RMSD_distributions/',
-                                           BinFile_precision = NP.float32,
+                                           BinFile_precision=NP.float32,
                                            Bins=250, RMSD_SaveAdder=''):
     """
-v13.05.16
+v07.09.16
     generate RMSD distributions using ALL RMSD matrices | ADD MinRMSD to MaxMinRMSD_<SaveName>.txt
 
 INPUT:
@@ -2036,7 +2073,7 @@ INPUT:
     SaveName           : {STRING}  Name for the RMSD distributions, e.g. 'Diag_%s_ALL_dist_Bins%s.txt' % (SaveName, Bins);
     BinFiles_DIR       : {STRING}  Directory, where RMSD matrices are stored, e.g. 'RMSD_files/BinFiles/';
     SaveDIR            : {STRING}  <default RMSD_distributions/>, Directory, where RMSD distributions are stored;
-    BinFile_precision  : {TYPE}    <default NP.float32>, FORMAT, RMSD matrix [GROMACS/BINARY], double prec = NP.float64;
+    BinFile_precision  : {TYPE}    FORMAT, [GROMACS/BINARY] single precision 'float32', double precision 'float64', [AMBER/ELSE] 'None';
     Bins               : {INT}     <default 250>, number of BINS  used for RMSD histrogram between 0-MaxRMSD;
 OUTPUT:
     generate (1) all single traj RMSD_dist | (2) all X vs Y traj RMSD_dist | 
@@ -2083,7 +2120,7 @@ OUTPUT:
          #----- GENERATE  DIAGS
             # TRY TO LOAD RMSD_dist.xvg
             if os.path.exists('%s%s%s_bin.dat' % (BinFiles_DIR, TrajNameList[Kai], RMSD_SaveAdder)):
-                try:
+                if BinFile_precision is None:
                  #----- TRY TO LOAD NP.NDarray like input, like generated by AmberTools14
                     temp = NP.genfromtxt('%s%s%s_bin.dat' % (BinFiles_DIR, TrajNameList[Kai], RMSD_SaveAdder))
                   #--- if FIRST COL = Indices: strip them (AmberTools14)
@@ -2091,7 +2128,7 @@ OUTPUT:
                       #--- AmberTool14 uses Angstrom, thus /10 for NM
                         temp = temp[:,1:]/10.
                     temp_len = int(len(temp[:,0]))
-                except ValueError:
+                else:
                     temp = NP.fromfile('%s%s%s_bin.dat' % (BinFiles_DIR, TrajNameList[Kai], RMSD_SaveAdder), 
                                        dtype=BinFile_precision)
                     temp_len = int(NP.sqrt(len(temp)))
@@ -2108,7 +2145,7 @@ OUTPUT:
                                          for elem in range(Bins)]
               #----- STORE single DIAGS
                 with open('%sDiag_%s_%s_dist_Bins%s.txt' % \
-                          (SaveName, TrajNameList[Kai], Bins), 'w') as OUTPUT:
+                          (SaveDIR, SaveName, TrajNameList[Kai], Bins), 'w') as OUTPUT:
                     OUTPUT.write('# This file stores the RMSD distribution for\n'+\
                                  '# \tTrajectory = '+TrajNameList[Kai]+'\n'+\
                                  '# BinEdges | BinMid | RMSD distribution\n')
@@ -2128,7 +2165,7 @@ OUTPUT:
                 if Kai != Kai2:
                     if os.path.exists('%s%s_%s%s_bin.dat' % \
                                       (BinFiles_DIR, TrajNameList[Kai],TrajNameList[Kai2], RMSD_SaveAdder)):
-                        try:
+                        if BinFile_precision is None:
                          #----- TRY TO LOAD NP.NDarray like input, like generated by AmberTools14
                             temp = NP.genfromtxt('%s%s_%s%s_bin.dat' % \
                                                (BinFiles_DIR, TrajNameList[Kai], TrajNameList[Kai2], RMSD_SaveAdder))
@@ -2137,7 +2174,7 @@ OUTPUT:
                               #--- AmberTool14 uses Angstrom, thus /10 for NM
                                 temp = temp[:,1:]/10.
                             temp = NP.reshape(temp, (len(temp[:,0])*len(temp[:,0]),))
-                        except ValueError:
+                        else:
                             temp = NP.fromfile('%s%s_%s%s_bin.dat' % \
                                                (BinFiles_DIR, TrajNameList[Kai], TrajNameList[Kai2], RMSD_SaveAdder), 
                                                dtype=BinFile_precision)
@@ -2146,7 +2183,7 @@ OUTPUT:
                                     NP.histogram(temp, bins=Bins, range=(0,round(MaxRMSD*1.01,3)))
                #----- STORE single OFF-DIAGS
                         with open('%sOffDiag_%s_%s_%s_dist_Bins%s.txt' % \
-                                  (SaveName, TrajNameList[Kai], TrajNameList[Kai2], Bins), 'w') as OUTPUT:
+                                  (SaveDIR, SaveName, TrajNameList[Kai], TrajNameList[Kai2], Bins), 'w') as OUTPUT:
                             OUTPUT.write('# This file stores the RMSD distribution for the off-diagonal\n'+\
                                          '# \tTrajectory = '+TrajNameList[Kai]+'_'+TrajNameList[Kai2]+'\n'+\
                                          '# BinEdges | BinMid | RMSD distribution\n')
@@ -2244,6 +2281,7 @@ OUTPUT:
         >> ALL SINGLE TRAJS | ALL X vs Y TRAJS | Concatenated Cases <<
     of the RMSD distributions for the submitted Trajectory Names
     """
+    import matplotlib.pyplot as plt
     logX=False; XLIM=None;
   ###------- DEFAULT VALUES for Indices: simply use all Trajectories
     if Indices1 is None:
@@ -2453,15 +2491,15 @@ def determineR_using_RMSD_distributions(TrajNameList, SaveName='V3', SaveNamePdf
                                         SaveDIR = 'Amber14Trajs/RMSD_distributions/',
                                         RMSD_dist_DIR = 'Amber14Trajs/RMSD_files/',
                                         BinFiles_DIR = 'Amber14Trajs/RMSD_files/BinFiles/',
-                                        BinFile_precision = NP.float32,
+                                        BinFile_precision=NP.float32,
                                         Bins=250, Percent=1, RMSD_SaveAdder=''):
     """
-v13.05.16
+v12.09.16
     this function plots the RMSD distributions within a certain interval 
     containing Percent-amount of the Full RMSD distribution
     
     1. extract from all RMSD distributions the maximal value
-    2. generate an adequate BINS for the range of RMSD values
+    2. generate an adequate BINS binning for the range of RMSD values
     3. generate multiple analysis cases:
         a) only diagonals     = each single trajectories
         b) only off-diagonals = concatenate histrograms of off-diagonals due to size n*(n-1)/2
@@ -2475,9 +2513,10 @@ INPUT:
     SaveNamePdf        : {STRING}  Savename for the PDF, e.g. 'MoleculeName+Specification.pdf';
     SaveDIR            : {STRING}  <default RMSD_distributions/>, Directory, where RMSD distributions, the MaxMinValue and
                                     the PDF will be stored;
-    RMSD_dist_DIR      : {STRING}  Directory, where (possible) RMSD distributions are located, e.g. 'RMSD_files/';
+    RMSD_dist_DIR      : {STRING}  <default ''> Directory, where (possible) RMSD distributions are located (from GROMACS), e.g. 'RMSD_files/', 
+                                    if it does not exist, RMSD matrices are used instead;
     BinFiles_DIR       : {STRING}  Directory, where RMSD matrices are stored, e.g. 'RMSD_files/BinFiles/';
-    BinFile_precision  : {TYPE}    <default NP.float32>, FORMAT, RMSD matrix [GROMACS/BINARY], double prec = NP.float64;
+    BinFile_precision  : {TYPE}    FORMAT, [GROMACS/BINARY] single precision 'float32', double precision 'float64', [AMBER/ELSE] 'None';
     Bins               : {INT}     <default 250>, number of BINS  used for RMSD histrogram between 0-MaxRMSD;
     Percent            : {FLOAT}   <default 1> plotting interval, where the Percent-amount of all RMSD distributions are 
                                         located in, for Percent = 1, it plots the minimal and maximal values, e.g. 0.99; 
@@ -2486,7 +2525,6 @@ OUTPUT:
         >> ALL SINGLE TRAJS | ALL X vs Y TRAJS | Concatenated Cases <<
     of the RMSD distributions for the submitted Trajectory Names
     """
-    t1 = time.time()
 #-------------------------------------
  #---- EXTRACT MAXIMAL RMSD VALUE 
 #-------------------------------------    
@@ -2503,8 +2541,6 @@ OUTPUT:
 #-------------------------------------
     Plot_determineR_using_RMSD_distributions(TrajNameList, SaveName=SaveName, SaveNamePdf=SaveNamePdf, 
                                              SaveDIR=SaveDIR, Bins=Bins, Percent=Percent)
-    t2 = time.time()
-    # print 'elapsed time %s' % round(t2-t1,2)
   #####################  
 def ReturnPercentRMSD(Proz, Array1, Array2):
     """
@@ -2537,30 +2573,32 @@ OUTPUT:
 #---          CLUSTERING CALCULATION
 #------------------------------------------------------
 #######################################################
-def Generate_Clustering(MatrixDir, SaveDir, TrajNameList, TrajLengthList, Threshold, TimeStep, SaveName, MaxNumberLines, 
-                        StartFrame=0, EndingFrame=NP.infty, PartList=None, GLOBAL=True,
+def Generate_Clustering(MatrixDir, SaveDir, TrajNameList, TrajLengthList, Threshold, SaveName, MaxNumberLines, 
+                        TimeStep=None, StartFrame=0, EndingFrame=NP.infty, PartList=None, GLOBAL=True,
                         RMSDdir=None, TrajDIR=None, TopologyDIR=None, TopologyName=None, Ending='.xtc',
                         Select1=None, Select2=None, AmberHome='', GromacsHome='', Program_Suffix='', ReferencePDB=None, 
-                        BinFile_precision=NP.float32, RMSD_SaveAdder=''):
+                        BinFile_precision=NP.float32, RefFrame=None, RMSD_SaveAdder=''):
     """
-v06.09.16
+v16.09.16
 Calculates and generates the LOCAL or GLOBAL PROFILE & CENTROIDS for effective clustering for the submitted 
 trajectories, 
     - using Generate_reference_for_Clustering() & Return_FullColRMSD()
     - using RMSD matrices
     - possibility, to investigate different (equal) simulation time parts
     - possibility, to submit a reference as a starting point: the structure with the lowest RMSD to this reference
-                   is then the first starting centroid
+                   is then the first starting centroid (ONLY FOR GROMACS OR AMBER TRAJECTORIES)
+                   otherwise, the first frame of the trajectory is used as starting point
+     --> it is also possible to use RefFrame, to select a frame which is then always taken as starting centroid
     - MaxNumberLines: DIRECTLY INFLICTS THE MEMORY USAGE:
         1. for GLOBAL clustering, at least one FULL row of all involved RMSD matrices has to be loaded
-        1. MaxNumberLines adjust the number of these rows which are loaded at once
-        1. if a full RMSD block (shape=2000,2000) can be loaded with MaxNumberLines=2000, the algorithm is much faster
-        1. if the FULL RMSD matrix, containing all RMSD block matrices, can be loaded, everything can be clustered at once
+        2. MaxNumberLines adjust the number of these rows which are loaded at once
+        3. if a full RMSD block (shape=2000,2000) can be loaded with MaxNumberLines=2000, the algorithm is much faster
+        4. if the FULL RMSD matrix, containing all RMSD block matrices, can be loaded, everything can be clustered at once
     - generates: 
                 |                  Threshold = 0.45                            |
                 |  eff Clust     |    next Center   |     farthest Center      |
  Frame | TrajNr | PROF | effRMSD | nextC | nextRMSD | farthestC | farthestRMSD |
-         - PROF:         cluster number at a specific frame
+         - PROF:         cluster number/centroid for the specific frame
          - effRMSD:      over the course of the "average merging" different centroids, this represents the RMSD value of the
                          new centroid to the merged formerly defined centroids
          - nextC:        the closest centroid to the current frame
@@ -2580,50 +2618,65 @@ INPUT:
                                     length of TrajNameList, e.g. [2000, 2000, 1000, ...] 
                                     if PartList != None, TrajNameList must store the NrOfFrames for each SPLIT;
     Threshold         : {FLOAT}     Clustering-Threshold [nm], e.g. 0.2;
-    TimeStep          : {FLOAT/INT} <default None> GROMACS, -dt 't MOD dt = first [ns]' 
-                                                AMBER    skip dt-th frame 'first last skip'
-                                                if TimeStep = None, use ALL frames in the trajectory;
     SaveName          : {STRING}    PREFIX name for the clustering file, 
-                            '%s_R%s_%s-%s_%s.txt' % (SaveName, Threshold, StartFrame, EndingFrame, 'GLOBAL' or 'LOCAL') 
+                            '%s_R%s_%s-%s_%s.txt' % (SaveName, Threshold, StartFrame, EndingFrame, 'GLOBAL' or 'LOCAL');
     MaxNumberLines    : {INT}       Maximal number of lines which are loaded from the FullRMSD matrix, 
                                     it inflicts directly the memory usage, if MaxNumberLines > sum(TrajLengthList), all
                                     RMSD matrices are loaded at once, recommended using length of one RMSD block,
                                     e.g. if one block RMSDmatrix.shape == (2000,2000), try to use MaxNumberLines = 2000;
+    TimeStep          : {FLOAT/INT} <default None> ONLY NECESSARY IF ReferencePDB is not None! 
+                                                selects the frames of the trajectory,
+                                                GROMACS, -dt 't MOD dt = first [ns]', 
+                                                AMBER    skip dt-th frame 'first last skip',
+                                                if TimeStep = None, use ALL frames in the trajectory;
     StartFrame        : {INT}       <default 0>    starting frame of Trajectories/RMSD matrices,
                                     to select different simulation times/lengths together with 'EndingFrame';
     EndingFrame       : {INT}       <default NP.infty> ending frame of Trajectories/RMSD matrices,
                                     to select different simulation times/lengths together with 'StartingFrame';
-    PartList          : {LIST}      <default None> defines into how many parts the single trajectories are split, due to
-                                    memory reasons
-                        1. len(PartList) == len(TrajNameList) !!    
-                        2. PartList = [1,2,3], MD1.xtc -> MD1.xtc                                        have to exist
-                                               MD2.xtc -> MD2_part1.xtc, MD2_part2.xtc                   have to exist
-                                               MD3.xtc -> MD3_part1.xtc, MD3_part2.xtc, MD3_part3.xtc    have to exist
-                        3. default PartList = None -> PartList = [1]*len(TrajNameList);
+    PartList          : {INT-LIST}  <default None> defines into how many parts the single trajectories are split, due to
+                                    memory reasons,
+                                        1. len(PartList) == len(TrajNameList) !!  ||   
+                                        2. PartList = [1,2,3], (MD1.xtc -> MD1.xtc),
+                                                               (MD2.xtc -> MD2_part1.xtc, MD2_part2.xtc),
+                                                               (MD3.xtc -> MD3_part1.xtc, MD3_part2.xtc, MD3_part3.xtc), ||
+                                        3. default PartList = None -> PartList = [1]*len(TrajNameList);    
     GLOBAL            : {BOOL}      <default True> if True,  a GLOBAL clustering is applied for all concatenated trajectories
                                                    if False, every trajectory is clustered separately;
-    RMSDdir           : {STRING}    <default None> directory, where to store possible RMSD curves to a submitted reference,
+    RMSDdir           : {STRING}    <default None> ONLY NECESSARY IF ReferencePDB is not None! 
+                                                   directory, where to store possible RMSD curves to a submitted reference,
                                                    if is None, RMSDdir = SaveDir;
-    TrajDIR           : {STRING}    <default None> Directory, where the trajectories are located if a reference is submitted,
+    TrajDIR           : {STRING}    <default None> ONLY NECESSARY IF ReferencePDB is not None! 
+                                                   Directory, where the trajectories are located if a reference is submitted,
                                                    then, RMSD curves are calculated using these, e.g. 'TrajDir/';
-    TopologyDIR       : {STRING}    <default None> Directory, where the topology file is located, for GROMACS, this is
+    TopologyDIR       : {STRING}    <default None> ONLY NECESSARY IF ReferencePDB is not None! 
+                                                   Directory, where the topology file is located, for GROMACS, this is
                                                    equal to the Reference(PDB), for AMBER, this is a .top file, e.g. 'TrajDir/';
-    TopologyName      : {STRING}    <default None> topology name, for GROMACS this has to contain the reference(PDB)
-                                                    for AMBER, this is the input topology .top;
-    Ending            : {STRING}    <default .xtc> ending of the trajectories, only necessary, if a reference is submitted,
-                                                    normally '.xtc' or '.trr', or '.pdb' or '.nc', or '.netcdf';
-    Select1           : {STRING}    <default None> FIT  selection Gromacs, e.g. 'Backbone'
+    TopologyName      : {STRING}    <default None> ONLY NECESSARY IF ReferencePDB is not None! 
+                                                   topology name, for GROMACS this has to contain the reference(PDB)
+                                                   for AMBER, this is the input topology .top;
+    Ending            : {STRING}    <default .xtc> ONLY NECESSARY IF ReferencePDB is not None! 
+                                                   ending of the trajectories, only necessary, if a reference is submitted,
+                                                   normally '.xtc' or '.trr', or '.pdb' or '.nc', or '.netcdf';
+    Select1           : {STRING}    <default None> ONLY NECESSARY IF ReferencePDB is not None! 
+                                                   FIT  selection Gromacs, e.g. 'Backbone',
                                                    CALC selection Amber  , e.g. '@N,CA,C', see Amber syntax;
-    Select2           : {STRING}    <default None> CALC selection Gromacs, e.g. 'Backbone';
-    AmberHome         : {STRING}    <default ''>   if cpptraj is not in environmental variables, define directory to 'cpptraj',
+    Select2           : {STRING}    <default None> ONLY NECESSARY IF ReferencePDB is not None! 
+                                                   CALC selection Gromacs, e.g. 'Backbone';
+    AmberHome         : {STRING}    <default ''>   ONLY NECESSARY IF ReferencePDB is not None! 
+                                                   if cpptraj is not in environmental variables, define directory to 'cpptraj',
                                     e.g. /home/user/Software/amber14/bin/;
-    GromacsHome       : {STRING}    <default ''>   if g_rms | gmx_suffix rms is not in environmental variables, define directory to them,
+    GromacsHome       : {STRING}    <default ''>   ONLY NECESSARY IF ReferencePDB is not None! 
+                                                   if g_rms | gmx_suffix rms is not in environmental variables, define directory to them,
                                     e.g. /home/user/Software/gromacs/bin/;
-    Program_Suffix    : {STRING}    <default ''>   gmx_suffix for Gromacs installation, e.g. '_467' for 'g_rms_467';
-    ReferencePDB      : {STRING}    <default None> possible reference, to which the RMSD between all trajectories are
+    Program_Suffix    : {STRING}    <default ''>   ONLY NECESSARY IF ReferencePDB is not None! 
+                                                   gmx_suffix for Gromacs installation, e.g. '_467' for 'g_rms_467';
+    ReferencePDB      : {STRING}    <default None> ONLY NECESSARY IF ReferencePDB is not None! 
+                                                   possible reference, to which the RMSD between all trajectories are
                                             calculated, then the closest structure is the starting point for the clustering
                                                         e.g. 'Crystalstructure.pdb';
-    BinFile_precision : {TYPE}      <default NP.float32> FORMAT , RMSD matrix [GROMACS/BINARY], double prec = NP.float64;
+    BinFile_precision : {TYPE}      FORMAT, [GROMACS/BINARY] single precision 'float32', double precision 'float64', [AMBER/ELSE] 'None';
+    RefFrame          : {INT}       <default None> possibility to submit a frame, which is the first centroid for the clustering, 0 means the first frame of the 
+                                        trajectories, None means, it tries to calculate RMSD curves using GROMACS or AMBER if ReferencePDB is not None;
 OUTPUT:
               
         v09.12.15 UPDATED: if Begin > TrjLenList[elem], the traj is not used
@@ -2635,6 +2688,11 @@ OUTPUT:
             - length to generate blocks of full columns and maximal rows which fit to the memory/maximum
             - PossibleClusters
     """
+    #----- CHECK if ReferencePDB does exist
+    if ReferencePDB is not None and not os.path.exists(ReferencePDB) and not os.path.exists('%s%s' % (TrajDIR,ReferencePDB)) \
+                and not os.path.exists('%s%s' % (TopologyDIR, ReferencePDB)):
+        raise ValueError('ReferencePDB not found. Neither\n\t%s\nnor\n\t%s%s\nnor\n\t%s%s\ndo exist!' % \
+                (ReferencePDB, TrajDIR, ReferencePDB, TopologyDIR, ReferencePDB))
     #----- DETECT Gromacs or Amber
     ## GROMACS ##
     if ReferencePDB != None and (Ending == '.xtc' or Ending == '.trr' or Ending == '.pdb'): 
@@ -2711,6 +2769,8 @@ OUTPUT:
         Criteria = [elem for elem in FullCumTrajLenList]
     
   #########  START: extract FullColRMSD  #########
+    if ReferencePDB is not None:
+        RefName = ReferencePDB.split('.pdb')[0]
     while not Finished:
       ## UPDATED v16.11.15: define a value which decides, if ReferencePDB != None, INIT is done
         Critters = -1
@@ -2719,23 +2779,30 @@ OUTPUT:
             #--- STORE Ref_RMSD.xvg to RMSDdir, if None: RMSDdir = SaveDir
             if RMSDdir is None:
                 RMSDdir = SaveDir
-            RefName = ReferencePDB.split('.pdb')[0]
             if TrajDIR is None or TopologyDIR is None or Select1 is None:
-                raise ValueError('One of the following parameters are not selected, check your input:\n'+\
+                raise ValueError('One of the following parameters are not set, check your input:\n'+\
                                  '\tTrajDIR = %s\n\tTopologyDIR = %s\n\tSelect1 = %s\n' % \
                                   (TrajDIR, TopologyDIR, Select1))
             Critters = Criteria.pop(0)
-            if GLOBAL:
-                NEXT = Generate_reference_for_Clustering( RMSDdir, RefName, TrajDIR, TrajNameList,
-                                                          TopologyDIR, TopologyName, Ending, TimeStep, 
-                                                          Select1, Select2, StartFrame, EndingFrame, PartList,
-                                                          AmberHome, GromacsHome, Program_Suffix, ReferencePDB )
+            ## add directory to ReferencePDB
+            if os.path.exists('%s%s' % (TrajDIR, ReferencePDB)):
+                ReferencePDB = '%s%s' % (TrajDIR, ReferencePDB)
+            elif os.path.exists('%s%s' % (TopologyDIR, ReferencePDB)):
+                ReferencePDB = '%s%s' % (TopologyDIR, ReferencePDB)
+            if RefFrame is None:
+                if GLOBAL:
+                    NEXT = Generate_reference_for_Clustering( RMSDdir, RefName, TrajDIR, TrajNameList,
+                                                              TopologyDIR, TopologyName, Ending, TimeStep, 
+                                                              Select1, Select2, StartFrame, EndingFrame, PartList,
+                                                              AmberHome, GromacsHome, Program_Suffix, ReferencePDB )
+                else:
+                    NEXT = Generate_reference_for_Clustering( RMSDdir, RefName, TrajDIR, [TrajNameList[TrajNr-1]],
+                                                              TopologyDIR, TopologyName, Ending, TimeStep, 
+                                                              Select1, Select2, StartFrame, EndingFrame, [PartList[TrajNr-1]],
+                                                              AmberHome, GromacsHome, Program_Suffix, ReferencePDB )
+                    NEXT += FullCumTrajLenList[TrajNr-1]
             else:
-                NEXT = Generate_reference_for_Clustering( RMSDdir, RefName, TrajDIR, [TrajNameList[TrajNr-1]],
-                                                          TopologyDIR, TopologyName, Ending, TimeStep, 
-                                                          Select1, Select2, StartFrame, EndingFrame, [PartList[TrajNr-1]],
-                                                          AmberHome, GromacsHome, Program_Suffix, ReferencePDB )
-                NEXT += FullCumTrajLenList[TrajNr-1]
+                NEXT = RefFrame
       ## UPDATED v20.01.16: if FixMax > FullLength^2: load whole RMSD at once
         if MaxNumberLines < FullCumTrajLenList[-1] or CentersFinished == False or GLOBAL == False:  
             FullColRMSD, TrajNr, LowerEnd, UpperEnd = Return_FullColRMSD(MatrixDir, TrajNameList, NEXT, 
@@ -2969,7 +3036,7 @@ def Generate_reference_for_Clustering(RMSDdir, RefName, TrajDIR, TrajNameList, T
                                       Ending, TimeStep, Select1, Select2=None, StartFrame=0, EndingFrame=NP.infty, 
                                       PartList=None, AmberHome='', GromacsHome='', Program_Suffix='', ReferencePDB=None):
     """ 
-v13.07.16
+v19.09.16
         Helper function to generate the correct reference for the effective clustering, calculating the RMSD values of
         the submitted Xtc-files to a specific reference and choosing the INDEX with the LOWEST RMSD ABOVE the THRESHOLD
         as first frame for effective clustering
@@ -2986,7 +3053,7 @@ INPUT:
                                         e.g. 'CrystalStructure';
     TrajDIR           : {STRING}    Directory, where the trajectories are located to which RMSD curves are calculated,
                                         e.g. 'TrajDir/';
-    TrajNameList      : {LIST}      $$ HERE WEITER list of Trajectory name prefixes WITHOUT ENDING, 
+    TrajNameList      : {LIST}      list of Trajectory name prefixes WITHOUT ENDING, 
                                     Names of the Block RMSD matrices / distributions refer to these names,
                                     e.g. ['MD1', 'MD2', ...] <-> MD1_bin.dat, MD2_bin.dat, MD1_MD2_bin.dat, ...; 
                                     
@@ -3005,21 +3072,21 @@ INPUT:
                                     to select different simulation times/lengths together with 'EndingFrame';
     EndingFrame       : {INT}       <default NP.infty> ending frame of Trajectories/RMSD matrices,
                                     to select different simulation times/lengths together with 'StartingFrame';
-    PartList          : {LIST}      <default None> defines into how many parts the single trajectories are split, due to
-                                    memory reasons
-                        1. len(PartList) == len(TrajNameList) !!    
-                        2. PartList = [1,2,3], MD1.xtc -> MD1.xtc                                        have to exist
-                                               MD2.xtc -> MD2_part1.xtc, MD2_part2.xtc                   have to exist
-                                               MD3.xtc -> MD3_part1.xtc, MD3_part2.xtc, MD3_part3.xtc    have to exist
-                        3. default PartList = None -> PartList = [1]*len(TrajNameList);
+    PartList          : {INT-LIST}  <default None> defines into how many parts the single trajectories are split, due to
+                                    memory reasons,
+                                        1. len(PartList) == len(TrajNameList) !!  ||   
+                                        2. PartList = [1,2,3], (MD1.xtc -> MD1.xtc),
+                                                               (MD2.xtc -> MD2_part1.xtc, MD2_part2.xtc),
+                                                               (MD3.xtc -> MD3_part1.xtc, MD3_part2.xtc, MD3_part3.xtc), ||
+                                        3. default PartList = None -> PartList = [1]*len(TrajNameList);    
     AmberHome         : {STRING}    <default ''>   if cpptraj is not in environmental variables, define directory to 'cpptraj',
                                     e.g. /home/user/Software/amber14/bin/;
     GromacsHome       : {STRING}    <default ''>   if g_rms | gmx_suffix rms is not in environmental variables, define directory to them,
                                     e.g. /home/user/Software/gromacs/bin/;
     Program_Suffix    : {STRING}    <default ''>   gmx_suffix for Gromacs installation, e.g. '_467' for 'g_rms_467';
-    ReferencePDB      : {STRING}    <default None> possible reference, to which the RMSD between all trajectories are
-                                            calculated, then the closest structure is the starting point for the clustering
-                                                        e.g. 'Crystalstructure.pdb';
+    ReferencePDB      : {STRING}    <default None>, only for AMBER, possible reference, to which the RMSD between all trajectories are
+                                        calculated, then the closest structure is the starting point for the clustering, WITH possible DIRECTORY
+                                                        e.g. 'Directory/Crystalstructure.pdb';
 OUTPUT:
     return NEXT : {INT} correct value for NEXT frame/cluster centroid
     
@@ -3044,8 +3111,7 @@ OUTPUT:
         for TrajName in TrajNameList:
             if os.path.exists('%s%s%s' % (TrajDIR, TrajName, Ending)):
                 if not os.path.exists('%sRMSD_%s_ref%s.xvg' % (RMSDdir, TrajName, RefName)):
-                    
-                    Generate_RMSDmatrix(TrajDIR, TopologyDIR, TrajName+Ending, TopologyName, RMSDdir, '', 
+                    Generate_RMSD_Matrix(TrajDIR, TopologyDIR, TrajName+Ending, TopologyName, RMSDdir, RMSDdir, 
                                         'RMSD_%s_ref%s' % (TrajName, RefName), Select1, Select2, TimeStep, 
                                         AmberHome, GromacsHome, None, None, SecondTraj=None, Fit='rot+trans', 
                                         Program_Suffix=Program_Suffix, ReferencePDB=ReferencePDB, Bin=False)
@@ -3053,9 +3119,9 @@ OUTPUT:
                 for Parts in range(1,1+PartList[IIndex]):
                     if os.path.exists('%s%s_part%s%s' % (TrajDIR, TrajName, Parts, Ending)):
                         if not os.path.exists('%sRMSD_%s_ref%s_part%s.xvg' % (RMSDdir, TrajName, RefName, Parts)):
-                            Generate_RMSDmatrix(TrajDIR, TopologyDIR, '%s_part%s%s' % (TrajName, Parts, Ending), 
+                            Generate_RMSD_Matrix(TrajDIR, TopologyDIR, '%s_part%s%s' % (TrajName, Parts, Ending), 
                                                 TopologyName, RMSDdir, 
-                                                '', 'RMSD_%s_ref%s_part%s' % (TrajName, RefName, Parts), 
+                                                RMSDdir, 'RMSD_%s_ref%s_part%s' % (TrajName, RefName, Parts), 
                                                 Select1, Select2, TimeStep, AmberHome, GromacsHome, None, None, SecondTraj=None, 
                                                 Fit='rot+trans', Program_Suffix=Program_Suffix, ReferencePDB=ReferencePDB, 
                                                 Bin=False)
@@ -3119,7 +3185,7 @@ def Return_FullColRMSD(MatrixDir, TrajNameList, CurrentRow, MaxNumberLines, Traj
                        StartFrame=0, EndingFrame=NP.infty, PartList=None, BinFile_precision=NP.float32, GLOBAL=True,
                        EventCurve=False, trajYList=None, RMSD_SaveAdder=''):
     """ 
-v06.09.16
+v07.09.16
     - Helper function for <Generate_EventCurves()> AND <Generate_Clustering()> to return the full ROW of the 
       whole RMSD matrix for every submitted trajectory files
     - to select adequate cluster, it is necessary to load at least ONE FULL ROW of all involved RMSD matrices
@@ -3145,19 +3211,19 @@ INPUT:
                                     to select different simulation times/lengths together with 'EndingFrame';
     EndingFrame        : {INT}       <default NP.infty> ending frame of Trajectories/RMSD matrices,
                                     to select different simulation times/lengths together with 'StartingFrame';
-    PartList           : {LIST}      <default None> defines into how many parts the single trajectories are split, due to
-                                    memory reasons
-                        1. len(PartList) == len(TrajNameList) !!    
-                        2. PartList = [1,2,3], MD1.xtc -> MD1.xtc                                        have to exist
-                                               MD2.xtc -> MD2_part1.xtc, MD2_part2.xtc                   have to exist
-                                               MD3.xtc -> MD3_part1.xtc, MD3_part2.xtc, MD3_part3.xtc    have to exist
-                        3. default PartList = None -> PartList = [1]*len(TrajNameList);
-    BinFile_precision  : {TYPE}      <default NP.float32> FORMAT , RMSD matrix [GROMACS/BINARY], double prec = NP.float64;
-    GLOBAL             : {BOOL}      <default True> if True,  a GLOBAL clustering is applied for all concatenated trajectories
-                                                    if False, every trajectory is clustered separately;
-    EventCurve         : {BOOL}      <default False> if True,  FullColRMSD is returned for Generate_EventCurves()
-                                                     if False, FullColRMSD is returned for Generate_Clustering();
-    trajYList          : {INT-LIST}  <default None>  for Generate_EventCurves(), defines the trajectory for trajY;
+    PartList           : {INT-LIST} <default None> defines into how many parts the single trajectories are split, due to
+                                    memory reasons,
+                                        1. len(PartList) == len(TrajNameList) !!  ||   
+                                        2. PartList = [1,2,3], (MD1.xtc -> MD1.xtc),
+                                                               (MD2.xtc -> MD2_part1.xtc, MD2_part2.xtc),
+                                                               (MD3.xtc -> MD3_part1.xtc, MD3_part2.xtc, MD3_part3.xtc), ||
+                                        3. default PartList = None -> PartList = [1]*len(TrajNameList);    
+    BinFile_precision  : {TYPE}     FORMAT, [GROMACS/BINARY] single precision 'float32', double precision 'float64', [AMBER/ELSE] 'None';
+    GLOBAL             : {BOOL}     <default True> if True,  a GLOBAL clustering is applied for all concatenated trajectories
+                                                   if False, every trajectory is clustered separately;
+    EventCurve         : {BOOL}     <default False> if True,  FullColRMSD is returned for Generate_EventCurves()
+                                                    if False, FullColRMSD is returned for Generate_Clustering();
+    trajYList          : {INT-LIST} <default None>  for Generate_EventCurves(), defines the trajectory for trajY;
 OUTPUT:
     if EventCurve:
         return FullColRMSD, BeginX, EndX, BeginY, EndY, LowerEnd, UpperEnd
@@ -3333,16 +3399,16 @@ OUTPUT:
     #####
             if trajX == trajY and PartX == PartY and BeginX < EndX and BeginY < EndY:
                 FileName = '%s%s%s_bin.dat' % (TrajNameList[trajX], PartX, RMSD_SaveAdder)
-                try:
+                if BinFile_precision is not None:
                     RMSD_mat = NP.fromfile('%s%s' % (MatrixDir, FileName), dtype=BinFile_precision)
                     LenX = NP.sqrt(len(RMSD_mat))
                     LenY = NP.sqrt(len(RMSD_mat))
                     RMSD_mat = NP.reshape(RMSD_mat, (LenX, LenY))
-                except ValueError:
+                else:
                   #----- TRY TO LOAD NP.NDarray like input, like generated by AmberTools14
                     RMSD_mat = NP.genfromtxt('%s%s' % (MatrixDir, FileName))
                    #--- if FIRST COL = Indices: strip them (AmberTools14)
-                    if NP.sum(NP.absolute(RMSD_mat[:,0]-range(1,len(RMSD_mat[:,0])-1))) < 10e-6: 
+                    if NP.sum(NP.absolute(RMSD_mat[:,0]-range(1,len(RMSD_mat[:,0])+1))) < 10e-6: 
                        #--- AmberTool14 uses Angstrom, thus /10 for NM
                         RMSD_mat = RMSD_mat[:,1:]/10.
                     LenX, LenY = RMSD_mat.shape
@@ -3373,13 +3439,13 @@ OUTPUT:
                 LenX = TrajLenDict['%s%s' % (trajX, PartX)][0]
                 LenY = TrajLenDict['%s%s' % (trajY, PartY)][0]
 
-                try:
+                if BinFile_precision is not None:
                     RMSD_mat = NP.fromfile('%s%s' % (MatrixDir,FileName), dtype=BinFile_precision)
                     if TransPose:
                         RMSD_mat = NP.transpose(NP.reshape(RMSD_mat, (LenY,LenX)))
                     else:
                         RMSD_mat = NP.reshape(RMSD_mat, (LenX, LenY))
-                except ValueError:
+                else:
                   #----- TRY TO LOAD NP.NDarray like input, like generated by AmberTools14
                     RMSD_mat = NP.genfromtxt('%s%s' % (MatrixDir,FileName) )
                    #--- if FIRST COL = Indices: strip them (AmberTools14)
@@ -3451,14 +3517,13 @@ v11.07.16
 ###############
 #-------------
 ###############
-
 def Merge_Clustering_different_Thresholds(SingleClustDir, SaveDir, SaveName, ThresholdList, StartFrame, 
                                           EndingFrame, GLOBAL):
     """
-v20.07.16
+v19.09.16
 - function to merge different clustering files with different cluster thresholds but same trajectories 
   and [StartFrame,EndingFrame]
-- beforehand, a clustering <Generate_Clustering()> can be parallelized to compute clusterings with different thresholds
+- beforehand, clusterings <Generate_Clustering()> are calculated for each threshold separately (possibly on multiple machines/cores simultanously)
 - these are stored for simplicity in separate files, to not limit the speed waiting on the slowest cluster threshold
 - aterwards, collect single files to one agglomerated file
 - the program checks, if the clusterings for the single thresholds exist, and strips values which are not present
@@ -3468,58 +3533,66 @@ INPUT:
                                     e.g. 'Clustering/';
     SaveDir        : {STRING}    Directory, where to save the merged clusterings with multiple thresholds, 
                                     e.g. 'Clustering/';
-    SaveName       : {STRING}    SaveName PREFIX, similar to Generate_Clustering()
+    SaveName       : {STRING}    SaveName PREFIX, identical to Generate_Clustering()
                          '%s_R%s_%s-%s_%s.txt' % \
                              (SaveName, Threshold, StartFrame, EndingFrame, 'GLOBAL' / 'LOCAL') leads to
                          '%s_R%s-%s_%s-%s_%s.txt' % \
                              (SaveName, ThresholdList[0], ThresholdList[-1], StartFrame, EndingFrame, 'GLOBAL' / 'LOCAL');
-    ThresholdList  : {FLOAT-INT} List of thresholds, which should be merged, e.g. [0.2, 0.25, 0.3, 0.35, 0.4];
-    StartFrame     : {INT}       <default 0>    starting frame of Trajectories/RMSD matrices,
+    ThresholdList  : {FLOAT-LIST} List of thresholds, which should be merged, e.g. [0.2, 0.25, 0.3, 0.35, 0.4];
+    StartFrame     : {INT}       starting frame of Trajectories/RMSD matrices,
                                     to select different simulation times/lengths together with 'EndingFrame';
-    EndingFrame    : {INT}       <default NP.infty> ending frame of Trajectories/RMSD matrices,
+    EndingFrame    : {INT}       ending frame of Trajectories/RMSD matrices,
                                     to select different simulation times/lengths together with 'StartingFrame';
-    GLOBAL         : {BOOL}      <default True> if True,  a GLOBAL clustering is applied for all concatenated trajectories
-                                                if False, every trajectory is clustered separately;
+    GLOBAL         : {BOOL}      if True,  a GLOBAL clustering was applied for all concatenated trajectories
+                                 if False, every trajectory is clustered separately;
 OUTPUT:
     stores a merged clustering file containing multiple clustering thresholds
     """
-    RadiusList = [elem for elem in RadiusList if os.path.exists('%s%s_R%s_%s-%s_%s.txt' % \
+    temp = ThresholdList
+    ThresholdList = [elem for elem in ThresholdList if os.path.exists('%s%s_R%s_%s-%s_%s.txt' % \
                       (SaveDir, SaveName, elem, StartFrame, EndingFrame, 'GLOBAL' if GLOBAL else 'LOCAL')) and \
                                                  os.path.exists('%s%s_R%s_%s-%s_Centers_%s.txt' % \
                       (SaveDir, SaveName, elem, StartFrame, EndingFrame, 'GLOBAL' if GLOBAL else 'LOCAL'))]
-    if len(RadiusList) <= 1:
-        raise ValueError('Clusterings with the submitted RadiusList do not exist!')
+    if len(ThresholdList) <= 1:
+        raise ValueError('Clusterings with the submitted ThresholdList do not exist! Check, if all following files exist: \n%s\n%s' % \
+           ('\n'.join(['%s%s_R%s_%s-%s_%s.txt' % \
+                      (SaveDir, SaveName, elem, StartFrame, EndingFrame, 'GLOBAL' if GLOBAL else 'LOCAL') for elem in temp]),
+            '\n'.join(['%s%s_R%s_%s-%s_Centers_%s.txt' % \
+                      (SaveDir, SaveName, elem, StartFrame, EndingFrame, 'GLOBAL' if GLOBAL else 'LOCAL') for elem in temp])))
+    del temp
+    #------
     if not os.path.exists('%s%s_R%s-%s_%s-%s_%s.txt' % \
-                          (SaveDir, SaveName, RadiusList[0], RadiusList[-1], 
+                          (SaveDir, SaveName, ThresholdList[0], ThresholdList[-1], 
                            StartFrame, EndingFrame, 'GLOBAL' if GLOBAL else 'LOCAL')) or \
        not os.path.exists('%s%s_R%s-%s_%s-%s_Centers_%s.txt' % \
-                          (SaveDir, SaveName, RadiusList[0], RadiusList[-1], 
+                          (SaveDir, SaveName, ThresholdList[0], ThresholdList[-1], 
                            StartFrame, EndingFrame, 'GLOBAL' if GLOBAL else 'LOCAL')):
       #----- EXTRACT HEADER
         HEADER = ''
         with open('%s%s_R%s_%s-%s_%s.txt' % \
-                      (SaveDir, SaveName, RadiusList[0], StartFrame, EndingFrame, 'GLOBAL' if GLOBAL else 'LOCAL'),
+                      (SaveDir, SaveName, ThresholdList[0], StartFrame, EndingFrame, 'GLOBAL' if GLOBAL else 'LOCAL'),
                   'r') as INPUT:
             for line in INPUT:
                 if line.split()[1] == '*******':
+                    HEADER = HEADER + '# *******\n'
                     break
-                elif line.split()[1] == 'ClusterRadius':
-                    HEADER = HEADER + '# ClusterRadius = {}\n'.format(RadiusList)
+                elif line.split()[1] == 'Threshold':
+                    HEADER = HEADER + '# ThresholdList = {}\n'.format(ThresholdList)
                 else:
                     HEADER = HEADER + line
-        HEADER_Add1 = ''.ljust(18)+'|                   Radius = '+str(RadiusList[0]).ljust(6)+\
+        HEADER_Add1 = ''.ljust(18)+'|                   Radius = '+str(ThresholdList[0]).ljust(6)+\
                               '                      |r='+\
-                                        '|r='.join([str(elem).ljust(4) for elem in RadiusList[1:]])+'\n'+\
-                              'Time[ns] | TrajNr | PROF | effRMSD | nextC | nextRMSD | farthC | farthRMSD'+\
-                              ' | ... '*len(RadiusList[1:])+'\n'
+                                        '|r='.join([str(elem).ljust(4) for elem in ThresholdList[1:]])+'\n'+\
+                              '   Frame | TrajNr | PROF | effRMSD | nextC | nextRMSD | farthC | farthRMSD'+\
+                              ' | ... '*len(ThresholdList[1:])+'\n'
       #----- INIT & STORE CENTERS
         with open('%s%s_R%s-%s_%s-%s_Centers_%s.txt' % \
-                          (SaveDir, SaveName, RadiusList[0], RadiusList[-1], 
+                          (SaveDir, SaveName, ThresholdList[0], ThresholdList[-1], 
                            StartFrame, EndingFrame, 'GLOBAL' if GLOBAL else 'LOCAL'), 'w') as OUTPUT:
             OUTPUT.write(HEADER)
             OUTPUT.write('# TrajNr | Radius | Nr of Clusters | Centers\n')
           #----- 
-            for ClustRadius in RadiusList:
+            for ClustRadius in ThresholdList:
               #------ CLUSTERING  
                 if 'temp' in locals():
                     temp = NP.concatenate( (temp, NP.genfromtxt('%s%s_R%s_%s-%s_%s.txt' % \
@@ -3538,15 +3611,15 @@ OUTPUT:
                             OUTPUT.write(line)
       #----- STORE CLUSTERING
         NP.savetxt('%s%s_R%s-%s_%s-%s_%s.txt' % \
-                          (SaveDir, SaveName, RadiusList[0], RadiusList[-1], 
+                          (SaveDir, SaveName, ThresholdList[0], ThresholdList[-1], 
                            StartFrame, EndingFrame, 'GLOBAL' if GLOBAL else 'LOCAL'), 
-                   temp, fmt='%i %i'+'    %i %.4f  %i %.4f  %i %.4f'*len(RadiusList),
+                   temp, fmt='%i %i'+'    %i %.4f  %i %.4f  %i %.4f'*len(ThresholdList),
                    header=HEADER.replace('# ','')+HEADER_Add1)
     else:
-        print 'The merged Clustering for RadiusList = {} already exist'.format(RadiusList)+\
+        print 'The merged Clustering for ThresholdList = {} already exist'.format(ThresholdList)+\
               '\n\t%s%s_R%s-%s_%s-%s_%s.txt\n\t%s%s_R%s-%s_%s-%s_Centers_%s.txt' % \
-            (SaveDir, SaveName, RadiusList[0], RadiusList[-1], StartFrame, EndingFrame, 'GLOBAL' if GLOBAL else 'LOCAL',
-             SaveDir, SaveName, RadiusList[0], RadiusList[-1], StartFrame, EndingFrame, 'GLOBAL' if GLOBAL else 'LOCAL')
+            (SaveDir, SaveName, ThresholdList[0], ThresholdList[-1], StartFrame, EndingFrame, 'GLOBAL' if GLOBAL else 'LOCAL',
+             SaveDir, SaveName, ThresholdList[0], ThresholdList[-1], StartFrame, EndingFrame, 'GLOBAL' if GLOBAL else 'LOCAL')
 
 ###############
 #-------------
@@ -3554,26 +3627,30 @@ OUTPUT:
 
 def Generate_Centers_GLOBAL_singles(ClusterDIR, GlobalName, ThresholdList, SaveDIR):
     """
-v13.05.16
-- this function generates Centers_GLOBAL_singles.txt containig
+v09.09.16
+- this function generates Centers_GLOBAL_singles.txt containing
     
         TrajNr | Threshold | Nr of Clusters | Centers (1 to NrofClusters)
         
 - splitting the GLOBAL (all trajectories are concatenated) clustering into different trajectories and
-  look which clusters are occupied by which trajectory number detecting also the Size (=Nr of clusters)
+  extracting which clusters are occupied by which trajectory number, assigning a single trajectory clustering from the global partition
+- detecting also the Size (=Nr of clusters)
 - this allows to use a GLOBAL clustering and extract, how many clusters are reached by single trajectories
 
 INPUT:
     ClusterDIR    : {STRING}     Directory, where effective Clustering output is stored, e.g. 'effectiveClustering/';
-    GlobalName    : {STRING}     Clustering Name of GLOBAL effective clustering, where all trajs are concatenated
-                              e.g. 'Cluster_R5_REF_D_S1-S10_R0.2-0.7_GLOBAL.txt';
+    GlobalName    : {STRING}     Clustering Name of GLOBAL effective clustering, which stores the clustering profile, where all trajs are concatenated
+                                      e.g. 'Cluster_R5_REF_D_S1-S10_R0.2-0.7_GLOBAL.txt';
     ThresholdList : {FLOAT-LIST} Clustering ThresholdList [nm], e.g. [0.2, 0.25, 0.3, 0.35, 0.4];
-    SaveDIR       : {STRING}     <default None>, e.g. 'effectiveClustering/';
+    SaveDIR       : {STRING}     <default None>, if None, SaveDIR = ClusterDIR, e.g. 'effectiveClustering/';
 OUTPUT:
     SaveDir+GlobalName.replace('GLOBAL.txt','Centers_GLOBAL_singles.txt') with:
         
         TrajNr | Threshold | Nr of Clusters | Centers
     """
+    if SaveDIR is None:
+        SaveDIR = ClusterDIR
+    #------
     if os.path.exists(ClusterDIR+GlobalName) and not \
        os.path.exists(SaveDIR+GlobalName.replace('GLOBAL.txt','Centers_GLOBAL_singles.txt')):
       ## CHECK, if a GLOBAL clustering is submitted
@@ -3619,10 +3696,9 @@ OUTPUT:
 ###############
 #-------------
 ###############
-
 def Generate_CDE_to_File(ClusterDIR, ClusterFileName, ThresholdList, Case, SaveDIR=None, SaveName=None):
     """
-v13.05.16
+v09.09.16
 - this function stores the cluster distribution entropy (CDE) using the idea of [Sawle & Ghosh JCTC 2016]
 - the following parameters are stored in SaveDIR + SaveName for different ThresholdList
     >> Nr of Cluster vs Time <<
@@ -3630,7 +3706,7 @@ v13.05.16
     >> Entropy vs Time <<
     >> normalized Entropy vs Time <<
 - using the PROF OUTPUT from effective clustering, LOCAL or GLOBAL
-- PROF corresponds to the cluster profile, i.e. reports cluster number as a function of the frames
+- PROF corresponds to the cluster profile, i.e. reports cluster number/centroid as a function of the frames
 - using <Calc_CDE()>
 - <GLOBAL_singles> allows to extract from one unique GLOBAL clustering the corresponding clusters for each contained 
   trajectory
@@ -3640,12 +3716,12 @@ INPUT:
     ClusterFileName : {STRING} Clustering Name of effective clustering, e.g. 'Cluster_R5_REF_D_S1-S10_R0.2-0.7_LOCAL.txt';
     ThresholdList   : {FLOAT-LIST}   Clustering ThresholdList [nm], e.g. [0.2, 0.25, 0.3, 0.35, 0.4];
     Case            : {STRING} 'LOCAL' or 'GLOBAL' or 'GLOBAL_singles', needs to correspond to the submitted ClusterFileName !!
-                        LOCAL          - each trajectory is clustered separately
-                        GLOBAL         - one global clustering for all concatenated trajectories
-                        GLOBAL_singles - each trajectory is taken SEPARATELY, but the clustering was done GLOBAL!
+                        "LOCAL"          - each trajectory is clustered separately ||
+                        "GLOBAL"         - one global clustering for all concatenated trajectories ||
+                        "GLOBAL_singles" - each trajectory is taken SEPARATELY, but the clustering was done GLOBAL! ||
                         for GLOBAL_singles, GLOBAL clustering has to be submitted in the ClusterFileName !!;
-    SaveDIR         : {STRING} <default None>, Directory, where the CDE file is stored e.g. 'CDE/';
-    SaveName        : {STRING} <default None>, savename PREFIX without Ending, 
+    SaveDIR         : {STRING} Directory, where the CDE file is stored e.g. 'CDE/';
+    SaveName        : {STRING} savename PREFIX without Ending, 
                                     e.g. 'CDE_R5_R0.2-0.7' -> 'CDE_R5_R0.2-0.7_%s.txt' % (Case);
 OUTPUT:
     if SaveDIR is not None and SaveName is not None:
@@ -3716,8 +3792,12 @@ OUTPUT:
           ##-------------- 
             t2 = time.time()
           #### SAVE TO FILE
-            HEAD = 'This File stores the CDE (Constancy of Cluster Entropy) using the clustering >>ClosestCenters<<'+\
-                   ' of the given TrajNameList\n'
+            HEAD = 'This File stores the CDE (Cluster Distribution Entropy) using the clustering >>ClosestCenters<<'+\
+                   ' of the given TrajNameList\n'+\
+                   '>> Nr of Cluster vs Time <<\n'+\
+                   '>> normalized Nr of Cluster vs Time <<\n'+\
+                   '>> Entropy vs Time <<\n'+\
+                   '>> normalized Entropy vs Time <<\n'
             with open(ClusterDIR+ClusterFileName, 'r') as INPUT:
                 Index = 0
                 for line in INPUT:
@@ -3736,7 +3816,7 @@ OUTPUT:
           ####
             if SaveDIR is not None and SaveName is not None:
                 NP.savetxt('%s%s_%s.txt' % (SaveDIR,SaveName,Case), CDE_Array, header=HEAD, 
-                           fmt='%.2f %i'+'   %i %.2f %.4f %.4f'*len(ThresholdList))
+                           fmt='%i %i'+'   %i %.2f %.4f %.4f'*len(ThresholdList))
             else:
                 return CDE_Array
         else:
@@ -3817,14 +3897,14 @@ return CDEarray -  NP.ndarray containing 3 columns: SimTime | nr of clusters | C
 def Generate_Slope_Error(EntropyDIR, EntropyName, SaveDIR=None, SaveName=None,
                          SlopeTimeArray=[100,250,500], X_NormFactor=1000):
     """
-v16.08.16
+v09.09.16
 - this function calculates & stores the 
         >> Entropy Slope <<
         >> Entropy Error = standard error of the slope estimate <<
   for the LAST cluster | LARGEST cluster | different SlopeTimeArray
-- using the cluster distribution entropy vs time & cluster vs time
+- using the cluster distribution entropy vs time & nr of clusters vs time
 - storing in SaveDIR + SaveName for different ThresholdList
-- SlopeTimeArray [! len() = 3 !] defines the number of FRAMES which are used for the LINEAR REGRESSION
+- SlopeTimeArray [must contain 3 values] defines the number of FRAMES which are used for the LINEAR REGRESSION
 - automatically extracts the <Clustering Case> and <ThresholdList> from the submitted <EntropyName>-file
 - X_NormFactor defines, how many frames correspond to X-value increase of one, i.e.
     - X_NormFactor=1000 means the X-value increases in 1000 steps by 1
@@ -3836,10 +3916,10 @@ v16.08.16
 INPUT:
     EntropyDIR      : {STRING}   Directory, where the EntropyFile from Generate_CDE_to_File() is located, 
                                     e.g. ClusterProfile/;
-    EntropyName     : {STRING}   "Entropy Name" from Generate_CCE_to_File() 
+    EntropyName     : {STRING}   "Entropy Name" from Generate_CDE_to_File() 
                                     e.g. CDE_R5_cMD+aMD+sMD_REF_D_S1-S10_R0.2-0.7_01_LOCAL.txt;
-    SaveDIR         : {STRING}   <default None>, e.g. 'Amber14Trajs/ClusterProfile/';
-    SaveName        : {STRING}   <default None>, savename PREFIX without Ending, 
+    SaveDIR         : {STRING}   e.g. 'Amber14Trajs/ClusterProfile/';
+    SaveName        : {STRING}   savename PREFIX without Ending, 
                                     e.g. 'Slope_R5_R0.2-0.7' -> 'Slope_R5_R0.2-0.7_%s.txt' % (Case);
     SlopeTimeArray  : {INT-LIST} <default [100,250,500]> in FRAMES, to calculate SLOPES of the last 
                                      100/250/500 FRAMES of the trajectory;
@@ -3934,31 +4014,31 @@ OUTPUT:
             RowIndex += 1 
       ## store SlopeArray to File
         t2=time.time()
-        HEADER = 'this file stores the SLOPE & ERROR (entropy & cluster) for different cases\n'+\
+        HEADER = 'this file stores the SLOPE & standard ERROR (entropy & cluster) for different cases\n'+\
                      '\t(i) clustsize == 1\n'+\
                      '\t(ii) largest cluster plateau\n'+\
                      '\t(iii) last '+str(SlopeTimeArray[0])+' frames\n'+\
                      '\t(iv) last '+str(SlopeTimeArray[1])+' frames\n'+\
                      '\t(v) last '+str(SlopeTimeArray[2])+' frames\n'+\
-                 'elapsed time = '+str(round(t2-t1,2))+'\n'+\
+                 'elapsed time = {} seconds\n'.format(round(t2-t1,2))+\
                  'SlopeTimeArray = {}\n'.format(SlopeTimeArray)
         with open(EntropyDIR+EntropyName, 'r') as Input:
                 for line in Input:
                     Ar = line.split()
-                    if Ar[1] == '(Begin|End)':
+                    if Ar[1] == 'EndingFrame':
                         HEADER = HEADER + line.replace('#','')
                         break
-                    elif Ar[1] != 'This' and Ar[1] != 'elapsed' and Ar[1] != 'ThresholdList':
+                    elif Ar[1] != 'This' and Ar[1] != 'elapsed' and Ar[1] != 'ThresholdList' and Ar[1] != '>>':
                         HEADER = HEADER + line.replace('#','')
         HEADER = HEADER + 'ThresholdList = {}'.format(ThresholdList)+\
     """
        >> ES = Entropy Slope | EE = Entropy Error | CS = Cluster Slope | CE = Cluster Error <<
        >> #Fr= number of frames of last cluster   | #tot = total number of clusters  
         
-         |                                 Threshold = r1                                                            | r2 
-         |      clustsize=1     | largest cluster plateau         | last %sns     | last %sns     | last %sns     | ...
+         |                                 Threshold = r1                                                         | r2 
+         |      clustsize=1     | largest cluster plateau         | last %s last %s last %s ...
   TrajNr | ES | EE | #Fr | #tot | ES | EE | #Frames | cluster [%%] | ES|EE | CS|CE | ES|EE | CS|CE | ES|EE | CS|CE | ...
-    """ % (SlopeTimeArray[0], SlopeTimeArray[1], SlopeTimeArray[2])
+    """ % (('%s' % SlopeTimeArray[0]).ljust(9)+'|', ('%s' % SlopeTimeArray[1]).ljust(9)+'|', ('%s' % SlopeTimeArray[2]).ljust(9)+'|')
         if SaveDIR is not None and SaveName is not None:
             NP.savetxt('%s%s_%s.txt' % (SaveDIR, SaveName, Case), SlopeArray, header=HEADER, 
                    fmt='%i'+('   %.3f %.3f %i %i   %.3f %.3f %i %.2f   %.3f %.3f %.3f %.3f'+\
@@ -3971,12 +4051,142 @@ OUTPUT:
 #######################################################
 #---                PLOTTING
 #######################################################
+#--- ClusterProfile as a function of the simulation time
+#################
+def Plot_ClusterProfile(ClusterDir, ClusterName, TimeStep, Threshold, TrjLenList, Global,
+                        SaveDir=None, SavePDF=None, Names=[], FigSize=[16,8]):
+    """
+v19.09.16
+    - This function plots a clustering profile as a function of the simulation time [ns]
+    - May produce huge plots depending on the number of clusters and number of involved frames, try to play with
+        FigSize to adjust the visibility and figure size
+    - white crosses marks the time corresponding to the cluster center
+    - cluster numbers are ordered in ascending order, when they are visited during the course of the simulation
+    - for a global clustering, multiple trajectories are separated by vertical lines defined by TrjLenList [ns]
+    - frames from the clustering output must be changed to simulation time in [ns] by multiplicating with TimeStep in [ns]
+
+INPUT:
+    ClusterDir  : {STRING}     Directory, where effective Clustering output is stored, e.g. 'effectiveClustering/';
+    ClusterName : {STRING}     Clustering Name of effective clustering containing the profiles, 
+                                    e.g. 'Cluster_R5_REF_D_S1-S10_R0.2-0.7_LOCAL.txt';
+    TimeStep    : {FLOAT}      time-step, which represents one frame-step, e.g. '0.1' [ns] means, 
+                                one frame corresponds to 0.1ns, the frames are multiplied by this value to obtain the time;
+    Threshold   : {FLOAT}      Threshold used for the clustering, MUST MATCH the thresholds in the clusterfile, e.g. '0.15' [nm];
+    TrjLenList  : {FLOAT-LIST} length of the (involved) trajectories in [ns], e.g. [100, 50];
+    Global      : {BOOL}       if True,  it is assumed that the clustering was done globally,
+                               if False, every trajectory is handled separately;
+    SaveDir     : {STRING}     Directory, where the figure is stored e.g. 'Clustering/';
+    SavePDF     : {STRING}     Savename for the PDF, e.g. 'Profile_Clustering+Specifications.pdf';
+    Names       : {LIST}       <default []>      a second y-axis numberes different trajectories, whereas also names for
+                                                 different trajectories can be submitted, e.g. ['traj A', 'traj B'];
+    FigSize     : {INT-LIST}   <default [16,8]>  size of the figure (in inches), try to adjust this array depending on 
+                                                 the number of clusters and frames;
+OUTPUT:
+    profile stored in a PDF file
+    """
+    import matplotlib.pyplot as plt
+    ### INIT ThresholdList       ###
+    with open('%s%s' % (ClusterDir, ClusterName), 'r') as INPUT:
+        for line in INPUT:
+            if len(line.split()) > 1 and line.split()[1] == 'ThresholdList':
+                ThresholdList = [NP.float(elem) for elem in line.split(' = [')[1].replace(']\n','').split(',')]
+                break
+            elif len(line.split()) > 1 and line.split()[1] == 'Threshold':
+                ThresholdList = [NP.float(line.split(' = ')[1])]
+                break
+    ### LOAD CLUSTERING PROFILES ###
+    Array = NP.genfromtxt('%s%s' % (ClusterDir, ClusterName), usecols=(0,1,2+6*ThresholdList.index(Threshold)))
+    Array[:,0] = Array[:,0]*TimeStep
+    ################################
+    
+    COLORS = ['r','b','g','k','m','c']
+    
+  ########  
+    if Global: ## GLOBAL CLUSTERING IS ASSUMED
+        Repeater = 1
+    else:
+        Repeater = len(NP.unique(Array[:,1]))
+        TrajNrList = [int(elem) for elem in NP.unique(Array[:,1])]
+    Index = 0
+    while Repeater > 0:
+        fig = plt.figure(figsize=FigSize)
+      #----  
+        ColInd = 0; Minus = 0
+      #----
+        if Global:
+            ARR = Array
+            plt.xlim([0,NP.sum(TrjLenList)]); 
+        else:
+            TrajNr = TrajNrList.pop(0)
+            ARR = Array[Array[:,1] == TrajNr]
+            Minus = -ARR[0,0]
+            plt.xlim([0,TrjLenList[Index]]); 
+            Index += 1
+            
+        UNIQUE, INDEX, COUNTS = NP.unique(ARR[:,2], return_index=True, return_counts=True)
+        INDEX = [int(elem) for elem in NP.argsort(INDEX)]
+        for Uni in UNIQUE[INDEX]:
+            temp = ARR[ARR[:,2]==Uni]
+            plt.plot(NP.add(temp[:,0],Minus),[ColInd]*len(temp[:,0]), '%s-' % COLORS[ColInd%6])
+            plt.plot(NP.add(temp[:,0],Minus),[ColInd]*len(temp[:,0]), '%ss' % COLORS[ColInd%6])
+            ColInd += 1
+      ### ### ### ###
+        plt.yticks(range(len(NP.unique(ARR[:,2]))), [int(elem) for elem in UNIQUE[INDEX]], fontsize=15);
+        plt.xlabel('simulation time [ns]', fontsize=22); plt.xticks(fontsize=16)
+        plt.ylabel('cluster/frame number', fontsize=22)
+        plt.ylim([-1,len(NP.unique(ARR[:,2]))])
+      ## MARK cluster centers - if GLOBAL is submitted, the TrajNr Array might not contain the correct indices##
+        try:
+            plt.plot(ARR[[int(elem-1) for elem in UNIQUE[INDEX]],0], range(len(NP.unique(ARR[:,2]))), 'wx', mew=1.5)
+        except IndexError:
+            pass
+      ## vertical lines separating trajNr  
+        if Global:
+            LenList = [sum(TrjLenList[:elem]) for elem in range(len(TrjLenList))]
+            for IL in LenList[1:]:
+                plt.axvline(IL, lw=2, ls='-.')
+      ## LEGEND
+        leg = plt.legend(['%s clusters' % len(UNIQUE[INDEX])], handlelength=0, handletextpad=0, markerscale=0, 
+                             loc=2, fontsize=18, framealpha=0.7); 
+        for item in leg.legendHandles:
+            item.set_visible(False)
+      ## second y-axis ##
+        ax2 = plt.twinx(); ax2.set_ylim([-1,len(NP.unique(ARR[:,2]))]); ax2.set_yticks(range(len(NP.unique(ARR[:,2])))) 
+        ax2.set_yticklabels([int(elem) for elem in COUNTS[INDEX]], fontsize=15)
+        ax2.set_ylabel('cluster size', fontsize=22)
+      ## second x-axis ##
+        if Global:
+            NewXticks = [sum(TrjLenList[:elem])+TrjLenList[elem]/2 for elem in range(len(TrjLenList))]
+            ax3 = plt.twiny(); ax3.set_xlim([0,NP.sum(TrjLenList)]); ax3.set_xticks(NewXticks)
+            if len(Names) == 0:
+                ax3.set_xticklabels([int(elem) for elem in NP.unique(Array[:,1])], fontsize=18); 
+                ax3.set_xlabel('TrajNr', fontsize=22);
+            else:
+                ax3.set_xticklabels(Names, fontsize=18)
+        else:
+            NewXticks = [TrjLenList[Index-1]/2]
+            ax3 = plt.twiny(); ax3.set_xlim([0,TrjLenList[Index-1]]); ax3.set_xticks(NewXticks);
+            if len(Names) == 0:
+                ax3.set_xticklabels([TrajNr], fontsize=18); ax3.set_xlabel('TrajNr', fontsize=22)
+            else:
+                ax3.set_xticklabels([Names[Index-1]], fontsize=18)      
+      ## STORING ##
+        if SaveDir is not None and SavePDF is not None:
+            if not Global:
+                plt.savefig('%s%s' % (SaveDir, SavePDF.replace('.pdf', '_Traj%s' % TrajNr).replace('.png', '_Traj%s' % TrajNr)))
+            else:
+                plt.savefig('%s%s' % (SaveDir, SavePDF))
+            plt.close()
+      ##-------##  
+        Repeater -= 1
+
+#######################################################
 #--- SLOPE ERROR | PLATEAUS | Nr of Clusters
 #################
 def Plot_Slope_Error_Plateau_NrClust(SlopeDIR, SlopeName, Threshold, Case, TimeStep, SaveDIR=None, Confidence=0.95, 
                                      YMAX=50, Splitter=None, SupGrid=None, TrajExcept=[], FigText=None):
     """
-v04.08.16
+v16.09.16
     This function plots/analyzes ALL information stored in Slopes.txt of
             >> Generate_Slope_Error() <<
 
@@ -3990,15 +4200,15 @@ INPUT:
                                     plotting SLOPES (entropy/NrClust) OR Length of LAST cluster OR Nr of Clusters;
     TimeStep        : {FLOAT}     defines the step, 1 frame refers to TimeStep [ns] of the trajectory, 
                                     e.g. TimeStep = 0.01 means, 1 Frame = 10ps;
-    SaveDIR         : {STRING}    <default None>, Save directory, e.g. 'ClusterProfile/';
+    SaveDIR         : {STRING}    Save directory, e.g. 'ClusterProfile/';
     Confidence      : {FLOAT}     <default 0.95>, defines the confidence interval of the slopes of the linear regression;
     YMAX            : {INT}       <default 50>  , ylim([-1,YMAX]) for Case != 'Entropy';
     Splitter        : {LIST}      <default None>, defines, how many lines of SlopeName are plotted in one subplot, 
                     e.g. [(0,10), (10,20)], plotting line 0-10 | 10-20 in two subplots, extract different trajectories;
-    SupGrid         : {TUPEL}     <default None>, defines the subplotgrid, (#Rows, #Cols) = SupGrid
+    SupGrid         : {INT-LIST}  <default None>, defines the subplotgrid, (#Rows, #Cols) = SupGrid
                                     e.g. (2,3) for 2 rows and 3 cols, ! len(Splitter) == SupGrid[0]*SupGrid[1] !;
     TrajExcept      : {INT-LIST}  <default []> defines the TrajNr's which are NOT used from the SlopeName, 
-                                    e.g. [1] means the entry with TrajNr = 1 is not consiedered;
+                                    e.g. [1] means the entry with TrajNr = 1 is not considered;
     FigText         : {LIST}      <default None> the inside figtext of the subplots, None = a) b) c) ... 
                                     ! len(FigText) == number of subplots !;
 OUTPUT:
@@ -4019,6 +4229,7 @@ only stored if SaveDIR/SaveName is not None else:
     
     ### X-array USE 1/1000 to normalize ~1000 frames & ~1 entropy
     """
+    import matplotlib.pyplot as plt
     C = ['m','c','r','g','b']
   ### load total number of clusters
     if os.path.exists(SlopeDIR+SlopeName) and \
@@ -4077,7 +4288,11 @@ only stored if SaveDIR/SaveName is not None else:
                 K,L = Splitter[Index] #[Splitter[Index], Splitter[Index+1]]
               #### subplot GRID & MARGINS  
                 AX = plt.subplot2grid( SupGrid, (Index/SupGrid[1], Index%SupGrid[1]) )
-                plt.subplots_adjust(wspace=0.01, hspace=0.4, left=0.045, right=0.99, bottom=0.10, top=0.86)
+                if len(SlopeArray[:,0]) > 5:
+                    plt.subplots_adjust(wspace=0.01, hspace=0.4, left=0.085, right=0.99, bottom=0.10, top=0.86)
+                else:
+                    plt.subplots_adjust(wspace=0.01, hspace=0.4, left=0.265, right=0.89, bottom=0.16, top=0.69)
+
          #---------- SLOPES
                 if Case == 'Entropy' or Case == 'Cluster':
                     for Cols in range(len(SlopeArray[0,2::2])):
@@ -4126,16 +4341,16 @@ only stored if SaveDIR/SaveName is not None else:
                     if 17/30.*NP.unique(Splitter)[SupGrid[1]] > 4.1: NCOL = 10
                     else: NCOL = 2
                     if Case == 'Plateau':
-                        plt.legend(['last cluster', 'largest cluster'], fontsize=16.5, 
-                               loc=3, bbox_to_anchor=(0.0, 1.25, 2., 0.092), ncol=NCOL, borderaxespad=0., numpoints=1)
+                        plt.legend(['last cluster', 'largest cluster'], fontsize=15.5, 
+                               loc=3, bbox_to_anchor=(-0.45, 1.25, 2., 0.092), ncol=NCOL, borderaxespad=0., numpoints=1)
                     elif Case == 'Entropy':
                         plt.legend(['last %sns' % (SlopeTimeArray[0]*TimeStep), 'last %sns' % (SlopeTimeArray[1]*TimeStep), 
-                                    'last %sns' % (SlopeTimeArray[2]*TimeStep), 'last cluster'], fontsize=16.5, 
-                               loc=3, bbox_to_anchor=(0.0, 1.25, 2., 0.092), ncol=NCOL, borderaxespad=0., numpoints=1)
+                                    'last %sns' % (SlopeTimeArray[2]*TimeStep), 'last cluster'], fontsize=15.5, 
+                               loc=3, bbox_to_anchor=(-0.45, 1.25, 2., 0.092), ncol=NCOL, borderaxespad=0., numpoints=1)
                     elif Case == 'Cluster':
                         plt.legend(['last %sns' % (SlopeTimeArray[0]*TimeStep), 'last %sns' % (SlopeTimeArray[1]*TimeStep), 
-                                    'last %sns' % (SlopeTimeArray[2]*TimeStep)], fontsize=16.5, 
-                               loc=3, bbox_to_anchor=(0.0, 1.25, 2., 0.092), ncol=NCOL, borderaxespad=0., numpoints=1)
+                                    'last %sns' % (SlopeTimeArray[2]*TimeStep)], fontsize=15.5, 
+                               loc=3, bbox_to_anchor=(-0.45, 1.25, 2., 0.092), ncol=NCOL, borderaxespad=0., numpoints=1)
               #### grid of vertical lines AND 0 horizontally
                 for Kai in NP.arange(0,len(SlopeArray[K:L,0])-1,1)+0.5:
                     plt.axvline(Kai, ls='--', lw=2, color='grey')
@@ -4187,7 +4402,7 @@ def Plot_Overlap_VS_Threshold(OverlapDir, OverlapList1, OverlapList2=None, XLIM1
                               MolName1='', MolName2='', LegendList=[None],
                               SaveDir=None, SaveName=None):
     """
-v29.06.16
+v08.09.16
 This function generates the plots "Overlap vs Threshold r" for conf/dens + the corresponding integral.
 - possibility to submit multiple OverlapMatrices to plot for instance multiple groups together
 - possibility to submit a second OverlapMatrix to compare a second molecule with its own x-axis
@@ -4196,23 +4411,24 @@ This function generates the plots "Overlap vs Threshold r" for conf/dens + the c
 - XLIM1 & XLIM2 are used also for the integral limits
 INPUT:
     OverlapDir   : {STRING}      Directory, where the Overlap is located, e.g. 'Overlap/';
-    OverlapList  : {STRING-LIST} List of Overlap filenames containing different cases, e.g. Pairs, different Groups,
+    OverlapList  : {LIST}        List of Overlap filenames containing different cases, e.g. Pairs, different Groups,
                                     which are then plotted separately in one plot
                                     e.g. ['Overlap_ALLvsALL.txt' 'Overlap_AvsB.txt'];
-    OverlapList2 : {STRING-LIST} <default None>         second List, with same properties as OverlapList2,
+    OverlapList2 : {LIST}        <default None>         second List, with same properties as OverlapList2,
                                                             e.g. a second molecule to compare;
-    XLIM1        : {FLOAT-LIST}  <default [None,None]>, x-limits for the first OverlapList, plt.xlim(XLIM1)
+    XLIM1        : {FLOAT-LIST}  <default [None,None]>, x-limits for the first OverlapList, plt.xlim(XLIM1);
     XLIM2        : {FLOAT-LIST}  <default [None,None]>, x-limits2 for the second axis of the 2nd OverlapList2;
-    MolName1     : {STRING}      <default "">           name to specify the first OverlapList1, e.g. 'Molecule1';
-    MolName2     : {STRING}      <default "">           name to specify the 2nd   OverlapList2, e.g. 'Molecule2';
-    LegendList   : {STRING-LIST} <default [None]>       Legend for the single elements of the OverlapList1, 
+    MolName1     : {STRING}      <default ''>           name to specify the first OverlapList1, e.g. 'Molecule1';
+    MolName2     : {STRING}      <default ''>           name to specify the 2nd   OverlapList2, e.g. 'Molecule2';
+    LegendList   : {LIST}        <default [None]>       Legend for the single elements of the OverlapList1, 
                                                             e.g. ['ALL','AvsB'];
-    SaveDir      : {STRING}      <default None>         saving directory for the PDF, e.g. 'PDFs/';
-    SaveName     : {STRING}      <default None>         savename, e.g. 'OverlaPvsThreshold.pdf';
+    SaveDir      : {STRING}                             saving directory for the PDF, e.g. 'PDFs/';
+    SaveName     : {STRING}                             savename, e.g. 'OverlaPvsThreshold.pdf';
 OUTPUT:
     if SaveDir&SaveName is not None:
         the OverlaPvsThreshold.pdf is stored
     """
+    import matplotlib.pyplot as plt
     if SaveDir is not None and SaveName is not None and os.path.exists(SaveDir+SaveName):
         print 'Figure already exists\n%s%s' % (SaveDir, SaveName)
         return
@@ -4312,13 +4528,13 @@ OUTPUT:
 
 def Helper_Generate_OvR(OverlapDir, OverlapList):
     """
-v29.06.16
+v08.09.16
     - supporting function to generate 'Overlap vs Threshold'
     - Threshold | densO1 | confO1 | densO2 | confO2 | ... for each element in OverlapList one densOx | confOx pair
     - generates/uses AllPrject values, where all overlap values are projected onto every frame/trajectory
 INPUT:
     OverlapDir   : {STRING}      Directory, where the Overlap is located, e.g. 'Overlap/';
-    OverlapList  : {STRING-LIST} List of Overlap filenames containing different cases, e.g. Pairs, different Groups, ...;
+    OverlapList  : {LIST}        List of Overlap filenames containing different cases, e.g. Pairs, different Groups, ...;
 OUTPUT:
     return OvR - {NP.NDARRAY} containing for each group
             Threshold | densO1 | confO1 | densO2 | confO2 | ...
@@ -4351,9 +4567,9 @@ OUTPUT:
                 OvR_Row += 1
         else:                    # False <=> AllPrject = True
             #tempOvR[:,0] = tempO[:,0]
-            tempOvR[:,range(1,len(tempOvR[0,:])+1,2)] = tempO[:,range(2,len(tempO[0,:])+1,3)]
-            for Koi in range(1,len(tempOvR[0,:])+1,2):
-                tempOvR[:, Koi+1] = NP.divide(tempO[:,3+3*(Koi-1)/2], tempO[:,4+3*(Koi-1)/2])
+            tempOvR[:,range(0,len(tempOvR[0,:]),2)] = tempO[:,range(2,len(tempO[0,:]),3)]
+            for Koi in range(1,len(tempOvR[0,:]),2):
+                tempOvR[:, Koi] = NP.divide(tempO[:,3+3*(Koi-1)/2], tempO[:,4+3*(Koi-1)/2])
     #----- Store everything in ONE MATRIX
         try:
             OvR = NP.concatenate( (OvR, tempOvR), axis=1 )
@@ -4398,7 +4614,6 @@ OUTPUT:
                 Iupper = RRR+1
    #----- Maximal Area approx: Rmax*1 - Rmin*1
     FULL = Overlap[Iupper-1,0]-Overlap[Ilower,0] # Rmax-Rmin
-    #print 'Integral: [%s, %s]' % (Overlap[Ilower,0], Overlap[Iupper-1,0])
    #----- Calculate Integral
     densIS1 = round(simps(y=Overlap[Ilower:Iupper,1], x=Overlap[Ilower:Iupper,0])/FULL,4)
     densIT1 = round(trapz(y=Overlap[Ilower:Iupper,1], x=Overlap[Ilower:Iupper,0])/FULL,4)
@@ -4411,10 +4626,10 @@ OUTPUT:
 #######################################################
 #--- HEATMAP
 #################
-def Plot_HeatMap_1vs1(OverlapDir, FileName, Threshold, ClusterDir=None, ClusterFileName=None, AllPrject=False, 
+def Plot_HeatMap_1vs1(OverlapDir, FileName, Threshold, ClusterDir=None, ClusterFileName=None, AllPrject=True, 
                       TrajExcept=[], Title='', Grid=[], CaseTitles=[], SaveDir=None, SaveName=None):
     """
-v29.06.16   
+v16.09.16   
 This function plots the heatmap of trajectory X vs trajectory Y (whereas GroupX vs GroupY should also work).
 - possibility to use AllPrject EITHER projection on both groups, OR lower triangular projection on X and upper on Y
 - Grid & CaseTitles give the possibility to split the Heatmap into different regions, where Grid gives the split coords
@@ -4425,21 +4640,22 @@ INPUT:
     Threshold       : {FLOAT}       Threshold used for the overlap calculation, for which the heatmap is generated,
                                         e.g. 0.2, has to match the ThresholdList of the Overlap file;
     ClusterDir      : {STRING}      <default None>  Directory, where the clustering files are located, e.g. 'Clustering/';
-    ClusterFileName : {STRING}      <default None>  Clustering file, e.g. 'Cluster_LOCAL.txt';
-    AllPrject       : {BOOL}        <default False> True - Heatmap is  symmetric = overlap is projected on both groups X & Y;
+    ClusterFileName : {STRING}      <default None>  Clustering file containing the centers, e.g. 'Cluster_Centers_LOCAL.txt';
+    AllPrject       : {BOOL}        <default True> True - Heatmap is  symmetric = overlap is projected on both groups X & Y,
                                                     False- Heatmap is asymmetric = lower triangular projection on X, upper on Y;
     TrajExcept      : {INT-LIST}    <default []>    possibility to EXCLUDE manually trajectories by deleting the 
                                                     Rows and Columns (starting from 1 to N) and similar the Clustering,
                                             e.g. TrajExcept=[1,2] delete the first 2 trajectories;
-    Title           : {STRING}      <default "">    possibility to adjust the title of the plot, e.g. 'Molecule, r=0.11nm';
+    Title           : {STRING}      <default ''>    possibility to adjust the title of the plot, e.g. 'Molecule, r=0.11nm';
     Grid            : {INT-LIST}    <default []>    prints solid lines at Grid for ordering, 
                                             e.g. [5, 10, 15, 20] to sort 25 trajectories equally;
-    CaseTitles      : {STRING-LIST} <default []>    name the different trajectory groups defined by Grid,
+    CaseTitles      : {LIST}        <default []>    name the different trajectory groups defined by Grid,
                                             e.g. ['Grp1', 'Grp2', 'Grp3', 'Grp4', 'Grp5'], len(Grid)+1 == len(CaseTitles);
-    SaveDir         : {STRING}      <default None>  Directory, where the PDF is stored, e.g. 'HeatMaps/';
-    SaveName        : {STRING}      <default None>  save name, e.g. 'Molecule_HeatMap_Specifications.pdf';
+    SaveDir         : {STRING}      Directory, where the PDF is stored, e.g. 'HeatMaps/';
+    SaveName        : {STRING}      save name, e.g. 'Molecule_HeatMap_Specifications.pdf';
 OUTPUT:
     """
+    import matplotlib.pyplot as plt
     if SaveDir is not None and SaveName is not None and os.path.exists(SaveDir+SaveName):
         print 'Figure already exists\n%s%s' % (SaveDir, SaveName)
         return
@@ -4470,6 +4686,8 @@ OUTPUT:
         if Grid != []:
             plt.yticks([elem-Grid[0] for elem in Grid+[len(Array[:,0])]],
                        [elem-Grid[0]+1 for elem in Grid+[len(Array[:,0])]],fontsize=18);
+        elif len(Array[:,0]) <= 5:
+            plt.yticks(range(0,len(Array[:,0]),1), range(1,len(Array[:,0])+1,1), fontsize=18)
         else:
             plt.yticks(range(0,len(Array[:,0]),5), range(1,len(Array[:,0]),5), fontsize=18)
         plt.xticks(fontsize=0); plt.ylabel('TrajNr     (%s)' % ['conformational', 'density'][Relative], fontsize=22)
@@ -4484,14 +4702,20 @@ OUTPUT:
             if Grid != []:
                 plt.xticks([elem-Grid[0] for elem in Grid+[len(Array[:,0])]],
                            [elem-Grid[0]+1 for elem in Grid+[len(Array[:,0])]],fontsize=18);
+            elif len(Array[:,0]) <= 5:
+                plt.xticks(range(0,len(Array[:,0]),1), range(1,len(Array[:,0])+1,1), fontsize=18)
             else:
                 plt.xticks(range(0,len(Array[:,0]),5), range(1,len(Array[:,0]),5), fontsize=18)
       ## SECOND X-Axis  
         if Relative == 0 and CaseTitles != [] and Grid != []:
             ax3 = plt.twiny(); ax3.set_xlim([1,len(Array[:,0])+1]); 
-            ax3.set_xticks([1+(Grid[elem] if elem >= 0 else 0) + \
-                             ((Grid[elem+1] if elem+1 < len(Grid) else len(Array[:,0])) - \
-                              (Grid[elem] if elem >= 0 else 0))/2 for elem in range(-1,len(Grid))])
+            if len(Array[:,0]) <= 5:
+                ax3.set_xticks([elem+0.5 for elem in range(1,len(Array[:,0])+1,1)])
+                pass
+            else:
+                ax3.set_xticks([1+(Grid[elem] if elem >= 0 else 0) + \
+                                 ((Grid[elem+1] if elem+1 < len(Grid) else len(Array[:,0])) - \
+                                  (Grid[elem] if elem >= 0 else 0))/2 for elem in range(-1,len(Grid))])
             ax3.set_xticklabels(CaseTitles, fontsize=20, color='b')
       ## COLORBAR
         if Relative == 0:
@@ -4511,10 +4735,12 @@ OUTPUT:
             Indo += 1
         plt.yticks(fontsize=18); plt.grid(axis='y',ls='--',color='lightgrey')
         plt.ylabel('# clusters',fontsize=20); AX2=plt.locator_params(nbins=4);
-        if Grid != []:
+        if len(Array[:,0]) <= 5:
+            plt.xticks(range(1,len(Array[:,0])+1,1), fontsize=18)
+        elif Grid != []:
             plt.xticks([len(NrClusters)/6*Kai+1 for Kai in range(6)], fontsize=18); plt.xlabel('TrajNr', fontsize=20);
         else:
-            plt.xticks(range(1,len(Array[:,0]),5), fontsize=18)
+            plt.xticks(range(1,len(Array[:,0])+1,5), fontsize=18)
   ##########------- SAVE PDF ---------##########
     if SaveDir is not None and SaveName is not None:
         #### #### ####
@@ -4566,7 +4792,7 @@ OUTPUT:
         raise ValueError('There are more than two GroupNrs. Check your input!')
     if not AllPrject and not NP.all(1+GroupNrs):
         raise ValueError('You are trying to generate HeatMap 1vs1 for SINGLE-GroupNrs with AllPrject=True\n'+\
-                         'This is not working, GroupNrs have to be [1,2], check your input!')
+                         'This is not working, GroupNrs have to be [1,2], check your input! AllPrject could be set to \'True\'')
               
 #### #### ####
 # AllPrject = True
@@ -4680,7 +4906,7 @@ OUTPUT:
 def Plot_HeatMap_as_Dendro(OverlapDir, FileName, Threshold, Case='density', TrajExcept=[],
                            Labels=None, Colors=None, SaveDir=None, SaveName=None):
     """
-v29.06.16
+v09.09.16
 This function transforms the Heatmap_1vs1 to a hierarchically clustered dendrogram using average linkage.
 - Colors is a dictionary, which has to fit the LabelNames, e.g.
     Colors = {'Label1':'g'} <-> Labels = ['Label1 1', 'Label1 2', 'Label1 3', 'Label1 4']
@@ -4693,18 +4919,19 @@ INPUT:
     TrajExcept : {INT-LIST}    <default []>       possibility to EXCLUDE manually trajectories by deleting the 
                                                   Rows and Columns (starting from 1 to N) of the HeatMap
                                                     e.g. TrajExcept=[1,2] delete the first 2 trajectories;
+    Labels     : {LIST}        <default None>     Label names for the Leaves, thus 
+                                                    len(Labels) == total amount of leaves == total number of trajectories,
+                                    IF COLOR IS NOT NONE, label PREFIX has to correspond to Colors, 
+                                            e.g. Labels = ['Label1 1', 'Label1 2', 'Label1 3', 'Label1 4'];
     Colors     : {DICT}        <default None>     color specific label prefix, whereas 
                                                     len(Labels) == total amount of leaves == total number of trajectories,
                                     e.g. for 4 Trajectories, all leaves colored green - 
                                       Colors = {'Label1':'g'} <-> Labels = ['Label1 1', 'Label1 2', 'Label1 3', 'Label1 4'];
-    Labels     : {STRING-LIST} <default None>     Label names for the Leaves, thus 
-                                                    len(Labels) == total amount of leaves == total number of trajectories,
-                                    IF COLOR IS NOT NONE, label PREFIX has to correspond to Colors, 
-                                            e.g. Labels = ['Label1 1', 'Label1 2', 'Label1 3', 'Label1 4'];
-    SaveDir    : {STRING}      <default None>  Directory, where the PDF is stored, e.g. 'DendroGrams/';
-    SaveName   : {STRING}      <default None>  save name, e.g. 'Molecule_Dendrogram_Specifications.pdf';
+    SaveDir    : {STRING}                      Directory, where the PDF is stored, e.g. 'DendroGrams/';
+    SaveName   : {STRING}                      save name, e.g. 'Molecule_Dendrogram_Specifications.pdf';
 OUTPUT:
     """
+    import matplotlib.pyplot as plt
     if SaveDir is not None and SaveName is not None and os.path.exists(SaveDir+SaveName):
         return
     #---- DENDROGRAM
@@ -4768,18 +4995,19 @@ INPUT:
                                  e.g. ['Overlap_ALLvsALL_Start-End.txt' 'Overlap_AvsB_Start-End.txt'];
     Threshold    : {FLOAT}       Threshold used for the overlap calculation, for which the 'Overlap VS Time' is plotted,
                                         e.g. 0.2, has to match the ThresholdList of the Overlap file;
-    SimTimeList  : {TUPEL-LIST}   (StartFrame,EndingFrame) tuples of the calculated simulation times, 
+    SimTimeList  : {TUPLE-LIST}   (StartFrame,EndingFrame) tuples of the calculated simulation times, 
                                         e.g. [(0,100), (0,250), (0,500), (0,750), (0,1000), (0,1500), (0,2000)];
     TimeStep     : {FLOAT}       defines the step, 1 frame refers to TimeStep [ns], e.g. TimeStep = 0.01 means, 1 Frame = 10ps;
-    LegendList   : {STRING-LIST}  <default []>  legend for the multiple overlap files in OverlapList, e.g. ['ALL', 'AvsB'];
-    Title        : {STRING}       <default "">  title specification of the plots, e.g. 'MoleculeName';
-    LegendNcols  : {INT}          <default 1>   number of columns in the displayed Legend, to fit into the plot;
-    SaveDir      : {STRING}      <default None> saving directory for the PDF, e.g. 'PDFs/';
-    SaveName     : {STRING}      <default None> savename, e.g. 'OverlaPvsThreshold.pdf';
+    LegendList   : {LIST}        <default []>  legend for the multiple overlap files in OverlapList, e.g. ['ALL', 'AvsB'];
+    Title        : {STRING}      <default ''>  title specification of the plots, e.g. 'MoleculeName';
+    LegendNcols  : {INT}         <default 1>   number of columns in the displayed Legend, to fit into the plot;
+    SaveDir      : {STRING}      saving directory for the PDF, e.g. 'PDFs/';
+    SaveName     : {STRING}      savename, e.g. 'OverlaPvsThreshold.pdf';
     logX         : {BOOL}        <default False> if True, the X axis is logarithmic, else not
 OUTPUT:
     stores the OverlapVStime.pdf
     """
+    import matplotlib.pyplot as plt
     if SaveDir is not None and SaveName is not None and os.path.exists(SaveDir+SaveName):
         return
     Color = ['bs', 'ks', 'rs', 'gs', 'k<', 'r<', 'g<', 'k>', 'r>', 'g>', 
@@ -4838,7 +5066,7 @@ INPUT:
                                  e.g. ['Overlap_ALLvsALL_Start-End.txt' 'Overlap_AvsB_Start-End.txt'];
     Threshold    : {FLOAT}       Threshold used for the overlap calculation, for which the 'Overlap VS Time' is plotted,
                                         e.g. 0.2, has to match the ThresholdList of the Overlap file;
-    SimTimeList  : {TUPEL-LIST}   (StartFrame,EndingFrame) tuples of the calculated simulation times, 
+    SimTimeList  : {TUPLE-LIST}   (StartFrame,EndingFrame) tuples of the calculated simulation times, 
                                         e.g. [(0,100), (0,250), (0,500), (0,750), (0,1000), (0,1500), (0,2000)];
     TimeStep     : {FLOAT}       defines the step, 1 frame refers to TimeStep [ns], e.g. TimeStep = 0.01 means, 1 Frame = 10ps;
 OUTPUT:
@@ -4877,4 +5105,166 @@ OUTPUT:
         #-----
             OvT_Col += 2*len(tempO[0,2:])/3
         OvT_Row += 1
+
     return OvT
+
+#######################################################
+#--- MAIN()
+#################
+
+def cmdlineparse():
+    Parser = ArgumentParser(description="arguments")
+    Parser.add_argument("-module", dest="module", required=True, help="module name", metavar="<module>")
+    Parser.add_argument("-in", dest="input", required=True, help="module name or config file", metavar="<in>")
+    Parser.add_argument("-out", dest="output", required=False, help="output name for config file", metavar="<out>")
+    args=Parser.parse_args()
+    return args
+
+##### ##### #####
+
+def GenerateIn(Module, FileName):
+    """
+v12.09.16
+This function generates the config-files for all modules with possible examples, default values and explanations.
+
+INPUT:
+    Module    : {STRING} Name of the module, e.g. <Generate_EventCurve>
+    FileName  : {STRING} save name of the config-file + possilbe directory, e.g. <Dir/EventCurves.in>
+OUTPUT:
+    """
+    ## CHECK, if FileName contains a directory, which does not exist. Then, generate it:
+    for Kai in range(1,len((FileName).split('/'))):
+        if not os.path.exists('/'.join((FileName).split('/')[:Kai])):
+            os.mkdir('/'.join((FileName).split('/')[:Kai]))
+    #---------
+    MODULE = getattr(sys.modules[__name__], "%s" % Module)
+    DocString = MODULE.func_doc.split('INPUT:')[1].split('OUTPUT:')[0].replace('\n','')
+    #------------------------------------------------------
+    LJUST = 31
+    TransformDict = {'LIST': '"Name1 Name2 Name3 Name4"',
+                     'INT-LIST': '"2 4 65 12 4 22"',
+                     'STRING': '(non-directory) "TEXT" | (directory) "TEXT/"',
+                     'FLOAT-LIST': '"0.1 0.2 0.3 0.4"',
+                     'INT': '"502"',
+                     'FLOAT': '"203.12"',
+                     'TYPE': '"float32" or "float64"',
+                     'STRING/LIST': '(STRING) "Name" | (LIST) "Name1 Name2 Name3"',
+                     'LIST,TUPLE,LIST': '"[([1],[3]), ([1,2],[3,4]), ([1,2],[3])]"',
+                     'FLOAT/INT': '(FLOAT) "0.1" | (INT) "3"',
+                     'BOOL': '"False" or "True"',
+                     'DICT': '{(Key1,Value1), (Key2,Value2)}',
+                     'TUPLE-LIST': '"[(0,100), (0,500), (0,1000)]"'
+                    }
+    #------------------------------------------------------
+    InfoText = """
+    # Config-File for the module <%s()>. Ensure, that every parameter is set with the certain format
+    # given as an example (WITHIN ""). All optional parameters are initialized with their default parameters.
+    """ % (Module)
+    #------------------------------------------------------
+    with open(FileName, 'w') as OUTPUT:
+        OUTPUT.write('#### #### ####%s#### #### ####\n' % InfoText)
+        OUTPUT.write('##  ##  ##  ##  ##\n### DESCRIPTION: ###\n# %s\n##  ##  ##  ##  ##\n' % \
+                     MODULE.func_doc.split('INPUT:')[0].replace('\n','\n# '))
+        for KuH in DocString.split(';')[0:-1]:
+            OUTPUT.write('#-------------------------------------------\n')
+            OUTPUT.write('# %s\n' % (' '.join(KuH.split('}')[1].split())))
+            Param = KuH.split(':')[0].replace(' ','')
+            Type  = KuH.split('{')[1].split('}')[0]
+            DEFAULT = '' if KuH.find('<default') == -1 else KuH.split('<default ')[1].split('>')[0]
+            
+            OUTPUT.write(('%s = "%s"' % \
+                 (Param, DEFAULT)).ljust(LJUST)+\
+                         (' # <%s> format example: %s\n' % (Type, TransformDict[Type])))
+
+##### ##### #####
+
+def ReadConfigFile(FileName):
+    """
+v09.09.16
+    FileName  : {STRING} save name of the config-file + possilbe directory, e.g. <Dir/EventCurves.in>
+    """
+    INPUT = []
+    
+    with open(FileName, 'r') as FILE:
+        for line in FILE:
+            if line.split()[0][0] != '#':
+                String = line.split('"')[1]
+                Type   = line.split('<')[1].split('>')[0]
+               #---- ERROR DETECTION
+                if line.split('#')[0].find('"') == -1:
+                    raise ValueError('The variables must be enclosed by quotes "", check the config file!\n%s:\n\t%s =' % \
+                                     (FileName, line.split()[0]))
+                elif Helper_TransformConfigFile(String, Type) == 'ERROR':
+                    raise ValueError('Not all variables are assigned, check the config file!\n%s:\n\t%s = %s' % \
+                                     (FileName, line.split()[0], String))
+               #--------------------
+                INPUT.append(Helper_TransformConfigFile(String, Type))
+    return INPUT   
+
+##### ##### #####
+
+def Helper_TransformConfigFile(String, Type):
+    """
+v07.09.16    
+    """
+    if String == "":
+        return 'ERROR'
+    elif String == "None":
+        return None
+    elif String == '[None]':
+        return [None]
+    elif String == 'NP.infty':
+        return NP.infty
+    elif String == '[]':
+        return []
+    elif String == '\'\'':
+        return ''
+  #---------------  
+    elif Type == 'LIST':
+        return String.split()
+    elif Type == 'INT-LIST':
+        try:
+            return [int(elem) for elem in String.split()]
+        except ValueError:
+            return ast.literal_eval(String)
+    elif Type == 'FLOAT-LIST':
+        try:
+            return [float(elem) for elem in String.split()]
+        except ValueError:
+            return ast.literal_eval(String)
+    elif Type == 'STRING/LIST':
+        temp = String.split()
+        if len(temp) == 1:
+            return temp[0]
+        else:
+            return temp
+    elif Type == 'BOOL':
+        return String == 'True'
+  #---------------
+    elif Type == 'LIST,TUPLE,LIST' or Type == 'INT' or Type == 'FLOAT' or \
+         Type == 'FLOAT/INT' or Type == 'DICT' or Type == 'TUPLE-LIST':
+        return ast.literal_eval(String)
+  #---------------
+    else:
+        return String
+
+##### ##### #####
+
+## v09.09.16
+if __name__ == '__main__':
+    if len(sys.argv) < 2:
+        print """
+usage example:
+    python PySamplingQuality.py -module GenerateIn           -in Generate_EventCurves -out EventData.in
+    python PySamplingQuality.py -module Generate_EventCurves -in EventData.in
+              """
+    else:
+        Args = cmdlineparse()
+        Function = getattr(sys.modules[__name__], Args.module)
+        if Args.module == 'GenerateIn':
+            Function(Args.input, Args.output)
+        else:
+            INPUT = ReadConfigFile(Args.input)
+            if ['Generate_EventCurves', 'determineR_using_RMSD_distributions', 'Generate_Clustering'].count(Args.module) == 1:
+                INPUT.append('')
+            Function(*INPUT)
