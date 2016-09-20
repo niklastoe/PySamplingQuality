@@ -1,12 +1,12 @@
 #### #### ####
-    # Config-File for the module <Generate_RMSDmatrices()>. Ensure, that every parameter is set with the certain format
+    # Config-File for the module <Generate_RMSD_Matrices()>. Ensure, that every parameter is set with the certain format
     # given as an example (WITHIN ""). All optional parameters are initialized with their default parameters.
     #### #### ####
 ##  ##  ##  ##  ##
 ### DESCRIPTION: ###
 #  
-# v12.09.16 
-#     - using <Generate_RMSDmatrix()>
+# v19.09.16 
+#     - using <Generate_RMSD_Matrix()>
 #     - Calculates every RMSD diagonal & off-diagonal matrix part for <Generate_EventCurves()>
 #     - RMSD matrix generation for given Trajectory-List using Gromacs v4.6.7|5.1.2 or AmberTools14
 #     - Trajectories should already be preprocessed, making the protein whole, strip e.g. unnecessary residues, etc.
