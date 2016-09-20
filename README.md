@@ -9,7 +9,7 @@ Checked version is released (v19.09.16) with the following modules:
 
 1. Overlap calculation
 
-        Generate_RMSDmatrices()
+        Generate_RMSD_Matrices()
         determineR_using_RMSD_distributions()
         Generate_EventCurves()
         Calc_Overlap()
