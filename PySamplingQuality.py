@@ -43,7 +43,7 @@ from scipy.stats import t as TPPF
 def Calc_Overlap(EventDir, EventNames, SaveDir, SaveName, CompareList, 
                  WeightDir=None, aMD_Nrs=[], sMD_Nrs=[], SameTraj=None, AllPrject=True):
     """ 
-v13.09.16
+v26.09.16
 - calculates <conformational overlap> and <density overlap> : Overlap between different trajectories/groups 
   for different Threshold and reference Trajectories
 - CompareList has to match the TrajNr in the EventCurves: the overlap is than calculated between the sets of trajectory numbers defined in CompareList
@@ -95,17 +95,29 @@ OUTPUT:
 #### #### #### #### ####    
     #-- set complete SaveName for SameTraj != True 
     if not SameTraj:
-        ReweightList = ['noWeight', 'sMD', 'MF', 'McL', 'Exp', 'MF+sMD', 'McL+sMD', 'Exp+sMD']
+        ReweightList = ['_noWeight', '_MF+sMD', '_McL+sMD', '_Exp+sMD', '_sMD', '_MF', '_McL', '_Exp']
         if type(EventNames) == list:
-            reweight    = [elem for elem in ReweightList if EventNames[0].find(elem) != -1][0]
-            EndingFrame = int(EventNames[0].split('_%s' % reweight)[0].split('-')[-1])
-            StartFrame  = int(EventNames[0].split('_%s' % reweight)[0].split('-')[-2].split('_')[-1])
-            SaveName    = '%s_%s-%s_%s.txt' % (SaveName, StartFrame, EndingFrame, reweight)
+            try:
+                reweight    = [elem for elem in ReweightList if EventNames[0].find(elem) != -1][0]
+                EndingFrame = int(EventNames[0].split('%s' % reweight)[0].split('-')[-1])
+                StartFrame  = int(EventNames[0].split('%s' % reweight)[0].split('-')[-2].split('_')[-1])
+            except IndexError:
+                raise ValueError('EventNames must contain one "reweight" specification: \n{}'.format(ReweightList))
+            except ValueError:
+                raise ValueError('EventNames must contain one "reweight" specification, BUT there is a conflict with the filename!\n'+\
+                                 'Check, if one of the "reweight" algorithms are not specified twice in the EventNames:\n{}'.format(ReweightList))
+            SaveName    = '%s_%s-%s%s.txt' % (SaveName, StartFrame, EndingFrame, reweight)
         else:
-            reweight    = [elem for elem in ReweightList if EventNames.find(elem) != -1][0]
-            EndingFrame = int(EventNames.split('_%s' % reweight)[0].split('-')[-1])
-            StartFrame  = int(EventNames.split('_%s' % reweight)[0].split('-')[-2].split('_')[-1])
-            SaveName    = '%s_%s-%s_%s.txt' % (SaveName, StartFrame, EndingFrame, reweight)
+            try:
+                reweight    = [elem for elem in ReweightList if EventNames[0].find(elem) != -1][0]
+                EndingFrame = int(EventNames.split('%s' % reweight)[0].split('-')[-1])
+                StartFrame  = int(EventNames.split('%s' % reweight)[0].split('-')[-2].split('_')[-1])
+            except IndexError:
+                raise ValueError('EventNames must contain one "reweight" specification: \n{}'.format(ReweightList))
+            except ValueError:
+                raise ValueError('EventNames must contain one "reweight" specification, BUT there is a conflict with the filename!\n'+\
+                                 'Check, if one of the "reweight" algorithms are not specified twice in the EventNames:\n{}'.format(ReweightList))
+            SaveName    = '%s_%s-%s%s.txt' % (SaveName, StartFrame, EndingFrame, reweight)
     #####
     if os.path.exists('%s%s' % (SaveDir, SaveName)):
         print 'The overlap file already exist\n\tSaveDir = %s\n\tSaveName = %s' % (SaveDir, SaveName)
@@ -615,7 +627,7 @@ OUTPUT:
 
 def Extract_Header_and_Parameters(EventDir, EventNamesList, SameTraj=None):
     """
-v17.06.16
+v26.09.16
 This function extracts the Header and Parameters from the EventCurve(s), which are necessary for the Overlap calculation
 - since EventCurves are stored in .npy python-binary-format, the information is extracted from Norm_EventCurves.txt
 - if len(EventNamesList) == 1: same parts with same parameters are used but different simulation times
@@ -713,6 +725,13 @@ OUTPUT:
                     else:
                         updated_TrajLengthList.append([int(elem.replace(',','')) \
                                                        for elem in line[line.find('[')+1:line.find(']')].split()][SameTraj-1])
+    ## CHECK, if every parameter could be loaded from the Norm_EventCurves.txt
+    for Params in ['TrajNameList', 'ThresholdList', 'StartFrame', 'EndingFrame', 'Iterations', 'aMD_reweight', 'Lambda', 
+                   'Order', 'updated_TrajLengthList']:
+        if locals().keys().count(Params) == 0:
+            raise ValueError('The parameter %s is not specified in %s! The parameter could not be loaded. Check, that %s is specified in %s' % \
+                                (Params if Params != 'Iterations' else 'Weight Iterations', EventNamesList, 
+                                 Params if Params != 'Iterations' else 'Weight Iterations', EventNamesList))
     #### #### ####
     HEADER = '\t\tTrajNameList           = {}\n'.format(TrajNameList)+\
              '\t\tThresholdList             = {}\n'.format(ThresholdList)+\
