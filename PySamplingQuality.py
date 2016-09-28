@@ -1134,7 +1134,7 @@ OUTPUT:
             #---- SORT and store INDICEs of RMSD_Mat; STORE ONLY if not FullRMSD matrix could be loaded
                     if (aMD_Nrs.count(trajY+1) > 0 or sMD_Nrs.count(trajY+1) > 0):
                         if MaxNumberLines < FullCumTrajLenList[trajX+1]-FullCumTrajLenList[trajX] and \
-                            not os.path.exists('%sINDICES_%s-%s_%s-%s.npy' % \
+                           not os.path.exists('%sINDICES_%s-%s_%s-%s.npy' % \
                                       (MatrixDir, TrajNameList[trajX], TrajNameList[trajY], LowerEnd, UpperEnd)) and \
                             not os.path.exists('%sINDICES_%s-%s_%s-%s.npy' % \
                                       (MatrixDir, TrajNameList[trajY], TrajNameList[trajX], LowerEnd, UpperEnd)):
@@ -1204,7 +1204,7 @@ OUTPUT:
                                            for elem in range(len(ThresholdList))]],
                               INDICES[(BeginY):(EndY), :],
                               LowUpArray,
-                              '%sWeights/' % SaveDir, WeightName, BeginY, EndY, ThresholdList, aMD_reweight, 
+                              '%sWeights/' % SaveDir, WeightName, MatrixDir, BeginY, EndY, ThresholdList, aMD_reweight, 
                               Iterations, Lambda,
                               aMDlogCombo[aMD_Nrs.index(trajY+1)] if aMDlogCombo is not None else None, 
                               WeightStep, AmberVersion, Temp) 
@@ -1281,7 +1281,7 @@ OUTPUT:
                                            for elem in range(len(ThresholdList))]],
                               INDICES[(BeginY):(EndY), :],
                               LowUpArray,
-                              '%sWeights/' % SaveDir, WeightName, BeginY, EndY, ThresholdList, 'sMD', 
+                              '%sWeights/' % SaveDir, WeightName, MatrixDir, BeginY, EndY, ThresholdList, 'sMD', 
                               Iterations, Lambda, None, None, None, Temp)
                     ##### ##### #####
                     # ASSIGN enhancedMatrix (sMD)
@@ -1432,11 +1432,11 @@ OUTPUT:
 #-------------
 ###############
 
-def Generate_Weights(TrajName, noWeights, Indices, RangeArray, SaveDir, SaveName, BeginY, EndY, ThresholdList, 
+def Generate_Weights(TrajName, noWeights, Indices, RangeArray, SaveDir, SaveName, MatrixDir, BeginY, EndY, ThresholdList, 
                     aMD_reweight='MF', Iterations=1, Lambda=1, aMDlogCombo=None, WeightStep=1, 
                     AmberVersion='Amber14', Temp=300):
     """ 
-v19.09.16
+v27.09.16
     This function calculates the >Mean-Field< approach for aMD/sMD using the 
         >Events< (noWeight) and RMSD matrix >Indices< and the standard aMD.log Weights, 
         >Indices< store the frames for the corresponding Weights
@@ -1453,6 +1453,7 @@ INPUT:
                                     Indices[x, 0-noWeights[x,y]] returns the indices of frames r < RMSD;
     SaveDir      : {STRING}     Directory to store the weights, '%sWeights/%s' % (SaveDir, SaveName);
     SaveName     : {STRING}     Save name to store the weights, '%sWeights/%s' % (SaveDir, SaveName);
+    MatrixDir    : {STRING}     Name of the save directory for RMSD matrices, e.g. 'RMSD_files/BinFiles/';
     BeginY       : {INT}        Starting frame of the trajectory, correspond to BeginY of RMSD_mat, e.g. 0;
     EndY         : {INT}        Ending frame of the trajectory,   correspond to EndY   of RMSD_mat, e.g. 2000;
     ThresholdList: {FLOAT-LIST} different thresholds r for which the Events are counted, e.g. [0.1, 0.2, 0.3, ...];
