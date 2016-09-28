@@ -43,7 +43,7 @@ from scipy.stats import t as TPPF
 def Calc_Overlap(EventDir, EventNames, SaveDir, SaveName, CompareList, 
                  WeightDir=None, aMD_Nrs=[], sMD_Nrs=[], SameTraj=None, AllPrject=True):
     """ 
-v26.09.16
+v28.09.16
 - calculates <conformational overlap> and <density overlap> : Overlap between different trajectories/groups 
   for different Threshold and reference Trajectories
 - CompareList has to match the TrajNr in the EventCurves: the overlap is than calculated between the sets of trajectory numbers defined in CompareList
@@ -102,20 +102,20 @@ OUTPUT:
                 EndingFrame = int(EventNames[0].split('%s' % reweight)[0].split('-')[-1])
                 StartFrame  = int(EventNames[0].split('%s' % reweight)[0].split('-')[-2].split('_')[-1])
             except IndexError:
-                raise ValueError('EventNames must contain one "reweight" specification: \n{}'.format(ReweightList))
+                raise ValueError('EventNames={} must contain one "reweight" specification: \n{}'.format(EventNames, ReweightList))
             except ValueError:
-                raise ValueError('EventNames must contain one "reweight" specification, BUT there is a conflict with the filename!\n'+\
+                raise ValueError('EventNames={} must contain one "reweight" specification, BUT there is a conflict with the filename!\n'.format(EventNames)+\
                                  'Check, if one of the "reweight" algorithms are not specified twice in the EventNames:\n{}'.format(ReweightList))
             SaveName    = '%s_%s-%s%s.txt' % (SaveName, StartFrame, EndingFrame, reweight)
         else:
             try:
-                reweight    = [elem for elem in ReweightList if EventNames[0].find(elem) != -1][0]
+                reweight    = [elem for elem in ReweightList if EventNames.find(elem) != -1][0]
                 EndingFrame = int(EventNames.split('%s' % reweight)[0].split('-')[-1])
                 StartFrame  = int(EventNames.split('%s' % reweight)[0].split('-')[-2].split('_')[-1])
             except IndexError:
-                raise ValueError('EventNames must contain one "reweight" specification: \n{}'.format(ReweightList))
+                raise ValueError('EventNames{} must contain one "reweight" specification: \n{}'.format(EventNames, ReweightList))
             except ValueError:
-                raise ValueError('EventNames must contain one "reweight" specification, BUT there is a conflict with the filename!\n'+\
+                raise ValueError('EventNames={} must contain one "reweight" specification, BUT there is a conflict with the filename!\n'.format(EventNames)+\
                                  'Check, if one of the "reweight" algorithms are not specified twice in the EventNames:\n{}'.format(ReweightList))
             SaveName    = '%s_%s-%s%s.txt' % (SaveName, StartFrame, EndingFrame, reweight)
     #####
@@ -1484,7 +1484,7 @@ OUTPUT:
             for line in INPUT:
                 if len(line.split()) > 2 and line.split()[0] == '#' and line.split()[1] == 'ThresholdList':
                     temp = [float(elem.replace(',','')) for elem in line[line.find('[')+1:line.find(']')].split()]
-                    break
+                    brea
         if ThresholdList == temp:
             if len(ThresholdList) == 1:
                 return NP.reshape(NP.genfromtxt('%s%s' % (SaveDir, SaveName)), (-1,1))
