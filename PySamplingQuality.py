@@ -1484,7 +1484,7 @@ OUTPUT:
             for line in INPUT:
                 if len(line.split()) > 2 and line.split()[0] == '#' and line.split()[1] == 'ThresholdList':
                     temp = [float(elem.replace(',','')) for elem in line[line.find('[')+1:line.find(']')].split()]
-                    brea
+                    break
         if ThresholdList == temp:
             if len(ThresholdList) == 1:
                 return NP.reshape(NP.genfromtxt('%s%s' % (SaveDir, SaveName)), (-1,1))
@@ -2599,7 +2599,7 @@ def Generate_Clustering(MatrixDir, SaveDir, TrajNameList, TrajLengthList, Thresh
                         Select1=None, Select2=None, AmberHome='', GromacsHome='', Program_Suffix='', ReferencePDB=None, 
                         BinFile_precision=NP.float32, RefFrame=None, RMSD_SaveAdder=''):
     """
-v16.09.16
+v30.09.16
 Calculates and generates the LOCAL or GLOBAL PROFILE & CENTROIDS for effective clustering for the submitted 
 trajectories, 
     - using Generate_reference_for_Clustering() & Return_FullColRMSD()
@@ -3012,7 +3012,8 @@ OUTPUT:
                 'updated TrjLenList = {}\n'.format(updated_TrjLenList)+\
                 'TimeStep = '+str(TimeStep)+'\n'+\
                 'StartFrame = '+str(StartFrame)+'\n'+\
-                'EndingFrame = '+str(EndingFrame)+'\n'
+                'EndingFrame = '+str(EndingFrame)+'\n'+\
+                'ReferencePDB = '+str(ReferencePDB)+'\n'
         HEADER ='%s*******\n%s PROFILE: Radius = %s\n*******\n' % \
                     (HEADER,'GLOBAL' if GLOBAL else 'LOCAL', Threshold) 
 
@@ -5001,7 +5002,7 @@ OUTPUT:
 def Plot_Overlap_VS_Time(OverlapDir, OverlapList, Threshold, SimTimeList, TimeStep, 
                          LegendList=[], Title='', LegendNcols=1, SaveDir=None, SaveName=None, logX=False):
     """
-v09.08.16
+v29.08.16
 This function generates the plots 'Overlap vs simulation Time' for conformational & density overlap
 - possibility to submit multiple OverlapMatrices to plot for instance multiple groups together
 - each element of OverlapList MUST constain 'Start-End' which are replaced by the elements of SimTimeList, because
@@ -5051,7 +5052,7 @@ OUTPUT:
                      ls='--', marker=Color[(CaseIndex/2)%21][1], mfc='None', mec=Color[(CaseIndex/2)%21][0], mew=2);
       #### Xticks / Xlabel / Xlim
         if logX: plt.xscale('log'); 
-        plt.xlim([(OvT[0,1]-OvT[0,0])-.01*(OvT[-1,1]-OvT[0,0]), 1.05*(OvT[-1,1]-OvT[0,0])])
+        plt.xlim([(OvT[0,1]-OvT[0,0])-.01*(OvT[-1,1]-OvT[-1,0]), 1.05*(OvT[-1,1]-OvT[-1,0])])
         plt.xticks(fontsize=16); plt.grid()
         plt.xlabel('simulation time [ns]', fontsize=17); 
       #### Yticks / Ylabel / Ylim
@@ -5075,7 +5076,7 @@ OUTPUT:
 #----- GENERATE Overlap VS Time
 def Generate_Overlap_VS_Time(OverlapDir, OverlapList, Threshold, SimTimeList, TimeStep):
     """
-v29.06.16
+v29.09.16
 - supporting function to merge/generate OverlaPvsTime NP.ndarray from Overlapfiles with different simulation times
 - extracts the overlap for a certain threshold of different simulation time files and merge them in the ROW-dimension
 - different groups are also extracted from different OverlapList elements and merged in the COLUMN-dimension
@@ -5092,10 +5093,10 @@ INPUT:
 OUTPUT:
     return OvT {NP.NDARRAY} - StartTime | EndTime | densO1 | confO1 | densO2 | confO2 | ...
     """
-    OvT = NP.zeros( (len(SimTimeList), 2+2*len(OverlapList)) ) # StartTime | EndTime | densO1 | confO1 | densO2 | confO2 | ...
     OvT_Row = 0
     for StartFrame, EndingFrame in SimTimeList:
-        OvT[OvT_Row, 0] = StartFrame*TimeStep; OvT[OvT_Row, 1] = EndingFrame*TimeStep; 
+        if 'OvT' in locals():
+            OvT[OvT_Row, 0] = StartFrame*TimeStep; OvT[OvT_Row, 1] = EndingFrame*TimeStep; 
         OvT_Col = 2
         for FileName in OverlapList:
         #----- 
@@ -5106,6 +5107,10 @@ OUTPUT:
         #----- Loaded Overlap for all different simulation times
             tempO = NP.genfromtxt('%s%s' % (OverlapDir, 
                                             FileName.replace('Start', str(StartFrame)).replace('End',str(EndingFrame))))
+            if 'OvT' not in locals():
+                OvT = NP.zeros( (len(SimTimeList), 2+2*len(OverlapList)*len(tempO[0,2:])/3) ) # StartTime | EndTime | densO1 | confO1 | densO2 | confO2 | ...
+                OvT[OvT_Row, 0] = StartFrame*TimeStep; OvT[OvT_Row, 1] = EndingFrame*TimeStep; 
+
             tempO = tempO[tempO[:,1]==Threshold]
         #-----
             if len(tempO[:,0]) == 0:
