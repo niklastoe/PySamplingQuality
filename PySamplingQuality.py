@@ -9,7 +9,7 @@
 #
 # Author:     Mike Nemec <mike.nemec@uni-due.de>
 #
-# current version: v19.09.16
+# current version: v10.10.16
 #######################################################
 #######################################################
 
@@ -1673,7 +1673,7 @@ def Generate_RMSD_Matrix(TrajDIR, TopologyDIR, TrajName, TopologyName, DistSaveD
                         Select1, Select2=None, TimeStep=None, AmberHome='', GromacsHome='', Begin=None, End=None, 
                         SecondTraj=None, Fit='rot+trans', Program_Suffix='', ReferencePDB=None, Bin=True):
     """
-v19.09.16
+v10.10.16
     - RMSD matrix generation for given Trajectory using Gromacs v4.6.7|5.1.2 or AmberTools14
     - it tries to automatically detect AMBER/GROMACS Trajs:
         1. if Select2 is     None or TrajName = <.netcdf or .nc> -> AMBER
@@ -1732,15 +1732,24 @@ OUTPUT:
                 TimeStep = 1
           #---- Error Detection for wrong values of >Begin | End | TimeStep<
             if type(TimeStep) != int:
+                print (('The >TimeStep = %s< you have specified is not an >int<\n' % TimeStep)+\
+                                  'every TimeStep-th frame is used from the trajectory, try >1< for all frames')
                 raise ValueError(('The >TimeStep = %s< you have specified is not an >int<\n' % TimeStep)+\
                                   'every TimeStep-th frame is used from the trajectory, try >1< for all frames')
             if Begin is not None and type(Begin) != int:
+                print (('The >Begin = %s< you have specified is not an >int<\n' % Begin)+\
+                                  'define the starting frame of the trajectory, try >1< for all frames')
                 raise ValueError(('The >Begin = %s< you have specified is not an >int<\n' % Begin)+\
                                   'define the starting frame of the trajectory, try >1< for all frames')
             if End is not None and type(End) != int and End != 'last':
+                print (('The >End = %s< you have specified is not an >int< or not "last"\n' % End)+\
+                                  'define the ending frame of the trajectory, try >"last"< for all frames')
                 raise ValueError(('The >End = %s< you have specified is not an >int< or not "last"\n' % End)+\
                                   'define the ending frame of the trajectory, try >"last"< for all frames')
-            if not os.path.exists('%scpptraj' % AmberHome):
+            if not os.path.exists('%scpptraj' % AmberHome) and not os.path.exists('%s/bin/cpptraj' % (os.environ.copy()['AMBERHOME'])):
+                print ('You are trying to calculate RMSD (matrix) using Amber\n\t'+\
+                                ('>> %scpptraj << not found\n' % AmberHome)+\
+                                ('CHECK your >> AmberHome=%s<< value' % AmberHome))
                 raise NameError('You are trying to calculate RMSD (matrix) using Amber\n\t'+\
                                 ('>> %scpptraj << not found\n' % AmberHome)+\
                                 ('CHECK your >> AmberHome=%s<< value' % AmberHome))
@@ -1748,6 +1757,8 @@ OUTPUT:
             for Kai in range(1,len((MatrixSaveDir).split('/'))):
                 if not os.path.exists('/'.join((MatrixSaveDir).split('/')[:Kai])):
                     os.mkdir('/'.join((MatrixSaveDir).split('/')[:Kai]))
+            if not os.path.exists('%sLogs/' % MatrixSaveDir):
+                os.mkdir('%sLogs/' % MatrixSaveDir)
           #---- generate INPUT file for CPPTRAJ
             with open('%s%s.in' % (MatrixSaveDir, SaveName), 'w') as OUTPUT:
                 OUTPUT.write('trajin %s%s %s %s %s\n' % (TrajDIR, TrajName, 
@@ -1756,6 +1767,7 @@ OUTPUT:
                                                          TimeStep))
                 if ReferencePDB is not None:
                     if not os.path.exists(ReferencePDB):
+                        print ('>>%s<< \ndoes not exist! Check the directory and name' % (ReferencePDB))
                         raise NameError('>>%s<< \ndoes not exist! Check the directory and name' % (ReferencePDB))
                     OUTPUT.write('reference %s\n' % (ReferencePDB))
                     OUTPUT.write('rms reference mass out %s%s.xvg %s %s' % \
@@ -1770,31 +1782,50 @@ OUTPUT:
                                   '' if SecondTraj is None else 'reftraj',
                                   '' if SecondTraj is None else TrajDIR,
                                   '' if SecondTraj is None else SecondTraj))
-            CPPTRAJ = SB.Popen(['%scpptraj' % AmberHome, '-p', '%s%s' % (TopologyDIR, TopologyName), 
-                                             '-i', '%s%s.in' % (MatrixSaveDir, SaveName)],
-                              stdout=SB.PIPE, stderr=SB.STDOUT)
+            if os.path.exists('%scpptraj' % AmberHome):
+                CPPTRAJ = SB.Popen(['%scpptraj' % AmberHome, '-p', '%s%s' % (TopologyDIR, TopologyName), 
+                                                 '-i', '%s%s.in' % (MatrixSaveDir, SaveName)],
+                                  stdout=SB.PIPE, stderr=SB.STDOUT)
+            elif os.path.exists('%s/bin/cpptraj' % (os.environ.copy()['AMBERHOME'])):
+                CPPTRAJ = SB.Popen(['%s/bin/cpptraj' % (os.environ.copy()['AMBERHOME']), '-p', '%s%s' % (TopologyDIR, TopologyName), 
+                                                 '-i', '%s%s.in' % (MatrixSaveDir, SaveName)],
+                                  stdout=SB.PIPE, stderr=SB.STDOUT)
             Out, _ = CPPTRAJ.communicate()
+            with open('%sLogs/LOG_%s.log' % (MatrixSaveDir, SaveName), 'w') as LOG_OUT:
+                LOG_OUT.write(Out)
           #---- 
         elif Select2 is not None or TrajName.split('.')[-1] == 'xtc' or TrajName.split('.')[-1] == 'trr': # GROMACS
      #### GROMACS ####
             if not os.path.exists('%sg_rms%s' % (GromacsHome, Program_Suffix)) and \
-               not os.path.exists('%sgmx%s'   % (GromacsHome, Program_Suffix)):
+               not os.path.exists('%s/g_rms%s' % (os.environ.copy()['GMXBIN'], Program_Suffix)) and \
+               not os.path.exists('%sgmx%s' % (GromacsHome, Program_Suffix)) and \
+               not os.path.exists('%s/gmx%s' % (os.environ.copy()['GMXBIN'], Program_Suffix)):
+                print ('You are trying to calculate RMSD (matrix) using Gromacs\n\t'+\
+                                ('Neither >> %sg_rms%s << nor >> %sgmx%s << found\n' % \
+                                (GromacsHome, Program_Suffix, GromacsHome, Program_Suffix))+\
+                                ('CHECK your >>GromacsHome=%s<< and >>Program_Suffix=%s<< value' % (GromacsHome, Program_Suffix)))
                 raise NameError('You are trying to calculate RMSD (matrix) using Gromacs\n\t'+\
                                 ('Neither >> %sg_rms%s << nor >> %sgmx%s << found\n' % \
                                 (GromacsHome, Program_Suffix, GromacsHome, Program_Suffix))+\
-                                ('CHECK your >> GromacsHome=%s<< value' % GromacsHome))
+                                ('CHECK your >>GromacsHome=%s<< and >>Program_Suffix=%s<< value' % (GromacsHome, Program_Suffix)))
           #---- generate Directories  
             for Kai in range(1,len((MatrixSaveDir).split('/'))):
                 if not os.path.exists('/'.join((MatrixSaveDir).split('/')[:Kai])):
                     os.mkdir('/'.join((MatrixSaveDir).split('/')[:Kai]))
+            if not os.path.exists('%sLogs/' % MatrixSaveDir):
+                os.mkdir('%sLogs/' % MatrixSaveDir)
             for Kai in range(1,len((DistSaveDir).split('/'))):
                 if not os.path.exists('/'.join((DistSaveDir).split('/')[:Kai])):
                     os.mkdir('/'.join((DistSaveDir).split('/')[:Kai]))
           #---- Command for RMS
             if os.path.exists('%sg_rms%s' % (GromacsHome, Program_Suffix)): # gromacs v4.6.7
                 Command = ['%sg_rms%s' % (GromacsHome, Program_Suffix)]
-            else:                                                           # gromacs v5.1.2
+            elif os.path.exists('%s/g_rms%s' % (os.environ.copy()['GMXBIN'], Program_Suffix)): # gromacs v4.6.7
+                Command = ['%sg_rms%s' % (GromacsHome, Program_Suffix)]
+            elif os.path.exists('%sgmx%s' % (GromacsHome, Program_Suffix)):
                 Command = ['%sgmx%s' % (GromacsHome, Program_Suffix), 'rms']
+            elif os.path.exists('%s/gmx%s' % (os.environ.copy()['GMXBIN'], Program_Suffix)):
+                Command = ['%sgmx%s' % (os.environ.copy()['GMXBIN'], Program_Suffix), 'rms']
             Command.extend(['-f', '%s%s' % (TrajDIR, TrajName),
                             '-s', '%s%s' % (TopologyDIR, TopologyName),
                             '-o', '%s%s.xvg' % (DistSaveDir, SaveName),
@@ -1820,6 +1851,8 @@ OUTPUT:
           #---- RUN GROMACS rms generation using a subprocess
             RMSD = SB.Popen(Command, stdin=SB.PIPE, stdout=SB.PIPE, stderr=SB.STDOUT)
             Out, _ = RMSD.communicate('%s\n%s\n' % (Select1, Select2))
+            with open('%sLogs/LOG_%s.log' % (MatrixSaveDir, SaveName), 'w') as LOG_OUT:
+                LOG_OUT.write(Out)
         t2 = time.time()
     else:
         print 'Either \n\t>>%s%s.xvg<< &\n\t>>%s%s_bin.dat<<\nalready exists or \n\t>>%s%s<< & >>%s%s<< \ndoes NOT exist' % \
@@ -1833,7 +1866,7 @@ def Generate_RMSD_Matrices(TrajDIR, TopologyDIR, TrajNameList, TopologyName, Dis
                           TimeStep, Select1, Select2=None, AmberHome='', GromacsHome='',
                           Fit='rot+trans', Program_Suffix='', PartList=None):
     """ 
-v19.09.16 
+v10.10.16 
     - using <Generate_RMSD_Matrix()>
     - Calculates every RMSD diagonal & off-diagonal matrix part for <Generate_EventCurves()>
     - RMSD matrix generation for given Trajectory-List using Gromacs v4.6.7|5.1.2 or AmberTools14
@@ -1884,10 +1917,16 @@ OUTPUT:
         for Kai in range(1,len((MatrixSaveDir).split('/'))):
             if not os.path.exists('/'.join((MatrixSaveDir).split('/')[:Kai])):
                 os.mkdir('/'.join((MatrixSaveDir).split('/')[:Kai]))
+        while not os.path.exists(MatrixSaveDir):
+            time.sleep(3)
+    if not os.path.exists('%sLogs/' % (MatrixSaveDir if MatrixSaveDir is not None else '')):
+        os.mkdir('%sLogs/' % (MatrixSaveDir if MatrixSaveDir is not None else ''))
     if DistSaveDir is not None and DistSaveDir != '':
         for Kai in range(1,len((DistSaveDir).split('/'))):
             if not os.path.exists('/'.join((DistSaveDir).split('/')[:Kai])):
                 os.mkdir('/'.join((DistSaveDir).split('/')[:Kai]))
+        while not os.path.exists(DistSaveDir):
+            time.sleep(3)
     ######## ENABLE MULTIPROCESSING: Pool() enables all free nodes
     pool = Pool()
     ######## test if the trajectories are called differently ######## 
