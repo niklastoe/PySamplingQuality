@@ -3580,7 +3580,7 @@ v11.07.16
 def Merge_Clustering_different_Thresholds(SingleClustDir, SaveDir, SaveName, ThresholdList, StartFrame, 
                                           EndingFrame, GLOBAL):
     """
-v19.09.16
+v10.10.16
 - function to merge different clustering files with different cluster thresholds but same trajectories 
   and [StartFrame,EndingFrame]
 - beforehand, clusterings <Generate_Clustering()> are calculated for each threshold separately (possibly on multiple machines/cores simultanously)
@@ -3610,15 +3610,15 @@ OUTPUT:
     """
     temp = ThresholdList
     ThresholdList = [elem for elem in ThresholdList if os.path.exists('%s%s_R%s_%s-%s_%s.txt' % \
-                      (SaveDir, SaveName, elem, StartFrame, EndingFrame, 'GLOBAL' if GLOBAL else 'LOCAL')) and \
+                      (SingleClustDir, SaveName, elem, StartFrame, EndingFrame, 'GLOBAL' if GLOBAL else 'LOCAL')) and \
                                                  os.path.exists('%s%s_R%s_%s-%s_Centers_%s.txt' % \
-                      (SaveDir, SaveName, elem, StartFrame, EndingFrame, 'GLOBAL' if GLOBAL else 'LOCAL'))]
+                      (SingleClustDir, SaveName, elem, StartFrame, EndingFrame, 'GLOBAL' if GLOBAL else 'LOCAL'))]
     if len(ThresholdList) <= 1:
         raise ValueError('Clusterings with the submitted ThresholdList do not exist! Check, if all following files exist: \n%s\n%s' % \
            ('\n'.join(['%s%s_R%s_%s-%s_%s.txt' % \
-                      (SaveDir, SaveName, elem, StartFrame, EndingFrame, 'GLOBAL' if GLOBAL else 'LOCAL') for elem in temp]),
+                      (SingleClustDir, SaveName, elem, StartFrame, EndingFrame, 'GLOBAL' if GLOBAL else 'LOCAL') for elem in temp]),
             '\n'.join(['%s%s_R%s_%s-%s_Centers_%s.txt' % \
-                      (SaveDir, SaveName, elem, StartFrame, EndingFrame, 'GLOBAL' if GLOBAL else 'LOCAL') for elem in temp])))
+                      (SingleClustDir, SaveName, elem, StartFrame, EndingFrame, 'GLOBAL' if GLOBAL else 'LOCAL') for elem in temp])))
     del temp
     #------
     if not os.path.exists('%s%s_R%s-%s_%s-%s_%s.txt' % \
@@ -3630,7 +3630,7 @@ OUTPUT:
       #----- EXTRACT HEADER
         HEADER = ''
         with open('%s%s_R%s_%s-%s_%s.txt' % \
-                      (SaveDir, SaveName, ThresholdList[0], StartFrame, EndingFrame, 'GLOBAL' if GLOBAL else 'LOCAL'),
+                      (SingleClustDir, SaveName, ThresholdList[0], StartFrame, EndingFrame, 'GLOBAL' if GLOBAL else 'LOCAL'),
                   'r') as INPUT:
             for line in INPUT:
                 if line.split()[1] == '*******':
@@ -3656,15 +3656,15 @@ OUTPUT:
               #------ CLUSTERING  
                 if 'temp' in locals():
                     temp = NP.concatenate( (temp, NP.genfromtxt('%s%s_R%s_%s-%s_%s.txt' % \
-                          (SaveDir, SaveName, ClustRadius, StartFrame, EndingFrame, 'GLOBAL' if GLOBAL else 'LOCAL'),
+                          (SingleClustDir, SaveName, ClustRadius, StartFrame, EndingFrame, 'GLOBAL' if GLOBAL else 'LOCAL'),
                                                                 usecols=(2,3,4,5,6,7))),
                                           axis=1 )
                 else:
                     temp = NP.genfromtxt('%s%s_R%s_%s-%s_%s.txt' % \
-                          (SaveDir, SaveName, ClustRadius, StartFrame, EndingFrame, 'GLOBAL' if GLOBAL else 'LOCAL'))
+                          (SingleClustDir, SaveName, ClustRadius, StartFrame, EndingFrame, 'GLOBAL' if GLOBAL else 'LOCAL'))
               #------ CENTERS
                 with open('%s%s_R%s_%s-%s_Centers_%s.txt' % \
-                          (SaveDir, SaveName, ClustRadius, StartFrame, EndingFrame, 'GLOBAL' if GLOBAL else 'LOCAL'),
+                          (SingleClustDir, SaveName, ClustRadius, StartFrame, EndingFrame, 'GLOBAL' if GLOBAL else 'LOCAL'),
                           'r') as INPUT:
                     for line in INPUT:
                         if line.split()[0] != '#':
