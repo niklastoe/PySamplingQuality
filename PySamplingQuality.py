@@ -3758,7 +3758,7 @@ OUTPUT:
 ###############
 def Generate_CDE_to_File(ClusterDIR, ClusterFileName, ThresholdList, Case, SaveDIR=None, SaveName=None):
     """
-v09.09.16
+v10.10.16
 - this function stores the cluster distribution entropy (CDE) using the idea of [Sawle & Ghosh JCTC 2016]
 - the following parameters are stored in SaveDIR + SaveName for different ThresholdList
     >> Nr of Cluster vs Time <<
@@ -3795,6 +3795,11 @@ OUTPUT:
     
     if os.path.exists(ClusterDIR+ClusterFileName) and \
         ((SaveDIR==None and SaveName==None) or not os.path.exists('%s%s_%s.txt' % (SaveDIR,SaveName,Case))):
+      ## generate SaveDIR if not None
+        if SaveDIR is not None and SaveName is not None and not os.path.exists(SaveDIR):
+            for Kai in range(1,len((SaveDIR).split('/'))):
+                if not os.path.exists('/'.join((SaveDIR).split('/')[:Kai])):
+                    os.mkdir('/'.join((SaveDIR).split('/')[:Kai]))
       ## CHECK, if Case == 'LOCAL', 'GLOBAL' or 'GLOBAL_singles'
         if Case != 'LOCAL' and Case != 'GLOBAL' and Case != 'GLOBAL_singles':
             raise ValueError('Case has to be either "LOCAL" or "GLOBAL" or "GLOBAL_singles"!\n\tsubmitted Case = %s' % \
