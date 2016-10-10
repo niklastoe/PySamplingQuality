@@ -1801,11 +1801,11 @@ OUTPUT:
                not os.path.exists('%sgmx%s' % (GromacsHome, Program_Suffix)) and \
                not os.path.exists('%s/gmx%s' % (os.environ.copy()['GMXBIN'], Program_Suffix)):
                 print ('You are trying to calculate RMSD (matrix) using Gromacs\n\t'+\
-                                ('Neither >> %sg_rms%s << nor >> %sgmx%s << found\n' % \
+                                ('Neither >>%sg_rms%s<< nor >>%sgmx%s<< found\n' % \
                                 (GromacsHome, Program_Suffix, GromacsHome, Program_Suffix))+\
                                 ('CHECK your >>GromacsHome=%s<< and >>Program_Suffix=%s<< value' % (GromacsHome, Program_Suffix)))
                 raise NameError('You are trying to calculate RMSD (matrix) using Gromacs\n\t'+\
-                                ('Neither >> %sg_rms%s << nor >> %sgmx%s << found\n' % \
+                                ('Neither >>%sg_rms%s<< nor >>%sgmx%s<< found\n' % \
                                 (GromacsHome, Program_Suffix, GromacsHome, Program_Suffix))+\
                                 ('CHECK your >>GromacsHome=%s<< and >>Program_Suffix=%s<< value' % (GromacsHome, Program_Suffix)))
           #---- generate Directories  
