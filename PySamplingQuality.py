@@ -9,7 +9,7 @@
 #
 # Author:     Mike Nemec <mike.nemec@uni-due.de>
 #
-# current version: v10.10.16
+# current version: v11.10.16
 #######################################################
 #######################################################
 
@@ -2354,9 +2354,9 @@ OUTPUT:
 ############################################################################################################
 def Plot_determineR_using_RMSD_distributions(TrajNameList, SaveName='V3', SaveNamePdf=None,  
                                              SaveDIR = 'Amber14Trajs/RMSD_distributions/', Bins=250, Percent=1,
-                                             DiagTitle=[''], OffDiagTitle=[''], Legend=[], Indices1=None, Indices2=None):
+                                             DiagTitle=[''], OffDiagTitle=[''], Legend=[], Indices1=None, Indices2=None, XLIM=None):
     """
-v16.08.16
+v11.10.16
     Plotting RMSD distributions into different subplots
 
 INPUT:
@@ -2381,13 +2381,14 @@ INPUT:
     Indices2           : {LIST,TUPLE} <default None> Rows of X vs. Y trajs RMSD_dist plotted into subfigures, 
                                     e.g. [(0,20), (20,40)], need to match dimensions of Indices1 & OffDiagTitle 
                                     plotting X vs. Y trajs (0-20) in 1.row and trajs (20-40) trajs in 2.row;
+    XLIM               : {FLOAT-LIST} <default None>, defines the x-limites;
 OUTPUT:
     plots/stores the 
         >> ALL SINGLE TRAJS | ALL X vs Y TRAJS | Concatenated Cases <<
     of the RMSD distributions for the submitted Trajectory Names
     """
     import matplotlib.pyplot as plt
-    logX=False; XLIM=None;
+    logX=False; 
   ###------- DEFAULT VALUES for Indices: simply use all Trajectories
     if Indices1 is None:
         Indices1 = [(0,len(TrajNameList))]
@@ -4031,7 +4032,7 @@ return CDEarray -  NP.ndarray containing 3 columns: SimTime | nr of clusters | C
 def Generate_Slope_Error(EntropyDIR, EntropyName, SaveDIR=None, SaveName=None,
                          SlopeTimeArray=[100,250,500], X_NormFactor=1000):
     """
-v09.09.16
+v11.10.16
 - this function calculates & stores the 
         >> Entropy Slope <<
         >> Entropy Error = standard error of the slope estimate <<
@@ -4073,6 +4074,11 @@ OUTPUT:
     else: 
         return Slope_Array
     """
+  ## generate SaveDIR if not None
+    if SaveDIR is not None and SaveName is not None and not os.path.exists(SaveDIR):
+        for Kai in range(1,len((SaveDIR).split('/'))):
+            if not os.path.exists('/'.join((SaveDIR).split('/')[:Kai])):
+                os.mkdir('/'.join((SaveDIR).split('/')[:Kai]))
   ## DEFINE Case from the EntropyName:
     if EntropyName.find('LOCAL.txt')          != -1: Case = 'LOCAL'
     if EntropyName.find('GLOBAL.txt')         != -1: Case = 'GLOBAL'
@@ -4588,27 +4594,27 @@ OUTPUT:
     for densconfIndex in [0,1]:
   #------- conformational & density OVERLAP
         plt.subplot2grid( (1,5), (0,densconfIndex*2), colspan=2 ); 
-        plt.title('%s overlap\n' % ['conformational','density'][densconfIndex], fontsize=20);
+        plt.title('%s overlap\n' % ['conformational','density'][densconfIndex], fontsize=25);
         plt.subplots_adjust(wspace=0, left=0.06, right=0.99, top=0.86, bottom=0.16)
        #-------- LEGEND
         if MolName1 != '': plt.plot(0,0, ls='-', color='r', lw=0.5); 
         if MolName2 != '': plt.plot(0,0, ls='-', color='b', lw=0.5);
         if LegendList != [None]:
             for CC in Color:
-                plt.plot(0,0, ls='',marker='s', ms=6, color=CC)
+                plt.plot(0,0, ls='',marker='s', ms=8, color=CC)
         if densconfIndex == 0:
             LEGEND = [elem for elem in [MolName1, MolName2]+LegendList if elem != '' and elem is not None]
             if LEGEND != []:
-                plt.legend(LEGEND, numpoints=1, framealpha=0.5, loc=4, fontsize=14)
+                plt.legend(LEGEND, numpoints=1, framealpha=0.5, loc=4, fontsize=19)
        #---- 1st AXIS: Plot Overlap vs Threshold V3
         Cindex = 0
         for confIndex in range(2-densconfIndex,len(OvR1[0,:]),2):
-            plt.plot(OvR1[:,0], OvR1[:,confIndex], 'rs-', lw=0.5, ms=6, mfc=Color[Cindex%9]); Cindex += 1
-        plt.xticks(fontsize=16, color='r');
+            plt.plot(OvR1[:,0], OvR1[:,confIndex], 'rs-', lw=0.5, ms=8, mfc=Color[Cindex%9]); Cindex += 1
+        plt.xticks(fontsize=21, color='r');
         if XLIM1 != [None, None]: plt.xlim(XLIM1)
         else:                     plt.xlim([OvR1[0,0], OvR1[-1,0]])
-        plt.yticks(fontsize=[16,0][densconfIndex]); plt.ylabel('overlap', fontsize=[18,0][densconfIndex]);
-        plt.xlabel('threshold r [nm]', fontsize=18);
+        plt.yticks(fontsize=[21,0][densconfIndex]); plt.ylabel('overlap', fontsize=[23,0][densconfIndex]);
+        plt.xlabel('threshold r [nm]', fontsize=23);
         plt.grid(axis='y')
         plt.ylim([-0.025,1.025])
        #---- 2nd AXIS: Plot Overlap vs Threshold MET
@@ -4621,16 +4627,16 @@ OUTPUT:
             for tl in ax2.xaxis.get_majorticklabels(): tl.set_fontsize(16)
             for confIndex in range(2-densconfIndex,len(OvR2[0,:]),2):
                 ax2.plot(OvR2[:,0], OvR2[:,confIndex], 'b<-', lw=0.5,
-                         ms=6, mfc=Color[Cindex%9]);
+                         ms=8, mfc=Color[Cindex%9]);
                 Cindex += 1
         plt.ylim([-0.025,1.025])
   #------- AREA/Integral
     plt.subplot2grid( (1,5), (0,4) )
-    plt.title('integral\n', fontsize=20)
+    plt.title('integral\n', fontsize=25)
     if LEGEND != []: 
-        plt.xticks(range(1,1+len(OvR1[0,1:])/2,1), LEGEND[-len(OvR1[0,1:])/2:], fontsize=16, rotation=45)
+        plt.xticks(range(1,1+len(OvR1[0,1:])/2,1), LEGEND[-len(OvR1[0,1:])/2:], fontsize=19, rotation=65)
     else:            
-        plt.xticks(range(1,1+len(OvR1[0,1:])/2,1), fontsize=16)
+        plt.xticks(range(1,1+len(OvR1[0,1:])/2,1), fontsize=21)
     plt.yticks(fontsize=0)
     plt.xlim([0.5, len(OvR1[0,1:])/2+0.5]); plt.ylim([-0.025,1.025]); plt.grid(axis='y')
     IntColors = ['ro:', 'r*:']
@@ -4643,11 +4649,11 @@ OUTPUT:
    ###
     if OverlapList2 is not None:
         plt.legend(['%s (dens)' % MolName1,'%s (dens)' % MolName2,'%s (conf)' % MolName1,'%s (conf)' % MolName2], 
-                   numpoints=1, ncol=2, loc='best', framealpha=0.35, fontsize=14,
+                   numpoints=1, ncol=2, loc='best', framealpha=0.35, fontsize=19,
                    bbox_to_anchor=(0.036, 0.13, 1., .092))
     else:
         plt.legend(['%s (dens)' % MolName1,'%s (conf)' % MolName1], 
-                   numpoints=1, ncol=2, loc='best', framealpha=0.35, fontsize=14,
+                   numpoints=1, ncol=2, loc='best', framealpha=0.35, fontsize=19,
                    bbox_to_anchor=(0.036, 0.13, 1., .092))
   ##########------- SAVE PDF ---------##########
     if SaveDir is not None and SaveName is not None:
