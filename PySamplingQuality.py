@@ -9,8 +9,16 @@
 #
 # Author:     Mike Nemec <mike.nemec@uni-due.de>
 #
-# current version: v11.10.16
+# current version: v12.10.16
 #######################################################
+# tested with following program versions:
+#        Gromacs       v4.6 | v5.1 
+#        Amber         AmberTools14
+#        Python        2.7.12
+#        Anaconda      2.4.1 (64-bit)
+#        Matplotlib    1.5.1
+#        scipy         0.17.0
+#        numpy         1.10.4
 #######################################################
 
 ## IMPORT NECESSARY MODULES ##
@@ -1797,8 +1805,8 @@ OUTPUT:
                                 (GromacsHome, Program_Suffix, GromacsHome, Program_Suffix))+\
                                 ('CHECK your >>GromacsHome=%s<< and >>Program_Suffix=%s<< value' % (GromacsHome, Program_Suffix)))
           #---- generate Directories  
-            Generate_Directories('%sLogs/' % MatrixSaveDir):
-            Generate_Directories(DistSaveDir):
+            Generate_Directories('%sLogs/' % MatrixSaveDir)
+            Generate_Directories(DistSaveDir)
           #---- Command for RMS
             if os.path.exists('%sg_rms%s' % (GromacsHome, Program_Suffix)): # gromacs v4.6.7
                 Command = ['%sg_rms%s' % (GromacsHome, Program_Suffix)]
@@ -3192,7 +3200,7 @@ OUTPUT:
                 for Parts in range(1,1+PartList[IIndex]):
                     if os.path.exists('%s%s_part%s%s' % (TrajDir, TrajName, Parts, Ending)):
                         if not os.path.exists('%sRMSD_%s_ref%s_part%s.xvg' % (RMSDdir, TrajName, RefName, Parts)):
-                            
+                           Generate_RMSD_Matrix(TrajDir, TopologyDir, '%s_part%s%s' % (TrajName, Parts, Ending), 
                                                 TopologyName, RMSDdir, 
                                                 RMSDdir, 'RMSD_%s_ref%s_part%s' % (TrajName, RefName, Parts), 
                                                 Select1, Select2, TimeStep, AmberHome, GromacsHome, None, None, SecondTraj=None, 
