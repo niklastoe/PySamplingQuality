@@ -9,7 +9,7 @@
 #
 # Author:     Mike Nemec <mike.nemec@uni-due.de>
 #
-# current version: v12.10.16-1
+# current version: v14.10.16-1
 #######################################################
 # tested with following program versions:
 #        Gromacs       v4.6 | v5.1 
@@ -3800,9 +3800,10 @@ OUTPUT:
 ###############
 #-------------
 ###############
-def Generate_CDE_to_File(ClusterDir, ClusterFileName, ThresholdList, Case, SaveDir=None, SaveName=None):
+def Generate_CDE_to_File(ClusterDir, ClusterFileName, ThresholdList, Case, SaveDir=None, SaveName=None,
+                         WeightDir=None, aMD_Nrs=[], sMD_Nrs=[], aMD_reweight='MF', Iterations=1, Lambda=1, Order=10):
     """
-v12.10.16
+v14.10.16
 - this function stores the cluster distribution entropy (CDE) using the idea of [Sawle & Ghosh JCTC 2016]
 - the following parameters are stored in SaveDir + SaveName for different ThresholdList
     >> Nr of Cluster vs Time <<
@@ -3810,6 +3811,11 @@ v12.10.16
     >> Entropy vs Time <<
     >> normalized Entropy vs Time <<
 - using the PROF OUTPUT from effective clustering, LOCAL or GLOBAL
+- possibility, to use re-weighted frames for the calculation of p_i: frames -> weights
+    - this assumes, that for the next time step, there are frames = (weight x frame) assigned to one cluster, 
+      which is an approximation and have to be taken into account
+    - it should be correct, not to re-weight aMD/sMD trajectories to just investigate, if the sampling expresses a trapped/undersampled behavior
+      with respect on the unterlying potential, the bias does not alter this information
 - PROF corresponds to the cluster profile, i.e. reports cluster number/centroid as a function of the frames
 - using <Calc_CDE()>
 - <GLOBAL_singles> allows to extract from one unique GLOBAL clustering the corresponding clusters for each contained 
@@ -3827,6 +3833,18 @@ INPUT:
     SaveDir         : {STRING} Directory, where the CDE file is stored e.g. 'CDE/';
     SaveName        : {STRING} savename PREFIX without Ending, 
                                     e.g. 'CDE_R5_R0.2-0.7' -> 'CDE_R5_R0.2-0.7_%s.txt' % (Case);
+    WeightDir       : {STRING}    <default None>, FOR RE-WEIGHTING ONLY, Directory, where the aMD/sMD weights are located, e.g. 'EventCurves/Weights/';
+    aMD_Nrs         : {INT-LIST}  <default []>,   FOR RE-WEIGHTING ONLY, trajectory numbers which are generated with aMD,
+                                                  numbering MUST correspond to the trajectories stored in ClusterFileName under "TrajNameList = [...]",
+                                        e.g. [1,3,5] means trajNr 1,3,5 of TrajNameList are aMD trajectories | has to correspond to possible _ColY EventCurves;
+    sMD_Nrs         : {INT-LIST}  <default []>,   FOR RE-WEIGHTING ONLY, trajectory numbers which are generated with scaledMD, 
+                                                  numbering MUST correspond to the trajectories stored in ClusterFileName under "TrajNameList = [...]",
+                                        e.g. [1,3,5] means trajNr 1,3,5 of TrajNameList are scaledMD trajectories | has to correspond to possible _ColY EventCurves;
+    aMD_reweight    : {STRING}    <default MF> FOR RE-WEIGHTING ONLY, reweighting method if aMD trajs are present, default Mean-Field-Approach | 
+                                    possibilities - 'MF', 'Exp', 'McL';
+    Iterations      : {INT}       <default 1>     FOR RE-WEIGHTING ONLY, the number of MF iterations used if aMD (aMD_reweight=MF) or sMD trajectories are present;
+    Lambda          : {FLOAT}     <default 1>     FOR RE-WEIGHTING ONLY, scaling factor for scaledMD, e.g. 0.7, 1 means no scaling;
+    Order           : {INT}       <default 10>    FOR RE-WEIGHTING ONLY, Order for the MacLaurin expansion, ONLY NECESSARY IF aMD_reweight = 'McL';
 OUTPUT:
     if SaveDir is not None and SaveName is not None:
         SaveDir+SaveName with:
@@ -3857,6 +3875,17 @@ OUTPUT:
                 if len(line.split()) > 1 and line.split()[1] == 'ThresholdList':
                     if line.split(' = ')[1] == '{}\n'.format(ThresholdList):
                         CorrectThreshold = True
+             ## EXTRACT TrajNameList for possible re-weighting
+                elif len(line.split()) > 1 and line.split()[1] == 'TrajNameList':
+                    TrajNameList = [elem.replace('\'','').replace(',','') \
+                                    for elem in line[line.find('[')+1:line.find(']')].split()]
+             ## EXTRACT StartFrame & EndingFrame for possible re-weighting
+                elif len(line.split()) > 1 and line.split()[1] == 'StartFrame':
+                    StartFrame = int(line.split()[3])
+                elif len(line.split()) > 1 and line.split()[1] == 'EndingFrame':
+                    EndingFrame = int(line.split()[3])
+                    break
+            
         if CorrectThreshold:
             t1 = time.time()
           #----- GENERATE usecols to load only PROF columns from the clustering file: 
@@ -3871,9 +3900,9 @@ OUTPUT:
           #----- extract TrajNrList from PROF to calculate the number of clusters and go through every trajectory
             if Case == 'GLOBAL':
                 TrajNrList = [0] # for GLOBAL: the whole file is used thus only one loop is necessary
+                reweightList = [int(elem) for elem in NP.unique(PROF[:,1])]
             else:
-                TrajNrList = NP.unique(PROF[:,1])
-
+                TrajNrList = [int(elem) for elem in NP.unique(PROF[:,1])]
           #----- CALCULATION: 
             ## INIT Time & TrajNr to immediately detect, which Time belong to which Trajectory
             CDE_Array[:,0] = PROF[:,0]
@@ -3883,15 +3912,118 @@ OUTPUT:
             for TrajNr in TrajNrList:
                 if Case == 'GLOBAL': ## whole sim-time is used to calculate #clust vs time | entropy vs time
                     Ar = NP.copy(PROF)
+                    if sMD_Nrs != [] or (aMD_reweight == 'MF' and aMD_Nrs != []):
+                        Weights = NP.ones( (len(Ar[:,0]),len(ThresholdList)) )
+                    else:
+                        Weights = NP.ones(len(Ar[:,0]))
                 else:
                     Ar = NP.copy(PROF[PROF[:,1]==TrajNr])
+                    reweightList = [TrajNr]
+                    if sMD_Nrs.count(TrajNr) > 0 or (aMD_reweight == 'MF' and aMD_Nrs.count(TrajNr) > 0):
+                        Weights = NP.ones( (len(Ar[:,0]),len(ThresholdList)) )
+                    else:
+                        Weights = NP.ones(len(Ar[:,0]))
+        ###################   
+        ### RE-WEIGHTING
+        ###################
+                rewIndex = 0
+                for rewTrajNr in reweightList:
+                    if aMD_Nrs.count(rewTrajNr) > 0:
+                        if aMD_reweight == 'Exp':
+                            if not os.path.exists('%saMD_Weight_%s.txt' % (WeightDir, TrajNameList[rewTrajNr-1])):
+                                raise NameError(('You try to re-weight trajectory=%s using >Exp<-re-weighting, but\n\t%saMD_Weight_%s.txt\ndoes not exist.' % \
+                                                    (TrajNameList[rewTrajNr-1], WeightDir, TrajNameList[rewTrajNr-1]))+\
+                                                    'Check aMD_Nrs, WeightDir and aMD_reweight, which have to match\n\tTrajNameList = {}'.format(TrajNameList))
+                            Weights[rewIndex:rewIndex+len(Ar[Ar[:,1]==rewTrajNr][:,0])] = \
+                                NP.exp(NP.genfromtxt('%saMD_Weight_%s.txt' % (WeightDir, TrajNameList[rewTrajNr-1]), 
+                                                     usecols=(0)))
+                        elif aMD_reweight == 'McL':
+                            if not os.path.exists('%saMD_Weight_%s.txt' % (WeightDir, TrajNameList[rewTrajNr-1])):
+                                raise NameError(('You try to re-weight trajectory=%s using >McL<-re-weighting, but\n\t%saMD_Weight_%s.txt\ndoes not exist.' % \
+                                                    (TrajNameList[rewTrajNr-1], WeightDir, TrajNameList[rewTrajNr-1]))+\
+                                                    'Check aMD_Nrs, WeightDir and aMD_reweight, which have to match\n\tTrajNameList = {}'.format(TrajNameList))
+                            tempWeight = NP.genfromtxt('%saMD_Weight_%s.txt' % (WeightDir, TrajNameList[rewTrajNr-1]), 
+                                                       usecols=(0))
+                            Weights = NP.zeros(len(tempWeight))
+                            for Ord in range(0,Order+1):
+                                Weights[rewIndex:rewIndex+len(Ar[Ar[:,1]==rewTrajNr][:,0])] = \
+                                        NP.add(Weights[rewIndex:rewIndex+len(Ar[Ar[:,1]==rewTrajNr][:,0])], 
+                                               NP.divide( NP.power( tempWeight , Ord), float(scipy.misc.factorial(Ord))))
+                        elif aMD_reweight == 'MF':
+                      #--- extract ThresholdList of sMD_Weights, to match the correct Threshold
+                            if not os.path.exists('%saMD_Weight_MF_%s_%s-%s_Iter%s.txt' % \
+                                                      (WeightDir, TrajNameList[rewTrajNr-1], StartFrame, EndingFrame, Iterations)):
+                                raise NameError(('You try to re-weight trajectory=%s using >MF<, but\n\t%saMD_Weight_MF_%s_%s-%s_Iter%s.txt\ndoes not exist.' % \
+                                                    (TrajNameList[rewTrajNr-1], WeightDir, TrajNameList[rewTrajNr-1], StartFrame, EndingFrame, Iterations))+\
+                                            'Check aMD_Nrs, WeightDir, Iterations and aMD_reweight, which have to match\n\tTrajNameList = {}'.format(TrajNameList))
+                            with open('%saMD_Weight_MF_%s_%s-%s_Iter%s.txt' % \
+                                      (WeightDir, TrajNameList[rewTrajNr-1], StartFrame, EndingFrame, Iterations), 'r') as aMDin:
+                                for line in aMDin:
+                                    if len(line.split()) > 2 and line.split()[0] == '#' and line.split()[1] == 'ThresholdList':
+                                        aMD_ThresholdList = [float(elem.replace(',','')) \
+                                                             for elem in line[line.find('[')+1:line.find(']')].split()]
+                                        break
+                            if 'aMD_ThresholdList' not in locals():
+                                raise ValueError('ThresholdList is not defined in\n\t%saMD_Weight_MF_%s_%s-%s_Iter%s.txt\nAdd the used >>ThresholdList = [...]<<.' % \
+                                                    (WeightDir, TrajNameList[rewTrajNr-1], StartFrame, EndingFrame, Iterations))
+                            else:
+                                for TT in ThresholdList:
+                                    if aMD_ThresholdList.count(TT) == 0:
+                                        raise ValueError('There are no weights calculated for\n\tThreshold=%s\nin\n\t%saMD_Weight_MF_%s_%s-%s_Iter%s.txt!' % \
+                                                            (TT, WeightDir, TrajNameList[rewTrajNr-1], StartFrame, EndingFrame, Iterations))
+                            Indo = 0
+                            for rewThresh in ThresholdList:
+                                Weights[rewIndex:rewIndex+len(Ar[Ar[:,1]==rewTrajNr][:,0]), Indo] = \
+                                    NP.exp(NP.genfromtxt('%saMD_Weight_MF_%s_%s-%s_Iter%s.txt' % \
+                                          (WeightDir, TrajNameList[rewTrajNr-1], StartFrame, EndingFrame, Iterations), 
+                                                         usecols=(aMD_ThresholdList.index(rewThresh))))
+                                Indo += 1
+                    elif sMD_Nrs.count(rewTrajNr) > 0:
+                      #--- extract ThresholdList of sMD_Weights, to match the correct Threshold
+                        if not os.path.exists('%ssMD_Weight_lambda%s_%s_%s-%s_Iter%s.txt' % \
+                          (WeightDir, Lambda, TrajNameList[rewTrajNr-1], StartFrame, EndingFrame, Iterations)):
+                            raise NameError(('You try to re-weight trajectory=%s using >sMD<, but\n\t%ssMD_Weight_lambda%s_%s_%s-%s_Iter%s.txt\ndoes not exist.' % \
+                                                (TrajNameList[rewTrajNr-1], WeightDir, Lambda, TrajNameList[rewTrajNr-1], StartFrame, EndingFrame, Iterations))+\
+                                    'Check sMD_Nrs, WeightDir, Iterations, Lambda and aMD_reweight, which have to match\n\tTrajNameList = {}'.format(TrajNameList))
+                        with open('%ssMD_Weight_lambda%s_%s_%s-%s_Iter%s.txt' % \
+                          (WeightDir, Lambda, TrajNameList[rewTrajNr-1], StartFrame, EndingFrame, Iterations), 'r') as sMDin:
+                            for line in sMDin:
+                                if len(line.split()) > 2 and line.split()[0] == '#' and line.split()[1] == 'ThresholdList':
+                                    sMD_ThresholdList = [float(elem.replace(',','')) \
+                                                         for elem in line[line.find('[')+1:line.find(']')].split()]
+                                    break
+                        
+                        if 'sMD_ThresholdList' not in locals():
+                            raise ValueError('ThresholdList is not defined in\n\t%ssMD_Weight_lambda%s_%s_%s-%s_Iter%s.txt\nAdd used >>ThresholdList = [...]<<.' % \
+                                                (WeightDir, Lambda, TrajNameList[rewTrajNr-1], StartFrame, EndingFrame, Iterations))
+                        else:
+                            for TT in ThresholdList:
+                                if sMD_ThresholdList.count(TT) == 0:
+                                    raise ValueError('There are no weights calculated for\n\tThreshold=%s\nin\n\t%ssMD_Weight_lambda%s_%s_%s-%s_Iter%s.txt!' % \
+                                                        (TT, WeightDir, Lambda, TrajNameList[rewTrajNr-1], StartFrame, EndingFrame, Iterations))
+                        Indo = 0
+                        for rewThresh in ThresholdList:
+                            if sMD_ThresholdList.count(rewThresh) == 0:
+                                raise ValueError('You want to re-weight CDE, but the corresponding\n\tweight=%s\nwith\n\tThreshold=%s is not present! Check your input!' % \
+                                                 ('%ssMD_Weight_lambda%s_%s_%s-%s_Iter%s.txt' % \
+                          (WeightDir, Lambda, TrajNameList[TrajNr-1], StartFrame, EndingFrame, Iterations), Threshold))
+                            Weights[rewIndex:rewIndex+len(Ar[Ar[:,1]==rewTrajNr][:,0]), Indo] = \
+                                NP.genfromtxt('%ssMD_Weight_lambda%s_%s_%s-%s_Iter%s.txt' % \
+                          (WeightDir, Lambda, TrajNameList[rewTrajNr-1], StartFrame, EndingFrame, Iterations), 
+                                             usecols=(sMD_ThresholdList.index(rewThresh)))
+                    rewIndex += len(Ar[Ar[:,1]==rewTrajNr][:,0])
+        ####################
               ## extract correct parts to store the actual CDE to CDE_Array array
                 Ranger[0] = Ranger[1]
                 Ranger[1] = Ranger[1]+len(Ar[:,0])
               ## calculate #CLUST/ENTROPY vs TIME
                 ## temp: Time[ns] | TrajNr | NrClusts | normNrClusts | CDE | normCDE
                 for Threshold in ThresholdList:
-                    temp = Calc_CDE(Ar[:,[0,1,2+3*ThresholdList.index(Threshold)]]) 
+                    if len(Weights.shape) > 1: #(aMD_Nrs.count(TrajNr) > 0 and aMD_reweight != 'MF') or sMD_Nrs.count(TrajNr) > 0:
+                        temp = Calc_CDE(Ar[:,[0,1,2+3*ThresholdList.index(Threshold)]],
+                                        Weights[:,    ThresholdList.index(Threshold)])
+                    else:
+                        temp = Calc_CDE(Ar[:,[0,1,2+3*ThresholdList.index(Threshold)]], Weights) 
                     CDE_Array[Ranger[0]:Ranger[1],2+4*ThresholdList.index(Threshold)] = temp[:,1]
                     CDE_Array[Ranger[0]:Ranger[1],3+4*ThresholdList.index(Threshold)] = temp[:,2]
                     CDE_Array[Ranger[0]:Ranger[1],4+4*ThresholdList.index(Threshold)] = temp[:,3]
@@ -3935,10 +4067,9 @@ OUTPUT:
 ###############
 #-------------
 ###############
-
-def Calc_CDE(Array):
+def Calc_CDE(Array, Weights):
     """
-v02.05.16
+v14.10.16
 - this function calculates the 
     >> Nr of Cluster vs Time <<
     >> normalized Nr of Cluster vs Time <<
@@ -3947,7 +4078,8 @@ v02.05.16
 - PROF corresponds to the cluster profile, i.e. reports cluster number as a function of the frames
 
 INPUT:
-    Array  -  {NP.NDARRAY} containing 3 columns: SimTime | TrajNr | PROF;
+    Array   :  {NP.NDARRAY} containing 3 columns, SimTime | TrajNr | PROF;
+    Weights :  {NP.NDARRAY} containing 1 column,  Weights, whereas len(Array[:,0]) == len(Weights)
 OUTPUT:
     RETURNING:  CDEarray[:,0] = Simulation Time
                 CDEarray[:,1] = Nr of Cluster     = NP.sum( clust[i] )
@@ -3959,6 +4091,9 @@ OUTPUT:
 
 return CDEarray -  NP.ndarray containing 3 columns: SimTime | nr of clusters | CDE
     """
+  ## CHECK ARRAY & WEIGHT LENGTH
+    if len(Weights) != len(Array[:,0]):
+        raise ValueError('The number of frames used for the clustering does not correspond to the Weights! Check your input and simulation times!')
   ## generate Centers
     Centers = [elem for elem in NP.unique(Array[:,2])]
     TotalNrClusts = len(Centers)
@@ -3976,7 +4111,7 @@ return CDEarray -  NP.ndarray containing 3 columns: SimTime | nr of clusters | C
     Index = 0
     for Prof in Array[:,2]:
         CenterArray[0,Dict[Prof]] = 1
-        CenterArray[1,Dict[Prof]] += 1
+        CenterArray[1,Dict[Prof]] += Weights[Index]
                     
         CDEarray[Index,0] = Array[Index,0] # SimTime
         if NrOfClusts != TotalNrClusts:
@@ -3988,9 +4123,9 @@ return CDEarray -  NP.ndarray containing 3 columns: SimTime | nr of clusters | C
       ## p_i = clust[i]/sum_i(clust[i]) -> sum_i( clust[i]/sum_i(clust[i]) * Log( clust[i]/sum_i(clust[i]) ) )
         ## NP.sum(CenterArray[1,:]) = Nr of Frames = Index+1
         CDEarray[Index,3] = NP.sum( \
-                                  [-( NP.float(elem)/NP.float(Index+1) * NP.log( elem/NP.float(Index+1) ) \
-                                                   if elem != 0 else 0) \
-                                  for elem in CenterArray[1,:]] \
+              [-( NP.float(elem)/NP.float(NP.sum(CenterArray[1,:])) * NP.log( elem/NP.float(NP.sum(CenterArray[1,:])) ) \
+                               if elem != 0 else 0) \
+              for elem in CenterArray[1,:]] \
                                   )
       ## CDEarray[:,4] = CDEarray[:,3] / log(N) => CDEarray[Index,3] / NP.log(CDEarray[Index,1])
         CDEarray[Index,4] = (0 if NrOfClusts == 1 else CDEarray[Index,3] / NP.log(NrOfClusts))
