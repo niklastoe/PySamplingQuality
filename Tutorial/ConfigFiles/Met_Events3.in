@@ -5,7 +5,7 @@
 ##  ##  ##  ##  ##
 ### DESCRIPTION: ###
 #  
-# v13.09.16
+# v12.10.16
 #     This function calculates the EventCurves using calculated RMSD matrices and possible aMD/sMD Weights: 
 #         - Events are the number of neighboring frames with Threshold < RMSD for each reference frame and for each traj
 #         - Events as a function of Simulation time
@@ -27,7 +27,7 @@ TrajNameList = "Met_Amber1_stripped Met_Amber2_stripped"               # <LIST> 
 # number of frames for corresponding TrajName, have to match RMSD matrix shape & length of TrajNameList, e.g. [2000, 2000, 1000, ...] if PartList != None, TrajNameList must store the NrOfFrames for each SPLIT
 TrajLengthList = "1000 1000"             # <INT-LIST> format example: "2 4 65 12 4 22"
 #-------------------------------------------
-# Name of the save directory for RMSD matrices, e.g. 'RMSD_files/BinFiles/'
+# Name of the directory, where RMSD matrices are located, e.g. 'RMSD_matrices/'
 MatrixDir = "RMSD_matrices/"                  # <STRING> format example: (non-directory) "TEXT" | (directory) "TEXT/"
 #-------------------------------------------
 # Name of the save directory for the EventCurves, e.g. 'EventCurves/'
@@ -63,10 +63,10 @@ aMD_Nrs = "[]"                  # <INT-LIST> format example: "2 4 65 12 4 22"
 # <default MF> FOR RE-WEIGHTING ONLY, reweighting method if aMD trajs are present, default Mean-Field-Approach | possibilities - 'MF', 'Exp', 'McL'
 aMD_reweight = "MF"             # <STRING> format example: (non-directory) "TEXT" | (directory) "TEXT/"
 #-------------------------------------------
-# <default None> FOR RE-WEIGHTING ONLY, ['directory/'], for aMD.log '%s%s' % (aMDlogDir, aMDlogName) from AMBER14/12, len(aMDlogDir) == 1 OR len(aMDlogDir) == len(aMD_Nrs) for different traj directories
+# <default None> FOR RE-WEIGHTING ONLY,e.g. ['directory/'], where aMD.log from AMBER14/12 are located for each aMD trajectory, searching files with the following syntax '%s%s' % (aMDlogDir, aMDlogName) from AMBER14/12, len(aMDlogDir) == 1 OR len(aMDlogDir) == len(aMD_Nrs) for different traj directories
 aMDlogDir = "None"              # <LIST> format example: "Name1 Name2 Name3 Name4"
 #-------------------------------------------
-# <default None> FOR RE-WEIGHTING ONLY, Names for aMD.log '%s%s' % (aMDlogDir, aMDlogName) from AMBER14/12, necessary for re-weighting, if weights are NOT already present, len(aMDlogName) == len(aMD_Nrs), each name corresponds to aMD_Nrs
+# <default None> FOR RE-WEIGHTING ONLY, e.g. ['aMD.log', 'aMD.log'] for aMD_Nrs = [2,5] in ascending order, Names for aMD.log following the syntax '%s%s' % (aMDlogDir, aMDlogName) from AMBER14/12, necessary for re-weighting, if weights are NOT already present, len(aMDlogName) == len(aMD_Nrs), each name corresponds to the trajectory specified in aMD_Nrs
 aMDlogName = "None"             # <LIST> format example: "Name1 Name2 Name3 Name4"
 #-------------------------------------------
 # <default Amber14> FOR RE-WEIGHTING ONLY, Amber14 OR Amber12, because the units are different in both versions

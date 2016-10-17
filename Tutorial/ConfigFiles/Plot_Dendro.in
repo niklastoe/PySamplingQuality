@@ -5,7 +5,7 @@
 ##  ##  ##  ##  ##
 ### DESCRIPTION: ###
 # 
-# v09.09.16
+# v12.10.16
 # This function transforms the Heatmap_1vs1 to a hierarchically clustered dendrogram using average linkage.
 # - Colors is a dictionary, which has to fit the LabelNames, e.g.
 #     Colors = {'Label1':'g'} <-> Labels = ['Label1 1', 'Label1 2', 'Label1 3', 'Label1 4']

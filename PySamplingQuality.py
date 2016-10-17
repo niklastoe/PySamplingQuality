@@ -9,7 +9,7 @@
 #
 # Author:     Mike Nemec <mike.nemec@uni-due.de>
 #
-# current version: v14.10.16-1
+# current version: v17.10.16-1
 #######################################################
 # tested with following program versions:
 #        Gromacs       v4.6 | v5.1 
@@ -5222,7 +5222,7 @@ OUTPUT:
 def Plot_Overlap_VS_Time(OverlapDir, OverlapList, Threshold, SimTimeList, TimeStep, 
                          LegendList=[], Title='', LegendNcols=1, SaveDir=None, SaveName=None, logX=False, LegendDens=True):
     """
-v12.10.16
+v17.10.16
 This function generates the plots 'Overlap vs simulation Time' for conformational & density overlap
 - possibility to submit multiple OverlapMatrices to plot for instance multiple groups together
 - each element of OverlapList MUST constain 'Start-End' which are replaced by the elements of SimTimeList, because
@@ -5244,7 +5244,7 @@ INPUT:
     LegendNcols  : {INT}         <default 1>   number of columns in the displayed Legend, to fit into the plot;
     SaveDir      : {STRING}      saving directory for the PDF, e.g. 'PDFs/';
     SaveName     : {STRING}      savename, e.g. 'OverlaPvsTime.pdf';
-    logX         : {BOOL}        <default False> if True, the X axis is logarithmic, else not
+    logX         : {BOOL}        <default False> if True, the X axis is logarithmic, else not;
     LegendDens   : {BOOL}        <default True>  if True, the legend is located in the panel of the density overlap, else in the conformational overlap;
 OUTPUT:
     stores the OverlapVStime.pdf

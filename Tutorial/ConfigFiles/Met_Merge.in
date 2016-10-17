@@ -5,7 +5,7 @@
 ##  ##  ##  ##  ##
 ### DESCRIPTION: ###
 # 
-# v09.09.16
+# v12.10.16
 # - function to merge different clustering files with different cluster thresholds but same trajectories 
 #   and [StartFrame,EndingFrame]
 # - beforehand, clusterings <Generate_Clustering()> are calculated for each threshold separately (possibly on multiple machines/cores simultanously)
@@ -22,7 +22,7 @@ SingleClustDir = "Clustering/"             # <STRING> format example: (non-direc
 # Directory, where to save the merged clusterings with multiple thresholds, e.g. 'Clustering/'
 SaveDir = "Clustering/"                    # <STRING> format example: (non-directory) "TEXT" | (directory) "TEXT/"
 #-------------------------------------------
-# SaveName PREFIX, identical to Generate_Clustering() '%s_R%s_%s-%s_%s.txt' % (SaveName, Threshold, StartFrame, EndingFrame, 'GLOBAL' / 'LOCAL') leads to '%s_R%s-%s_%s-%s_%s.txt' % (SaveName, ThresholdList[0], ThresholdList[-1], StartFrame, EndingFrame, 'GLOBAL' / 'LOCAL')
+# SaveName PREFIX, identical to Generate_Clustering(), e.g. 'Mol2' leads to 'Mol2_R0.1-0.2_0-100_GLOBAL.txt', '%s_R%s-%s_%s-%s_%s.txt' % (SaveName, ThresholdList[0], ThresholdList[-1], StartFrame, EndingFrame, 'GLOBAL' / 'LOCAL')
 SaveName = "Met_Amber"                   # <STRING> format example: (non-directory) "TEXT" | (directory) "TEXT/"
 #-------------------------------------------
 # List of thresholds, which should be merged, e.g. [0.2, 0.25, 0.3, 0.35, 0.4]

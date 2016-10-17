@@ -5,7 +5,7 @@
 ##  ##  ##  ##  ##
 ### DESCRIPTION: ###
 #  
-# v13.09.16
+# v12.10.16
 # - calculates <conformational overlap> and <density overlap> : Overlap between different trajectories/groups 
 #   for different Threshold and reference Trajectories
 # - CompareList has to match the TrajNr in the EventCurves: the overlap is than calculated between the sets of trajectory numbers defined in CompareList
@@ -50,5 +50,5 @@ sMD_Nrs = "[]"                  # <INT-LIST> format example: "2 4 65 12 4 22"
 # <default None> IF MULTIPLE EventNames are submitted with different sim times, SameTraj defines TrajNr, for which different parts are compared, e.g. 1 for comparing traj1 of different simulation times
 SameTraj = "None"               # <INT> format example: "502"
 #-------------------------------------------
-## <default True>, if True , overlap value is calculated using all groups as references, projecting all groups on top of each other | if False, overlap value is reported for each compare/reference group separately, the overall projection is than the average of the overlap over all groups
+# <default True>, if True , overlap value is calculated using all groups as references, projecting all groups on top of each other | if False, overlap value is reported for each compare/reference group separately, the overall projection is than the average of the overlap over all groups
 AllPrject = "True"              # <BOOL> format example: "False" or "True"

@@ -5,7 +5,7 @@
 ##  ##  ##  ##  ##
 ### DESCRIPTION: ###
 # 
-# v08.09.16
+# v12.10.16
 # This function generates the plots "Overlap vs Threshold r" for conf/dens + the corresponding integral.
 # - possibility to submit multiple OverlapMatrices to plot for instance multiple groups together
 # - possibility to submit a second OverlapMatrix to compare a second molecule with its own x-axis
@@ -43,4 +43,4 @@ LegendList = "100ns 60ns 30ns"           # <LIST> format example: "Name1 Name2 N
 SaveDir = "PDFs/"                    # <STRING> format example: (non-directory) "TEXT" | (directory) "TEXT/"
 #-------------------------------------------
 # savename, e.g. 'OverlaPvsThreshold.pdf'
-SaveName = "Met_Amber_OverlaPvsThreshold.png"                   # <STRING> format example: (non-directory) "TEXT" | (directory) "TEXT/"
+SaveName = "Met_Amber_OverlaPvsThreshold.png"                  # <STRING> format example: (non-directory) "TEXT" | (directory) "TEXT/"

@@ -5,7 +5,7 @@
 ##  ##  ##  ##  ##
 ### DESCRIPTION: ###
 #  
-# v19.09.16 
+# v12.10.16 
 #     - using <Generate_RMSD_Matrix()>
 #     - Calculates every RMSD diagonal & off-diagonal matrix part for <Generate_EventCurves()>
 #     - RMSD matrix generation for given Trajectory-List using Gromacs v4.6.7|5.1.2 or AmberTools14
@@ -23,10 +23,10 @@
 ##  ##  ##  ##  ##
 #-------------------------------------------
 # Directory, where the trajectory is located, e.g. FullTrajs/
-TrajDIR = "Trajectories/"                    # <STRING> format example: (non-directory) "TEXT" | (directory) "TEXT/"
+TrajDir = "Trajectories/"                    # <STRING> format example: (non-directory) "TEXT" | (directory) "TEXT/"
 #-------------------------------------------
 # Directory, where the topology is located, e.g. FullTrajs/
-TopologyDIR = "Trajectories/"                # <STRING> format example: (non-directory) "TEXT" | (directory) "TEXT/"
+TopologyDir = "Trajectories/"                # <STRING> format example: (non-directory) "TEXT" | (directory) "TEXT/"
 #-------------------------------------------
 # List of Names of the trajectories, WITH ENDING, e.g. ['MD1.xtc', 'MD2.netcdf', ...] it tries to automatically detect AMBER/GROMACS Trajectories by the ending 1. .nc or .netcdf -> AMBER 2. .xtc or .trr -> GROMACS 3. if Select2 is None -> AMBER else GROMACS
 TrajNameList = "Met_Amber1_stripped.netcdf Met_Amber2_stripped.netcdf"               # <LIST> format example: "Name1 Name2 Name3 Name4"
@@ -35,9 +35,9 @@ TrajNameList = "Met_Amber1_stripped.netcdf Met_Amber2_stripped.netcdf"          
 TopologyName = "Met_Amber_stripped.top"               # <STRING> format example: (non-directory) "TEXT" | (directory) "TEXT/"
 #-------------------------------------------
 # Directory, where the distributions are stored (Gromacs), e.g. RMSD_files/, FOR AMBER (trajectories) THIS VALUE IS NOT NECESSARY and can be set to 'None'
-DistSaveDir = "None"                # <STRING> format example: (non-directory) "TEXT" | (directory) "TEXT/"
+DistSaveDir = ""                # <STRING> format example: (non-directory) "TEXT" | (directory) "TEXT/"
 #-------------------------------------------
-# Directory, where the RMSD matrices are stored, e.g. RMSD_files/BinFiles/
+# Directory, where the RMSD matrices are stored, e.g. RMSD_matrices/
 MatrixSaveDir = "RMSD_matrices/"              # <STRING> format example: (non-directory) "TEXT" | (directory) "TEXT/"
 #-------------------------------------------
 # -dt for GROMACS 't MOD dt = first [ns]' OR skip dt-th frame for AMBER 'first last skip'

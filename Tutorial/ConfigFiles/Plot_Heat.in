@@ -5,7 +5,7 @@
 ##  ##  ##  ##  ##
 ### DESCRIPTION: ###
 # 
-# v09.09.16   
+# v12.10.16   
 # This function plots the heatmap of trajectory X vs trajectory Y (whereas GroupX vs GroupY should also work).
 # - possibility to use AllPrject EITHER projection on both groups, OR lower triangular projection on X and upper on Y
 # - Grid & CaseTitles give the possibility to split the Heatmap into different regions, where Grid gives the split coords

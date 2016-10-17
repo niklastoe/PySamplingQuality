@@ -5,7 +5,7 @@
 ##  ##  ##  ##  ##
 ### DESCRIPTION: ###
 # 
-# v04.08.16
+# v12.10.16
 #     This function plots/analyzes ALL information stored in Slopes.txt of
 #             >> Generate_Slope_Error() <<
 # 
@@ -13,8 +13,8 @@
 # 
 ##  ##  ##  ##  ##
 #-------------------------------------------
-# Directory, where Slopes of 'Generate_Slope_Error()' are stored, e.g. 'ClusterProfile/'
-SlopeDIR = "Clustering/"                   # <STRING> format example: (non-directory) "TEXT" | (directory) "TEXT/"
+# Directory, where Slopes of 'Generate_Slope_Error()' are located, e.g. 'ClusterProfile/'
+SlopeDir = "Clustering/"                   # <STRING> format example: (non-directory) "TEXT" | (directory) "TEXT/"
 #-------------------------------------------
 # name of the Slopes.txt file of 'Generate_Slope_Error()', e.g. 'Slopes_R5_cMD+aMD+sMD_REF_D_S1-S10_R0.2-0.7_End_25_01_LOCAL.txt'
 SlopeName = "Slope_Met_Amber_R0.1-0.15_GLOBAL_singles.txt"                  # <STRING> format example: (non-directory) "TEXT" | (directory) "TEXT/"
@@ -29,7 +29,7 @@ Case = "Entropy"                       # <STRING> format example: (non-directory
 TimeStep = "0.1"                   # <FLOAT> format example: "203.12"
 #-------------------------------------------
 # Save directory, e.g. 'ClusterProfile/'
-SaveDIR = "PDFs/"                    # <STRING> format example: (non-directory) "TEXT" | (directory) "TEXT/"
+SaveDir = "PDFs/"                    # <STRING> format example: (non-directory) "TEXT" | (directory) "TEXT/"
 #-------------------------------------------
 # <default 0.95>, defines the confidence interval of the slopes of the linear regression
 Confidence = "0.95"             # <FLOAT> format example: "203.12"

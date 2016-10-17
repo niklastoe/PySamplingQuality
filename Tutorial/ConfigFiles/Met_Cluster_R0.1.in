@@ -5,7 +5,7 @@
 ##  ##  ##  ##  ##
 ### DESCRIPTION: ###
 # 
-# v09.09.16
+# v12.10.16
 # Calculates and generates the LOCAL or GLOBAL PROFILE & CENTROIDS for effective clustering for the submitted 
 # trajectories, 
 #     - using Generate_reference_for_Clustering() & Return_FullColRMSD()
@@ -37,10 +37,10 @@
 # 
 ##  ##  ##  ##  ##
 #-------------------------------------------
-# Directory, where RMSD matrices are stored, e.g. 'RMSD_files/BinFiles/'
+# Directory, where RMSD matrices are stored, e.g. 'RMSD_matrices/'
 MatrixDir = "RMSD_matrices/"                  # <STRING> format example: (non-directory) "TEXT" | (directory) "TEXT/"
 #-------------------------------------------
-# Directory, where the clustering is stored, e.g. 'Clustering/'
+# Directory, where the clustering will be stored, e.g. 'Clustering/'
 SaveDir = "Clustering/"                    # <STRING> format example: (non-directory) "TEXT" | (directory) "TEXT/"
 #-------------------------------------------
 # list of Trajectory name prefixes WITHOUT ENDING, Names of the Block RMSD matrices / distributions refer to these names, e.g. ['MD1', 'MD2', ...] <-> MD1_bin.dat, MD2_bin.dat, MD1_MD2_bin.dat, ...
@@ -52,7 +52,7 @@ TrajLengthList = "1000 1000"             # <INT-LIST> format example: "2 4 65 12
 # Clustering-Threshold [nm], e.g. 0.2
 Threshold = "0.1"                  # <FLOAT> format example: "203.12"
 #-------------------------------------------
-# PREFIX name for the clustering file, '%s_R%s_%s-%s_%s.txt' % (SaveName, Threshold, StartFrame, EndingFrame, 'GLOBAL' or 'LOCAL')
+# PREFIX name for the clustering file, e.g. 'Mol2' leads to 'Mol2_R0.1_0-100_GLOBAL.txt', '%s_R%s_%s-%s_%s.txt' % (SaveName, Threshold, StartFrame, EndingFrame, 'GLOBAL' or 'LOCAL')
 SaveName = "Met_Amber"                   # <STRING> format example: (non-directory) "TEXT" | (directory) "TEXT/"
 #-------------------------------------------
 # Maximal number of lines which are loaded from the FullRMSD matrix, it inflicts directly the memory usage, if MaxNumberLines > sum(TrajLengthList), all RMSD matrices are loaded at once, recommended using length of one RMSD block, e.g. if one block RMSDmatrix.shape == (2000,2000), try to use MaxNumberLines = 2000
@@ -77,10 +77,10 @@ GLOBAL = "True"                 # <BOOL> format example: "False" or "True"
 RMSDdir = "None"                # <STRING> format example: (non-directory) "TEXT" | (directory) "TEXT/"
 #-------------------------------------------
 # <default None> ONLY NECESSARY IF ReferencePDB is not None! Directory, where the trajectories are located if a reference is submitted, then, RMSD curves are calculated using these, e.g. 'TrajDir/'
-TrajDIR = "Trajectories/"                # <STRING> format example: (non-directory) "TEXT" | (directory) "TEXT/"
+TrajDir = "Trajectories/"                # <STRING> format example: (non-directory) "TEXT" | (directory) "TEXT/"
 #-------------------------------------------
 # <default None> ONLY NECESSARY IF ReferencePDB is not None! Directory, where the topology file is located, for GROMACS, this is equal to the Reference(PDB), for AMBER, this is a .top file, e.g. 'TrajDir/'
-TopologyDIR = "Trajectories/"            # <STRING> format example: (non-directory) "TEXT" | (directory) "TEXT/"
+TopologyDir = "Trajectories/"            # <STRING> format example: (non-directory) "TEXT" | (directory) "TEXT/"
 #-------------------------------------------
 # <default None> ONLY NECESSARY IF ReferencePDB is not None! topology name, for GROMACS this has to contain the reference(PDB) for AMBER, this is the input topology .top
 TopologyName = "Met_Amber_stripped.top"           # <STRING> format example: (non-directory) "TEXT" | (directory) "TEXT/"

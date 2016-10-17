@@ -5,7 +5,7 @@
 ##  ##  ##  ##  ##
 ### DESCRIPTION: ###
 # 
-# v16.09.16
+# v12.10.16
 #     - This function plots a clustering profile as a function of the simulation time [ns]
 #     - May produce huge plots depending on the number of clusters and number of involved frames, try to play with
 #         FigSize to adjust the visibility and figure size
@@ -31,6 +31,9 @@ Threshold = "0.15"                  # <FLOAT> format example: "203.12"
 #-------------------------------------------
 # length of the (involved) trajectories in [ns], e.g. [100, 50]
 TrjLenList = "100 100"                 # <FLOAT-LIST> format example: "0.1 0.2 0.3 0.4"
+#-------------------------------------------
+# if True, it is assumed that the clustering was done globally, if False, every trajectory is handled separately
+Global = "True"                     # <BOOL> format example: "False" or "True"
 #-------------------------------------------
 # Directory, where the figure is stored e.g. 'Clustering/'
 SaveDir = "PDFs/"                    # <STRING> format example: (non-directory) "TEXT" | (directory) "TEXT/"
