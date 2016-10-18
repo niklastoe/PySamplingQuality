@@ -9,7 +9,7 @@
 #
 # Author:     Mike Nemec <mike.nemec@uni-due.de>
 #
-# current version: v17.10.16-1
+# current version: v18.10.16-1
 #######################################################
 # tested with following program versions:
 #        Gromacs       v4.6 | v5.1 
@@ -5295,7 +5295,7 @@ OUTPUT:
 #----- GENERATE Overlap VS Time
 def Generate_Overlap_VS_Time(OverlapDir, OverlapList, Threshold, SimTimeList, TimeStep):
     """
-v29.09.16
+v18.10.16
 - supporting function to merge/generate OverlaPvsTime NP.ndarray from Overlapfiles with different simulation times
 - extracts the overlap for a certain threshold of different simulation time files and merge them in the ROW-dimension
 - different groups are also extracted from different OverlapList elements and merged in the COLUMN-dimension
@@ -5312,17 +5312,26 @@ INPUT:
 OUTPUT:
     return OvT {NP.NDARRAY} - StartTime | EndTime | densO1 | confO1 | densO2 | confO2 | ...
     """
+###########
+    ColLength = 2
+    if len(OverlapList) > 1:
+        for FF in OverlapList:
+            if not os.path.exists('%s%s' % (OverlapDir, 
+                                            FF.replace('Start', str(SimTimeList[0][0])).replace('End',str(SimTimeList[0][1])))):
+                raise NameError('The submitted OverlapList does not exist! Check your input\n%s\n%s' % \
+                                (OverlapDir, OverlapList))
+        #----- Loaded Overlap for all different simulation times
+            ColLength += 2*len(NP.genfromtxt('%s%s' % (OverlapDir, 
+                                FF.replace('Start', str(SimTimeList[0][0])).replace('End',str(SimTimeList[0][1]))))[0,2:])/3
+        OvT = NP.zeros( (len(SimTimeList), ColLength) )
+        
+###########
     OvT_Row = 0
     for StartFrame, EndingFrame in SimTimeList:
         if 'OvT' in locals():
             OvT[OvT_Row, 0] = StartFrame*TimeStep; OvT[OvT_Row, 1] = EndingFrame*TimeStep; 
         OvT_Col = 2
         for FileName in OverlapList:
-        #----- 
-            if not os.path.exists('%s%s' % (OverlapDir, 
-                                            FileName.replace('Start', str(StartFrame)).replace('End',str(EndingFrame)))):
-                raise NameError('The submitted OverlapList does not exist! Check your input\n%s\n%s' % \
-                                (OverlapDir, OverlapList))
         #----- Loaded Overlap for all different simulation times
             tempO = NP.genfromtxt('%s%s' % (OverlapDir, 
                                             FileName.replace('Start', str(StartFrame)).replace('End',str(EndingFrame))))
