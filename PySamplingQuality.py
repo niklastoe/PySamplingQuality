@@ -829,7 +829,7 @@ def Generate_EventCurves(TrajNameList, TrajLengthList, MatrixDir, SaveDir, SaveN
      aMD_Nrs=[], aMD_reweight='MF', aMDlogDir=None, aMDlogName=None, AmberVersion='Amber14', WeightStep=1, Temp=300,
      sMD_Nrs=[], Lambda=1, Order=10, BinFile_precision=NP.float32, Iterations=1, RMSD_SaveAdder=''):
     """ 
-v12.10.16
+v31.10.16
     This function calculates the EventCurves using calculated RMSD matrices and possible aMD/sMD Weights: 
         - Events are the number of neighboring frames with Threshold < RMSD for each reference frame and for each traj
         - Events as a function of Simulation time
@@ -839,7 +839,7 @@ v12.10.16
         - uses re-weighting for aMD/sMD
         - RMSD matrices with name format "TRAJNAME1_bin.dat", "TRAJNAME2_bin.dat", ... have to exist
     uses <Return_FullColRMSD()> to load the corresponding RMSD matrices
-1. possibility, to select ROW_TrajNrList, to which the Events are counted
+1. possibility, to select ROW_TrajNrList, to which the Events are counted, but must contain all numbers between the maximal and minimal trajectory number
 2. possibility, to select COL_TrajNrList, which defines the trajectories the Events are counted for
 3. Weight Generation can be done by submitting ONLY the aMD/sMD trajectory with the corresponding number of Iterations
 
@@ -857,7 +857,7 @@ INPUT:
                                     it inflicts directly the memory usage, if MaxNumberLines > sum(TrajLengthList), all
                                     RMSD matrices are loaded at once, recommended using length of one RMSD block,
                                     e.g. if one block RMSDmatrix.shape == (2000,2000), try to use MaxNumberLines = 2000;
-    ROW_TrajNrList : {INT-LIST}  <default None>, reference trajectories, to which the Events are counted, None means ALL trajectories are used;
+    ROW_TrajNrList : {INT-LIST}  <default None>, reference trajectories, to which the Events are counted, e.g. [4,5,6], None means ALL trajectories are used;
     COL_TrajNrList : {INT-LIST}  <default None>, the Events are counted for these trajectories, e.g. [2,3,4], None means ALL trajectories are used;
     StartFrame     : {INT}       <default 0>    starting frame of Trajectories/RMSD matrices,
                                     to select different simulation times/lengths together with 'EndingFrame';
@@ -903,6 +903,9 @@ OUTPUT:
     else: 
         ROW_TrajNrList.sort()
         trajXList = [elem-1 for elem in ROW_TrajNrList]
+        if ROW_TrajNrList != range(trajXList[0]+1, trajXList[-1]+2):
+            raise ValueError('ROW_TrajNrList MUST contain all trajectory numbers between the maximal and minimal submitted integers! Check your input:\n\t'+\
+                              ('ROW_TrajNrList = %s\nis not valid! Try to use\n\tROW_TrajNrList = %s' % (ROW_TrajNrList,range(trajXList[0]+1, trajXList[-1]+2))))
     #---- SORT ThresholdList
     ThresholdList.sort()
     #---- DELETE dubplicates
@@ -1194,27 +1197,29 @@ OUTPUT:
                             
                     if aMD_Nrs.count(trajY+1) > 0 or sMD_Nrs.count(trajY+1) > 0:
                         LowUpArray.append((LowerEnd-FullCumTrajLenList[trajX], UpperEnd-FullCumTrajLenList[trajX]))
+      #-- v31.10.16: if ROW_TrajLenList does not start at 1, there is a wrong shift
+      #--            thus use (LowerEnd-FullCumTrajLenList[trajXList[0]]):(UpperEnd-FullCumTrajLenList[trajXList[0]]) for all index usages
             #---- INIT EventMatrix[:,[0,1],0] / NormMatrix[0, [0,1],0] with Frames & TrajNr
-            #     THE THIRD DIMENSON NEEDS TO BE ZERO for correct NP.sum(, axis=2) of the single parts
-                    EventMatrix[(LowerEnd):(UpperEnd), 0] = range(LowerEnd-FullCumTrajLenList[trajX],
-                                                                  UpperEnd-FullCumTrajLenList[trajX],1)
-                    EventMatrix[(LowerEnd):(UpperEnd), 1] = trajX+1
+            #     THE THIRD DIMENSION NEEDS TO BE ZERO for correct NP.sum(, axis=2) of the single parts
+                    EventMatrix[(LowerEnd-FullCumTrajLenList[trajXList[0]]):(UpperEnd-FullCumTrajLenList[trajXList[0]]),0] = \
+                                                                    range(LowerEnd-FullCumTrajLenList[trajX], UpperEnd-FullCumTrajLenList[trajX],1)
+                    EventMatrix[(LowerEnd-FullCumTrajLenList[trajXList[0]]):(UpperEnd-FullCumTrajLenList[trajXList[0]]),1] = trajX+1
                     NormMatrix[0, [2+trajYList.index(trajY)+elem*len(trajYList) for elem in range(len(ThresholdList))]] \
                                =  max(0,min(EndingFrame,FullCumTrajLenList[trajY+1]-FullCumTrajLenList[trajY])-StartFrame)
             #---- assign Counts/events to the corresponding trajectory column for the corresponding trajectory reference
                     II = 0
 
-                    for Rows in range((LowerEnd), (UpperEnd)):
+                    for Rows in range((LowerEnd-FullCumTrajLenList[trajXList[0]]),(UpperEnd-FullCumTrajLenList[trajXList[0]])):
                         EventMatrix[Rows,
                                     [2+trajYList.index(trajY)+elem*len(trajYList) for elem in range(len(ThresholdList))]] = \
                                             NP.searchsorted(RMSD_mat[II, INDICES[II,:]], ThresholdList)
                         II += 1
                     #---- INIT enhancedMatrix for aMD/sMD
                     if aMD_Nrs != [] or sMD_Nrs != []:
-                        enhancedMatrix[(LowerEnd):(UpperEnd), 
+                        enhancedMatrix[(LowerEnd-FullCumTrajLenList[trajXList[0]]):(UpperEnd-FullCumTrajLenList[trajXList[0]]), 
                                        [0,1]+[2+trajYList.index(trajY)+elem*len(trajYList) \
                                               for elem in range(len(ThresholdList))]] = \
-                           EventMatrix[(LowerEnd):(UpperEnd), 
+                           EventMatrix[(LowerEnd-FullCumTrajLenList[trajXList[0]]):(UpperEnd-FullCumTrajLenList[trajXList[0]]), 
                                        [0,1]+[2+trajYList.index(trajY)+elem*len(trajYList) \
                                               for elem in range(len(ThresholdList))]]
                         enhancedNorm[0, [0,1]+[2+trajYList.index(trajY)+elem*len(trajYList) \
@@ -1273,8 +1278,8 @@ OUTPUT:
                     if MaxNumberLines < FullCumTrajLenList[trajX+1]-FullCumTrajLenList[trajX]: II = len(INDICES[:,0]); 
                     else: II = 0;
                     III = 0;
-                    for Row in range(LowUpArray[0][0]+FullCumTrajLenList[trajX], 
-                                     LowUpArray[-1][1]+FullCumTrajLenList[trajX]):
+                    for Row in range(LowUpArray[0][0]+FullCumTrajLenList[trajX]-FullCumTrajLenList[trajXList[0]], 
+                                     LowUpArray[-1][1]+FullCumTrajLenList[trajX]-FullCumTrajLenList[trajXList[0]]):
                       #--- LOAD INDICES if necessary
                         if MaxNumberLines < FullCumTrajLenList[trajX+1]-FullCumTrajLenList[trajX] and \
                            len(INDICES[:,0]) <= II:
@@ -1338,8 +1343,8 @@ OUTPUT:
                     if MaxNumberLines < FullCumTrajLenList[trajX+1]-FullCumTrajLenList[trajX]: II = len(INDICES[:,0]); 
                     else: II = 0;
                     III = 0;
-                    for Row in range(LowUpArray[0][0]+FullCumTrajLenList[trajX], 
-                                     LowUpArray[-1][1]+FullCumTrajLenList[trajX]):
+                    for Row in range(LowUpArray[0][0]+FullCumTrajLenList[trajX]-FullCumTrajLenList[trajXList[0]], 
+                                     LowUpArray[-1][1]+FullCumTrajLenList[trajX]-FullCumTrajLenList[trajXList[0]]):
                       #--- LOAD INDICES if necessary
                         if MaxNumberLines < FullCumTrajLenList[trajX+1]-FullCumTrajLenList[trajX] and \
                            len(INDICES[:,0]) <= II:

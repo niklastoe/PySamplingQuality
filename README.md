@@ -5,7 +5,7 @@ v31.10.16
 
 Python tool to assess the sampling quality of Molecular Dynamics (MD) simulations using multiple trajectories
 
-Checked version is released (v31.10.16-1) with the following modules:
+Checked version is released (v31.10.16-2) with the following modules:
 
 1. Overlap calculation
 
@@ -34,5 +34,3 @@ Checked version is released (v31.10.16-1) with the following modules:
 It is possible, to split trajectories into smaller pieces to fit into the memory of the computation node.
 
 A tutorial and description is provided as a JuPyteR notebook __PySamplingQuality\_Tutorial.ipynb__. The tutorial contains the general syntax in two representations, and all necessary parameter descriptions. The corresponding files (configurations, results and plots) are located in __Tutorial/__.
-
-Needed fix: Generate_EventCurves() does currently not support ROW_TrajNrList

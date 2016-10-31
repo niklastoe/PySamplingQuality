@@ -5,7 +5,7 @@
 ##  ##  ##  ##  ##
 ### DESCRIPTION: ###
 #  
-# v12.10.16
+# v31.10.16
 #     This function calculates the EventCurves using calculated RMSD matrices and possible aMD/sMD Weights: 
 #         - Events are the number of neighboring frames with Threshold < RMSD for each reference frame and for each traj
 #         - Events as a function of Simulation time
