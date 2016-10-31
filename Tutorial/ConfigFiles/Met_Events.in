@@ -14,6 +14,7 @@
 #         - different Thresholds can be collected in one file
 #         - uses re-weighting for aMD/sMD
 #         - RMSD matrices with name format "TRAJNAME1_bin.dat", "TRAJNAME2_bin.dat", ... have to exist
+#     uses <Return_FullColRMSD()> to load the corresponding RMSD matrices
 # 1. possibility, to select ROW_TrajNrList, to which the Events are counted
 # 2. possibility, to select COL_TrajNrList, which defines the trajectories the Events are counted for
 # 3. Weight Generation can be done by submitting ONLY the aMD/sMD trajectory with the corresponding number of Iterations

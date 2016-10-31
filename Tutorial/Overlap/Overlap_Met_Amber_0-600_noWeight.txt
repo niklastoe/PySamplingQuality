@@ -20,23 +20,24 @@
 # 		Lambda                 = 1
 # 		Order                  = 10
 # 
-# calculation time = 0.01 seconds
+# calculation time = 0.08 seconds
 # 
 # 	densO has to be averaged for different trajectory Nr projections
+# 	Err   is the standard error of the mean, which is taken for the weighted average calculation for different trajectory projections
 # 	confO means the number of frames which have at least 1 event for each trajectory group
 # 	TotFrames means the total number of frames of the certain trajectory group
 # 	confO and TotFrames have to be summed for different trajectory Nr projections
 # 		and then divided to obtain the real conformational overlap value
 # 	GroupNr monitors the number of the comparing group of [X]vs[Y]vs... meaning that
 # 		the overlap value corresponds to the projection on the i-th group
-# 		-1 means projection on all groups
+# 		-1 means projection on all groups, then densO +- Err means the weighted average for different trajectory projections
 # 
-# GroupNr | Threshold | [densO|confO|TotFrames] of [1]vs.[2] | 
--1 0.05    0.0917 222 1200
--1 0.1    0.2817 1089 1200
--1 0.15    0.4684 1200 1200
--1 0.2    0.6693 1200 1200
--1 0.25    0.8072 1200 1200
--1 0.3    0.9089 1200 1200
--1 0.35    0.9745 1200 1200
--1 0.4    0.9975 1200 1200
+# GroupNr | Threshold | [densO|Err|confO|TotFrames] of [1]vs.[2] | 
+-1 0.05    0.0919 0.0066 222 1200
+-1 0.1    0.2854 0.0372 1089 1200
+-1 0.15    0.4723 0.0279 1200 1200
+-1 0.2    0.6692 0.0045 1200 1200
+-1 0.25    0.8075 0.0032 1200 1200
+-1 0.3    0.9089 0.0025 1200 1200
+-1 0.35    0.9745 0.0012 1200 1200
+-1 0.4    0.9975 0.0003 1200 1200

@@ -5,7 +5,7 @@
 ##  ##  ##  ##  ##
 ### DESCRIPTION: ###
 #  
-# v12.10.16
+# v31.10.16
 # - calculates <conformational overlap> and <density overlap> : Overlap between different trajectories/groups 
 #   for different Threshold and reference Trajectories
 # - CompareList has to match the TrajNr in the EventCurves: the overlap is than calculated between the sets of trajectory numbers defined in CompareList
@@ -19,6 +19,10 @@
 #                      e.g. = [EventCurve_Col2_3.npy, EventCurve_Col3_52_65.npy] are merged to one _Col2_3_52_45
 #                  -> COL_TrajNrList is detected by the EventNames automatically, 
 #                     defining which column represents which trajectory (number)
+# - added standard error of the mean for AllPrject=False to densO
+# - added weighted average per trajectory (group) projections with weighted error of the mean
+# - stores the overlap in a text-file
+#         GroupNr | Threshold | [densO | ErrO | confO | TotFrames] | [...] 
 # 
 # 
 ##  ##  ##  ##  ##

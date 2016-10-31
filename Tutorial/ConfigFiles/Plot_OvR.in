@@ -5,7 +5,7 @@
 ##  ##  ##  ##  ##
 ### DESCRIPTION: ###
 # 
-# v12.10.16
+# v28.10.16
 # This function generates the plots "Overlap vs Threshold r" for conf/dens + the corresponding integral.
 # - possibility to submit multiple OverlapMatrices to plot for instance multiple groups together
 # - possibility to submit a second OverlapMatrix to compare a second molecule with its own x-axis

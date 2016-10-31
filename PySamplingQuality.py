@@ -9,7 +9,7 @@
 #
 # Author:     Mike Nemec <mike.nemec@uni-due.de>
 #
-# current version: v18.10.16-1
+# current version: v31.10.16-1
 #######################################################
 # tested with following program versions:
 #        Gromacs       v4.6 | v5.1 
@@ -51,7 +51,7 @@ from scipy.stats import t as TPPF
 def Calc_Overlap(EventDir, EventNames, SaveDir, SaveName, CompareList, 
                  WeightDir=None, aMD_Nrs=[], sMD_Nrs=[], SameTraj=None, AllPrject=True):
     """ 
-v12.10.16
+v31.10.16
 - calculates <conformational overlap> and <density overlap> : Overlap between different trajectories/groups 
   for different Threshold and reference Trajectories
 - CompareList has to match the TrajNr in the EventCurves: the overlap is than calculated between the sets of trajectory numbers defined in CompareList
@@ -65,6 +65,10 @@ v12.10.16
                      e.g. = [EventCurve_Col2_3.npy, EventCurve_Col3_52_65.npy] are merged to one _Col2_3_52_45
                  -> COL_TrajNrList is detected by the EventNames automatically, 
                     defining which column represents which trajectory (number)
+- added standard error of the mean for AllPrject=False to densO
+- added weighted average per trajectory (group) projections with weighted error of the mean
+- stores the overlap in a text-file
+        GroupNr | Threshold | [densO | ErrO | confO | TotFrames] | [...] 
 
 INPUT:
     EventDir       : {STRING}          Directory, where the EventCurves are stored, e.g. 'EventCurves/';
@@ -93,7 +97,7 @@ INPUT:
                                                                     the overall projection is than the average of the overlap over all groups;
 OUTPUT:
     stores the overlap in a text-file
-        GroupNr | Threshold | [densO|confO|TotFrames] of full submitted CompareList
+        GroupNr | Threshold | [densO | ErrO | confO | TotFrames] | [...] of full submitted CompareList
     GroupNr monitors the number of the comparing group of [X]vs[Y]vs... meaning that
       (1) the overlap value corresponds to the projection on the i-th group
       (2) -1 means projection on all groups
@@ -260,14 +264,14 @@ OUTPUT:
     #     to extract the density overlap & conformational overlap (to the corresp. GroupNr), divide densO & confO by TotalNr
     #     if AllPrject: densO & confO are already correctly divided, THEY REPRESENT density overlap & conformational overlap
         if AllPrject: ## all Compare-cases are projected on top of ALL; INIT with -1 to detect non-assignments
-            OverlapMatrix = NP.zeros( (len(ThresholdList), 1+1+3*len(CompareList)) )-1
+            OverlapMatrix = NP.zeros( (len(ThresholdList), 1+1+4*len(CompareList)) )-1
             OverlapMatrix[:,0] = -1
             OverlapMatrix[:,1] = ThresholdList
         else:         ## for each ThresholdList: for all groups use each projection; INIT with -1 to detect non-assignments
-            OverlapMatrix = NP.zeros( (len(ThresholdList)*len(CompareList[0]), 1+1+3*len(CompareList)) )-1
+            OverlapMatrix = NP.zeros( (len(ThresholdList)*len(CompareList[0]), 1+1+4*len(CompareList)) )-1
             OverlapMatrix[:,0] = range(1,len(CompareList[0])+1)*len(ThresholdList)
             OverlapMatrix[:,1] = NP.concatenate([[elem]*len(CompareList[0]) for elem in ThresholdList])
-        FMT = '%i %s  '+('  %.4f %i %i')*len(CompareList)
+        FMT = '%i %s  '+('  %.4f %.4f %i %i')*len(CompareList)
 #### #### #### #### #### 
 #### ERROR DETECTION
 #### #### #### #### ####
@@ -354,6 +358,7 @@ OUTPUT:
                 for SinglCompGrp in CompareGrp:
     #---- init densO; TotnrWeights; confO; TotalNrOfFrames
                     densO = 0
+                    STD_densO = 0
                     TotNrWeights = 0
                     confO = 0
                     TotFrames = 0
@@ -401,6 +406,23 @@ OUTPUT:
                                                   for elem in mod_ComGrp], axis=0)),
                                         (Weights if Weights.shape == (len(EventCurve[EventCurve[:,1]==TrajNr][:,0]),)\
                                                  else Weights[:,ThresholdList.index(Threshold)])))
+            #### #### #### v20.10.16
+            #---- STD_densO
+                        with NP.errstate(divide='ignore', invalid='ignore'):
+                            STD_densO += NP.sum(NP.power(\
+                                      NP.multiply(\
+                                        NP.divide(\
+                                          NP.min([NP.divide(\
+                                                        NP.sum(EventCurve[EventCurve[:,1]==TrajNr][:,elem], axis=1),
+                                                        NP.sum(NormMatrix[0,elem], axis=0)) \
+                                                  for elem in mod_ComGrp], axis=0),
+                                          NP.max([NP.divide(\
+                                                        NP.sum(EventCurve[EventCurve[:,1]==TrajNr][:,elem], axis=1),
+                                                        NP.sum(NormMatrix[0,elem], axis=0)) \
+                                                  for elem in mod_ComGrp], axis=0)),
+                                        (Weights if Weights.shape == (len(EventCurve[EventCurve[:,1]==TrajNr][:,0]),)\
+                                                 else Weights[:,ThresholdList.index(Threshold)])),2))
+
             #### #### ####
             #---- Total Nr of Weights for the average of densO
                         TotNrWeights += NP.sum((Weights if Weights.shape == (len(EventCurve[EventCurve[:,1]==TrajNr][:,0]),)\
@@ -414,28 +436,45 @@ OUTPUT:
             #### #### ####
             #---- Total Nr of Frames of the reference trajectory
                         TotFrames += len(EventCurve[EventCurve[:,1]==TrajNr][:,0])
+                 #### calculate STD_densO for one reference trajectory   
+                    STD_densO = NP.sqrt(1./float(TotNrWeights-1) * (float(STD_densO)/float(TotNrWeights) - \
+                                                                    NP.power(float(densO)/float(TotNrWeights),2)))+0.000001
     #### #### ####
     #---- "normalize" densO by averaging over all reference frames, which is equal to the sum of Weights
                     if not AllPrject:
                         ### STORE densO, confO, TotFrames to OverlapMatrix
                         OverlapMatrix[RowIndex, 2+CompareIndex+0] = float(densO)/float(TotNrWeights)
-                        OverlapMatrix[RowIndex, 2+CompareIndex+1] = confO
-                        OverlapMatrix[RowIndex, 2+CompareIndex+2] = TotFrames
+                        OverlapMatrix[RowIndex, 2+CompareIndex+1] = STD_densO
+                        OverlapMatrix[RowIndex, 2+CompareIndex+2] = confO
+                        OverlapMatrix[RowIndex, 2+CompareIndex+3] = TotFrames
                         RowIndex += 1
                     else:
                         if OverlapMatrix[RowIndex, 2+CompareIndex+0] == -1:
-                            OverlapMatrix[RowIndex, 2+CompareIndex+0] = NP.divide(float(densO)/float(TotNrWeights),
-                                                                                   float(len(CompareGrp)))
-                            OverlapMatrix[RowIndex, 2+CompareIndex+1] = confO
-                            OverlapMatrix[RowIndex, 2+CompareIndex+2] = TotFrames
+                            WiXi = [(1./NP.power(STD_densO,2), float(densO)/float(TotNrWeights))]
+                            #OverlapMatrix[RowIndex, 2+CompareIndex+0] = NP.divide(float(densO)/float(TotNrWeights),
+                            #                                                       float(len(CompareGrp)))
+                            OverlapMatrix[RowIndex, 2+CompareIndex+0] = float(densO)/float(TotNrWeights) * 1./NP.power(STD_densO,2)
+                            OverlapMatrix[RowIndex, 2+CompareIndex+1] = 1./NP.power(STD_densO,2)
+                            OverlapMatrix[RowIndex, 2+CompareIndex+2] = confO
+                            OverlapMatrix[RowIndex, 2+CompareIndex+3] = TotFrames
                         else:
-                            OverlapMatrix[RowIndex, 2+CompareIndex+0] += NP.divide(float(densO)/float(TotNrWeights),
-                                                                                   float(len(CompareGrp)))
-                            OverlapMatrix[RowIndex, 2+CompareIndex+1] += confO
-                            OverlapMatrix[RowIndex, 2+CompareIndex+2] += TotFrames
+                            WiXi.append((1./NP.power(STD_densO,2), float(densO)/float(TotNrWeights)))
+                            #OverlapMatrix[RowIndex, 2+CompareIndex+0] += NP.divide(float(densO)/float(TotNrWeights),
+                            #                                                       float(len(CompareGrp)))
+                            OverlapMatrix[RowIndex, 2+CompareIndex+0] += float(densO)/float(TotNrWeights) * 1./NP.power(STD_densO,2)
+                            OverlapMatrix[RowIndex, 2+CompareIndex+1] += 1./NP.power(STD_densO,2)
+                            OverlapMatrix[RowIndex, 2+CompareIndex+2] += confO
+                            OverlapMatrix[RowIndex, 2+CompareIndex+3] += TotFrames
             #### #### ####
+                if AllPrject:
+                    OverlapMatrix[RowIndex, 2+CompareIndex+0] = OverlapMatrix[RowIndex, 2+CompareIndex+0]/\
+                                                                OverlapMatrix[RowIndex, 2+CompareIndex+1]
+                    OverlapMatrix[RowIndex, 2+CompareIndex+1] = \
+                            max(1./NP.sqrt(OverlapMatrix[RowIndex, 2+CompareIndex+1]), 
+                                NP.sqrt(NP.sum([Wi*NP.power(OverlapMatrix[RowIndex, 2+CompareIndex+0]-Xi,2) \
+                                        for Wi,Xi in WiXi])/((len(WiXi)-1)*NP.sum([Wi for Wi,Xi in WiXi]))))
             #---- raise the Column Index for every new CompareGroup        
-                CompareIndex += 3
+                CompareIndex += 4
 ###########################
 ##   STORE Overlap
 ###########################
@@ -445,14 +484,15 @@ OUTPUT:
         ########
         HEADER = HEADER + ('calculation time = %s seconds\n\n' % round(t2-t1,2))
         HEADER = HEADER + '\tdensO has to be averaged for different trajectory Nr projections\n'+\
+                          '\tErr   is the standard error of the mean, which is taken for the weighted average calculation for different trajectory projections\n'+\
                           '\tconfO means the number of frames which have at least 1 event for each trajectory group\n'+\
                           '\tTotFrames means the total number of frames of the certain trajectory group\n'+\
                           '\tconfO and TotFrames have to be summed for different trajectory Nr projections\n'+\
                               '\t\tand then divided to obtain the real conformational overlap value\n'+\
                           '\tGroupNr monitors the number of the comparing group of [X]vs[Y]vs... meaning that\n'+\
                               '\t\tthe overlap value corresponds to the projection on the i-th group\n'+\
-                              '\t\t-1 means projection on all groups\n'
-        HEADER = HEADER + '\nGroupNr | Threshold | [densO|confO|TotFrames] of '
+                              '\t\t-1 means projection on all groups, then densO +- Err means the weighted average for different trajectory projections\n'
+        HEADER = HEADER + '\nGroupNr | Threshold | [densO|Err|confO|TotFrames] of '
         for Sep in CompareList:
             HEADER = HEADER + '%s | ' % ('vs.'.join(['%s' % elem for elem in Sep]))
         NP.savetxt('%s%s' % (SaveDir, SaveName), OverlapMatrix, fmt=FMT, header=HEADER)
@@ -798,6 +838,7 @@ v12.10.16
         - different Thresholds can be collected in one file
         - uses re-weighting for aMD/sMD
         - RMSD matrices with name format "TRAJNAME1_bin.dat", "TRAJNAME2_bin.dat", ... have to exist
+    uses <Return_FullColRMSD()> to load the corresponding RMSD matrices
 1. possibility, to select ROW_TrajNrList, to which the Events are counted
 2. possibility, to select COL_TrajNrList, which defines the trajectories the Events are counted for
 3. Weight Generation can be done by submitting ONLY the aMD/sMD trajectory with the corresponding number of Iterations
@@ -2331,7 +2372,7 @@ def Plot_determineR_using_RMSD_distributions(TrajNameList, SaveName='V3', SaveNa
                                              SaveDir = 'Amber14Trajs/RMSD_distributions/', Bins=250, Percent=1,
                                              DiagTitle=[''], OffDiagTitle=[''], Legend=[], Indices1=None, Indices2=None, XLIM=None):
     """
-v12.10.16
+v28.10.16
     Plotting RMSD distributions into different subplots
 
 INPUT:
@@ -2376,19 +2417,19 @@ OUTPUT:
     else:
         Test2    = False
   ###-------
-    fig = plt.figure(figsize=(16,10/3.*len(Indices1)))
+    fig = plt.figure(figsize=(15,11/3.*len(Indices1)))
   ###------- EACH DIAGONALS 
     for Kug in range(len(Indices1)):
         Min = 100.0
         Max = 0.0
         AX = plt.subplot2grid( (len(Indices1),2 if Test2 else 3), (Kug,0) ); 
         if len(Indices1) == 1:
-            plt.subplots_adjust(wspace=0.1, hspace=0.3, left=0.03, right=0.98, bottom=0.17, top=0.91)
+            plt.subplots_adjust(wspace=0.1, hspace=0.3, left=0.03, right=0.98, bottom=0.18, top=0.91)
         else:
-            plt.subplots_adjust(wspace=0.1, hspace=0.25, left=0.03, right=0.98, bottom=0.06, top=0.96)
-        plt.title('single trajectories %s' % (DiagTitle[Kug%len(DiagTitle)]), fontsize=20)
+            plt.subplots_adjust(wspace=0.15, hspace=0.30, left=0.03, right=0.98, bottom=0.06, top=0.96)
+        plt.title('single trajectories %s' % (DiagTitle[Kug%len(DiagTitle)]), fontsize=25)
         plt.plot([0],[0], 'r-', lw=2); plt.plot([0],[0], 'k-', lw=2); 
-        if Legend != []: plt.legend(Legend, fontsize=16, framealpha=0.4);
+        if Legend != []: plt.legend(Legend, fontsize=19, framealpha=0.4);
         for Name in TrajNameList[Indices1[Kug][0]:Indices1[Kug][1]]:
             temp = NP.genfromtxt('%sDiag_%s_%s_dist_Bins%s.txt' % (SaveDir, SaveName, Name, Bins),
                                  usecols=(1,2), skip_footer=1)
@@ -2427,24 +2468,25 @@ OUTPUT:
       #------- Plot Min/Max lines
         POS = AX.get_position()
         plt.figtext((POS.x1-POS.x0)/AX.get_xlim()[1]*(Min*1.15)+POS.x0, (POS.y1-POS.y0)*0.85+POS.y0,
-                '%.4fnm' % Min, rotation=90, color='k', fontsize=16)
-        plt.figtext((POS.x1-POS.x0)/AX.get_xlim()[1]*(Max*.94)+POS.x0, (POS.y1-POS.y0)*0.45+POS.y0,
-                '%.4fnm' % Max, rotation=90, color='k', fontsize=16)
+                '%.4fnm' % Min, rotation=90, color='k', fontsize=20)
+        plt.figtext((POS.x1-POS.x0)/AX.get_xlim()[1]*(Max*.94)+POS.x0, (POS.y1-POS.y0)*0.49+POS.y0,
+                '%.4fnm' % Max, rotation=90, color='k', fontsize=20)
         plt.axvline(Min, ls=':', color='grey', lw=2); plt.axvline(Max, ls=':', color='grey', lw=2);
       #--------------------------
-        if Kug == len(Indices1)-1: plt.xlabel('RMSD [nm]', fontsize=18);
-        plt.xticks(fontsize=17); plt.yticks(fontsize=0); 
-        plt.ylabel('normalized frequency', fontsize=18); #plt.xlabel('threshold r', fontsize=15)
+        if Kug == len(Indices1)-1: plt.xlabel('RMSD [nm]', fontsize=22);
+        plt.xticks(fontsize=20); plt.yticks(fontsize=0); 
+        plt.ylabel('frequency [a.u.]', fontsize=22); #plt.xlabel('threshold r', fontsize=15)
       #--------------------------  
         if logX: plt.xscale('log'); 
         if XLIM is not None: plt.xlim(XLIM);
+        plt.locator_params(axis = 'x', nbins = 5)
   ###------- OFF-DIAGONALS [Same] vs [Same]
     if not Test2:
         for Kug in range(len(Indices1)):
             Min = 100.0
             Max = 0.0
             AX = plt.subplot2grid( (len(Indices1),3), (Kug,1) )
-            plt.title('trajX vs trajY %s' % (OffDiagTitle[Kug%len(OffDiagTitle)]), fontsize=20)
+            plt.title('trajX vs trajY %s' % (OffDiagTitle[Kug%len(OffDiagTitle)]), fontsize=25)
             for Kai in range(Indices2[Kug][0],Indices2[Kug][1]-1):
                 for Kai2 in range(Kai+1,Indices2[Kug][1]):
                     temp = NP.genfromtxt('%sOffDiag_%s_%s_%s_dist_Bins%s.txt' % \
@@ -2467,21 +2509,22 @@ OUTPUT:
           #------- Plot Min/Max lines
             POS = AX.get_position()
             plt.figtext((POS.x1-POS.x0)/AX.get_xlim()[1]*(Min*1.15)+POS.x0, (POS.y1-POS.y0)*0.85+POS.y0,
-                    '%.4fnm' % Min, rotation=90, color='k', fontsize=16)
-            plt.figtext((POS.x1-POS.x0)/AX.get_xlim()[1]*(Max*.94)+POS.x0, (POS.y1-POS.y0)*0.45+POS.y0,
-                    '%.4fnm' % Max, rotation=90, color='k', fontsize=16)
+                    '%.4fnm' % Min, rotation=90, color='k', fontsize=20)
+            plt.figtext((POS.x1-POS.x0)/AX.get_xlim()[1]*(Max*.94)+POS.x0, (POS.y1-POS.y0)*0.49+POS.y0,
+                    '%.4fnm' % Max, rotation=90, color='k', fontsize=20)
             plt.axvline(Min, ls=':', color='grey', lw=2); plt.axvline(Max, ls=':', color='grey', lw=2);
           #--------------------------
-            if Kug == len(Indices1)-1: plt.xlabel('RMSD [nm]', fontsize=18)
-            plt.xticks(fontsize=17); plt.yticks(fontsize=0); 
+            if Kug == len(Indices1)-1: plt.xlabel('RMSD [nm]', fontsize=22)
+            plt.xticks(fontsize=20); plt.yticks(fontsize=0); 
             #if Kug == 0: plt.ylabel('normalized frequency', fontsize=15); 
           #--------------------------  
             if logX: plt.xscale('log'); 
             if XLIM is not None: plt.xlim(XLIM);
+            plt.locator_params(axis = 'x', nbins = 5)
   ###------- ALL OFF-Diagonals
     if len(Indices1) != 1:
         AX = plt.subplot2grid( (len(Indices1),2 if Test2 else 3), (0,1 if Test2 else 2) )
-        plt.title('trajX vs trajY', fontsize=20)
+        plt.title('trajX vs trajY', fontsize=25)
         for Kai in range(0,Indices2[-1][-1]-1):
             for Kai2 in range(Kai+1,Indices2[-1][-1]):
                 if Kai != Kai2:
@@ -2505,15 +2548,16 @@ OUTPUT:
       #------- Plot Min/Max lines
         POS = AX.get_position()
         plt.figtext((POS.x1-POS.x0)/AX.get_xlim()[1]*(Min*1.15)+POS.x0, (POS.y1-POS.y0)*0.85+POS.y0,
-                '%.4fnm' % Min, rotation=90, color='k', fontsize=16)
-        plt.figtext((POS.x1-POS.x0)/AX.get_xlim()[1]*(Max*.94)+POS.x0, (POS.y1-POS.y0)*0.45+POS.y0,
-                '%.4fnm' % Max, rotation=90, color='k', fontsize=16)
+                '%.4fnm' % Min, rotation=90, color='k', fontsize=20)
+        plt.figtext((POS.x1-POS.x0)/AX.get_xlim()[1]*(Max*.94)+POS.x0, (POS.y1-POS.y0)*0.49+POS.y0,
+                '%.4fnm' % Max, rotation=90, color='k', fontsize=20)
         plt.axvline(Min, ls=':', color='grey', lw=2); plt.axvline(Max, ls=':', color='grey', lw=2);
       #--------------------------
-        plt.xticks(fontsize=17); plt.yticks(fontsize=0); 
+        plt.xticks(fontsize=20); plt.yticks(fontsize=0); 
       #--------------------------  
         if logX: plt.xscale('log'); 
         if XLIM is not None: plt.xlim(XLIM);
+        plt.locator_params(axis = 'x', nbins = 5)
   ###------- ALL DIAGS in one, ALL OFF-DIAGS in one, EVERYTHING in one  
     Min = 100.0; Max = 0.0
     Diag_dist    = NP.genfromtxt('%sDiag_%s_ALL_dist_Bins%s.txt' % (SaveDir, SaveName, Bins), 
@@ -2546,22 +2590,23 @@ OUTPUT:
   #------- Plot Min/Max lines
     POS = AX.get_position()
     plt.figtext((POS.x1-POS.x0)/AX.get_xlim()[1]*(Min*1.15)+POS.x0, (POS.y1-POS.y0)*0.85+POS.y0,
-                '%.4fnm' % Min, rotation=90, color='k', fontsize=16)
-    plt.figtext((POS.x1-POS.x0)/AX.get_xlim()[1]*(Max*.94)+POS.x0, (POS.y1-POS.y0)*0.45+POS.y0,
-            '%.4fnm' % Max, rotation=90, color='k', fontsize=16)
+                '%.4fnm' % Min, rotation=90, color='k', fontsize=20)
+    plt.figtext((POS.x1-POS.x0)/AX.get_xlim()[1]*(Max*.94)+POS.x0, (POS.y1-POS.y0)*0.49+POS.y0,
+            '%.4fnm' % Max, rotation=90, color='k', fontsize=20)
     plt.axvline(Min, ls=':', color='grey', lw=2); plt.axvline(Max, ls=':', color='grey', lw=2);
   #------- Plot MarkerL/MarkerR lines
     if Percent < 1 and Percent > 0:
         MarkerL, MarkerR = ReturnPercentRMSD(Percent, Full_dist, temp2)
-        plt.figtext((POS.x1-POS.x0)/AX.get_xlim()[1]*(MarkerL*1.15)+POS.x0, (POS.y1-POS.y0)*0.85+POS.y0,
-                    '%.4fnm' % MarkerL, rotation=90, color='r', fontsize=16)
+        plt.figtext((POS.x1-POS.x0)/AX.get_xlim()[1]*(MarkerL*1.12)+POS.x0, (POS.y1-POS.y0)*0.85+POS.y0,
+                    '%.4fnm' % MarkerL, rotation=90, color='r', fontsize=20)
         plt.axvline(MarkerL, ls=':', color='r', lw=2)
-        plt.figtext((POS.x1-POS.x0)/AX.get_xlim()[1]*(MarkerR*0.94)+POS.x0, (POS.y1-POS.y0)*0.45+POS.y0,
-                    '%.4fnm' % MarkerR, rotation=90, color='r', fontsize=16)
+        plt.figtext((POS.x1-POS.x0)/AX.get_xlim()[1]*(MarkerR*0.92)+POS.x0, (POS.y1-POS.y0)*0.49+POS.y0,
+                    '%.4fnm' % MarkerR, rotation=90, color='r', fontsize=20)
         plt.axvline(MarkerR, ls=':', color='r', lw=2)
   #--------------------------
-    plt.xticks(fontsize=17); plt.yticks(fontsize=0); plt.xlabel('RMSD [nm]', fontsize=18)
-    plt.legend(['all single', 'all trajX vs Y', 'full'], fontsize=16, numpoints=1, framealpha=0.5)
+    plt.xticks(fontsize=20); plt.yticks(fontsize=0); plt.xlabel('RMSD [nm]', fontsize=22)
+    plt.legend(['all single', 'all trajX vs Y', 'full'], fontsize=19, numpoints=1, framealpha=0.5)
+    plt.locator_params(axis = 'x', nbins = 5)
  #----------------------
     if SaveDir is not None and SaveNamePdf is not None:
         Generate_Directories(SaveDir+SaveNamePdf)
@@ -4432,7 +4477,7 @@ OUTPUT:
 def Plot_Slope_Error_Plateau_NrClust(SlopeDir, SlopeName, Threshold, Case, TimeStep, SaveDir=None, Confidence=0.95, 
                                      YMAX=50, Splitter=None, SupGrid=None, TrajExcept=[], FigText=None):
     """
-v12.10.16
+v28.10.16
     This function plots/analyzes ALL information stored in Slopes.txt of
             >> Generate_Slope_Error() <<
 
@@ -4572,7 +4617,7 @@ only stored if SaveDir/SaveName is not None else:
                             for xx in range(len(XX)):
                                 plt.figtext((POS2.x1-POS2.x0)/(AX.get_xlim()[1]-AX.get_xlim()[0])*(XX[xx]+0.58)+POS2.x0, 
                                             (POS2.y1-POS2.y0)*0.2+POS2.y0, '%.2f' % SlopeArray[K:L,3][xx], 
-                                            rotation=90, color='k', fontsize=16)
+                                            rotation=90, color='k', fontsize=20)
                     if YMAX is None:
                         YMAX = Ymax
          #---------- Nr of Cluster vs TrajNr                    
@@ -4587,37 +4632,38 @@ only stored if SaveDir/SaveName is not None else:
                     if 17/30.*NP.unique(Splitter)[SupGrid[1]] > 4.1: NCOL = 10
                     else: NCOL = 2
                     if Case == 'Plateau':
-                        plt.legend(['last cluster', 'largest cluster'], fontsize=15.5, 
-                               loc=3, bbox_to_anchor=(-0.45, 1.25, 2., 0.092), ncol=NCOL, borderaxespad=0., numpoints=1)
+                        plt.legend(['last cluster', 'largest cluster'], fontsize=19.5, 
+                               loc=3, bbox_to_anchor=(+0., 1.25, 2., 0.092), ncol=NCOL, borderaxespad=0., numpoints=1)
                     elif Case == 'Entropy':
                         plt.legend(['last %sns' % (SlopeTimeArray[0]*TimeStep), 'last %sns' % (SlopeTimeArray[1]*TimeStep), 
-                                    'last %sns' % (SlopeTimeArray[2]*TimeStep), 'last cluster'], fontsize=15.5, 
-                               loc=3, bbox_to_anchor=(-0.45, 1.25, 2., 0.092), ncol=NCOL, borderaxespad=0., numpoints=1)
+                                    'last %sns' % (SlopeTimeArray[2]*TimeStep), 'last cluster'], fontsize=19.5, 
+                               loc=3, bbox_to_anchor=(+0., 1.25, 2., 0.092), ncol=NCOL, borderaxespad=0., numpoints=1)
                     elif Case == 'Cluster':
                         plt.legend(['last %sns' % (SlopeTimeArray[0]*TimeStep), 'last %sns' % (SlopeTimeArray[1]*TimeStep), 
-                                    'last %sns' % (SlopeTimeArray[2]*TimeStep)], fontsize=15.5, 
-                               loc=3, bbox_to_anchor=(-0.45, 1.25, 2., 0.092), ncol=NCOL, borderaxespad=0., numpoints=1)
+                                    'last %sns' % (SlopeTimeArray[2]*TimeStep)], fontsize=19.5, 
+                               loc=3, bbox_to_anchor=(+0., 1.25, 2., 0.092), ncol=NCOL, borderaxespad=0., numpoints=1)
               #### grid of vertical lines AND 0 horizontally
                 for Kai in NP.arange(0,len(SlopeArray[K:L,0])-1,1)+0.5:
                     plt.axvline(Kai, ls='--', lw=2, color='grey')
                 plt.axhline(0, ls='--', lw=2, color='grey'); 
               #### X-/Y-Axis
                 plt.xlim([-0.5, len(SlopeArray[K:L,0])-1+0.5]); 
-                plt.xlabel('traj Nr', fontsize=(19 if Index/SupGrid[1]+1==SupGrid[0] else 0))
-                plt.xticks(range(0,len(SlopeArray[K:L,0]),1), [int(elem) for elem in SlopeArray[K:L,0]], fontsize=17);
+                plt.xlabel('traj Nr', fontsize=(22 if Index/SupGrid[1]+1==SupGrid[0] else 0))
+                plt.xticks(range(0,len(SlopeArray[K:L,0]),1), range(1,1+len(SlopeArray[K:L,0]),1), fontsize=20);
+                #plt.xticks(range(0,len(SlopeArray[K:L,0]),1), [int(elem) for elem in SlopeArray[K:L,0]], fontsize=20);
                 if Case=='Entropy': 
                     plt.ylim([-1.2, 1.2]); plt.yticks([-1,-0.5,0,0.5,1], fontsize=(17 if Index%SupGrid[1] == 0 else 0))
                 else:
-                    plt.ylim([-1,YMAX]); plt.yticks(fontsize=(17 if Index%SupGrid[1] == 0 else 0))
+                    plt.ylim([-1,YMAX]); plt.yticks(fontsize=(20 if Index%SupGrid[1] == 0 else 0))
                 if Case=='Entropy' or Case=='Cluster':
-                    plt.ylabel('slopes', fontsize=(19 if Index%SupGrid[1]==0 else 0))
+                    plt.ylabel('slopes', fontsize=(22 if Index%SupGrid[1]==0 else 0))
                 else:
-                    plt.ylabel(('Nr of cluster' if Case!='Plateau' else 'plateau [ns]'), fontsize=(19 if Index%SupGrid[1]==0 else 0))
+                    plt.ylabel(('Nr of cluster' if Case!='Plateau' else 'plateau [ns]'), fontsize=(22 if Index%SupGrid[1]==0 else 0))
               #### 2nd X-axis Nr of Clusters    
                 if Case == 'Entropy' or Case == 'Cluster' or Case == 'Plateau':
                     ax2 = plt.twiny(); 
-                    plt.xticks(range(0,len(SlopeArray[K:L,0]),1), [int(elem) for elem in NrClust[K:L,1]], fontsize=15, color='b');
-                    ax2.set_xlim([-0.5, len(SlopeArray[K:L,0])-1+0.5]); ax2.set_xlabel('Nr of clusters', color='b', fontsize=16) 
+                    plt.xticks(range(0,len(SlopeArray[K:L,0]),1), [int(elem) for elem in NrClust[K:L,1]], fontsize=20, color='b');
+                    ax2.set_xlim([-0.5, len(SlopeArray[K:L,0])-1+0.5]); ax2.set_xlabel('Nr of clusters', color='b', fontsize=22) 
               #### FigTEXT if TrajNrs are intentionally split
                 if SupGrid[1] > 1:
                     POS = AX.get_position()
@@ -4649,7 +4695,7 @@ def Plot_Overlap_VS_Threshold(OverlapDir, OverlapList1, OverlapList2=None, XLIM1
                               MolName1='', MolName2='', LegendList=[None],
                               SaveDir=None, SaveName=None):
     """
-v12.10.16
+v28.10.16
 This function generates the plots "Overlap vs Threshold r" for conf/dens + the corresponding integral.
 - possibility to submit multiple OverlapMatrices to plot for instance multiple groups together
 - possibility to submit a second OverlapMatrix to compare a second molecule with its own x-axis
@@ -4684,39 +4730,43 @@ OUTPUT:
   ####################################
     OvR1 = Helper_Generate_OvR(OverlapDir, OverlapList1)
     #--
-    Integrals1 = NP.zeros( (len(OvR1[0,1:])/2, 4) ) ## densIS1, densIT1, confIS1, confIT1
-    for Koi in range(0,len(OvR1[0,1:]),2):
-        Integrals1[Koi/2, :] = Helper_Generate_Integrals(OvR1[:,[0,Koi+1,Koi+2]], *XLIM1)
+    Integrals1 = NP.zeros( (len(OvR1[0,1:])/3, 3) ) ## densIS1, densErr, confIS1
+    for Koi in range(0,len(OvR1[0,1:]),3):
+        Integrals1[Koi/3, :] = Helper_Generate_Integrals(OvR1[:,[0,Koi+1,Koi+2,Koi+3]], *XLIM1)
     #-----
     if OverlapList2 is not None:
         OvR2 = Helper_Generate_OvR(OverlapDir, OverlapList2)
         #--
-        Integrals2 = NP.zeros( (len(OvR2[0,1:])/2, 4) ) ## densIS1, densIT1, confIS1, confIT1
-        for Koi in range(0,len(OvR2[0,1:]),2):
-            Integrals2[Koi/2, :] = Helper_Generate_Integrals(OvR2[:,[0,Koi+1,Koi+2]], *XLIM2)
+        Integrals2 = NP.zeros( (len(OvR2[0,1:])/3, 3) ) ## densIS1, densErr, confIS1
+        for Koi in range(0,len(OvR2[0,1:]),3):
+            Integrals2[Koi/3, :] = Helper_Generate_Integrals(OvR2[:,[0,Koi+1,Koi+2,Koi+3]], *XLIM2)
     #----------------#
     #----- PLOT -----#
     #----------------#
-    fig = plt.figure(figsize=(13,5.5))
+    fig = plt.figure(figsize=(15,6.5))
     for densconfIndex in [0,1]:
   #------- conformational & density OVERLAP
         plt.subplot2grid( (1,5), (0,densconfIndex*2), colspan=2 ); 
         plt.title('%s overlap\n' % ['conformational','density'][densconfIndex], fontsize=25);
         plt.subplots_adjust(wspace=0, left=0.08, right=0.95, top=0.84, bottom=0.30)
        #-------- LEGEND
-        if MolName1 != '': plt.plot(0,0, ls='-', color='r', lw=0.5); 
-        if MolName2 != '': plt.plot(0,0, ls='-', color='b', lw=0.5);
+        if MolName1 != '': plt.plot(0,0, ls='-', color='r', lw=1.5, marker='s', ms=9, mfc='w'); 
+        if MolName2 != '': plt.plot(0,0, ls='-', color='b', lw=1.5, marker='<', ms=9, mfc='w');
         if LegendList != [None]:
             for CC in Color:
                 plt.plot(0,0, ls='',marker='s', ms=8, color=CC)
         if densconfIndex == 0:
             LEGEND = [elem for elem in [MolName1, MolName2]+LegendList if elem != '' and elem is not None]
             if LEGEND != []:
-                plt.legend(LEGEND, numpoints=1, framealpha=0.5, loc=0, fontsize=19)
+                plt.legend(LEGEND, numpoints=1, framealpha=0.5, loc=4, fontsize=18)
        #---- 1st AXIS: Plot Overlap vs Threshold V3
         Cindex = 0
-        for confIndex in range(2-densconfIndex,len(OvR1[0,:]),2):
-            plt.plot(OvR1[:,0], OvR1[:,confIndex], 'rs-', lw=0.5, ms=8, mfc=Color[Cindex%9]); Cindex += 1
+        for confIndex in range([3,1][densconfIndex],len(OvR1[0,:]),3):
+            (_, caps, _) = plt.errorbar(OvR1[:,0], OvR1[:,confIndex], color='r', yerr=None if densconfIndex == 0 else 1.96*OvR1[:,confIndex+1], 
+                barsabove=True,elinewidth=0.7, capsize=5, capthick=2.0, ecolor='r', marker='s', lw=1.0, ms=8, mfc=Color[Cindex%9], alpha=0.8); 
+            for cap in caps:
+                cap.set_color(Color[Cindex%9])
+            Cindex += 1
         plt.xticks(fontsize=21, color='r');
         if XLIM1 != [None, None]: plt.xlim(XLIM1)
         else:                     plt.xlim([OvR1[0,0], OvR1[-1,0]])
@@ -4731,33 +4781,34 @@ OUTPUT:
             if XLIM2 != [None, None]: ax2.set_xlim(XLIM2)
             else:                     ax2.set_xlim([OvR2[0,0], OvR2[-1,0]])
             for tl in ax2.get_xticklabels(): tl.set_color('b')
-            for tl in ax2.xaxis.get_majorticklabels(): tl.set_fontsize(16)
-            for confIndex in range(2-densconfIndex,len(OvR2[0,:]),2):
-                ax2.plot(OvR2[:,0], OvR2[:,confIndex], 'b<-', lw=0.5,
-                         ms=8, mfc=Color[Cindex%9]);
+            for tl in ax2.xaxis.get_majorticklabels(): tl.set_fontsize(21)
+            for confIndex in range([3,1][densconfIndex],len(OvR2[0,:]),3):
+                (_, caps, _) = ax2.errorbar(OvR2[:,0], OvR2[:,confIndex], color='b', yerr=None if densconfIndex == 0 else 1.96*OvR2[:,confIndex+1], 
+                    barsabove=True,elinewidth=0.7, capsize=5, capthick=2.0, ecolor='b', marker='<', lw=1.0, ms=8, mfc=Color[Cindex%9], alpha=0.8); 
+                for cap in caps:
+                    cap.set_color(Color[Cindex%9])
                 Cindex += 1
         plt.ylim([-0.025,1.025])
   #------- AREA/Integral
     plt.subplot2grid( (1,5), (0,4) )
     plt.title('integral\n', fontsize=25)
     if LEGEND != []: 
-        plt.xticks(range(1,1+len(OvR1[0,1:])/2,1), LEGEND[-len(OvR1[0,1:])/2:], fontsize=16, rotation=45)
+        plt.xticks(range(1,1+len(OvR1[0,1:])/3,1), LEGEND[-len(OvR1[0,1:])/3:], fontsize=21, rotation=45)
     else:            
-        plt.xticks(range(1,1+len(OvR1[0,1:])/2,1), fontsize=21)
+        plt.xticks(range(1,1+len(OvR1[0,1:])/3,1), fontsize=21)
     plt.yticks(fontsize=0)
-    plt.xlim([0.5, len(OvR1[0,1:])/2+0.5]); plt.ylim([-0.025,1.025]); plt.grid(axis='y')
+    plt.xlim([0.5, len(OvR1[0,1:])/3+0.5]); plt.ylim([-0.025,1.025]); plt.grid(axis='y')
     IntColors = ['ro:', 'r*:']
-    for IntCases in range(4):
-        plt.plot(range(1,1+len(Integrals1[:,IntCases]),1), Integrals1[:,IntCases], 
-                 ['ro:','r*:', 'ro:','r*:'][IntCases], ms=[7,9,7,9][IntCases]);
-        if OverlapList2 is not None:
-            plt.plot(range(1,1+len(Integrals2[:,IntCases]),1), Integrals2[:,IntCases],
-                     ['bo:','b*:', 'bo:','b*:'][IntCases], ms=[7,9,7,9][IntCases]);
+    plt.errorbar(range(1,1+len(Integrals1[:,0]),1), Integrals1[:,0], yerr=Integrals1[:,1], color='r', marker='o', ms=8, barsabove=True, capsize=5, capthick=2.0); 
+    plt.plot(range(1,1+len(Integrals1[:,2]),1), Integrals1[:,2], color='r', marker='*', ms=10); 
+    if OverlapList2 is not None:
+        plt.errorbar(range(1,1+len(Integrals2[:,0]),1), Integrals2[:,0], yerr=Integrals2[:,1], color='b', marker='o', ms=8, barsabove=True, capsize=5, capthick=2.0); 
+        plt.plot(range(1,1+len(Integrals2[:,2]),1), Integrals2[:,2], color='b', marker='*', ms=10); 
    ###
     if OverlapList2 is not None:
         plt.legend(['%s (dens)' % MolName1,'%s (dens)' % MolName2,'%s (conf)' % MolName1,'%s (conf)' % MolName2], 
-                   numpoints=1, ncol=2, loc='best', framealpha=0.35, fontsize=19,
-                   bbox_to_anchor=(0.036, 0.25, 1., .092))
+                   numpoints=1, ncol=4, loc='best', framealpha=0.35, fontsize=19,
+                   bbox_to_anchor=(-1.056, -0.30, 1., .092))
     else:
         plt.legend(['%s (dens)' % MolName1,'%s (conf)' % MolName1], 
                    numpoints=1, ncol=2, loc='best', framealpha=0.35, fontsize=19,
@@ -4773,7 +4824,7 @@ OUTPUT:
 
 def Helper_Generate_OvR(OverlapDir, OverlapList):
     """
-v08.09.16
+v28.10.16
     - supporting function to generate 'Overlap vs Threshold'
     - Threshold | densO1 | confO1 | densO2 | confO2 | ... for each element in OverlapList one densOx | confOx pair
     - generates/uses AllPrject values, where all overlap values are projected onto every frame/trajectory
@@ -4782,7 +4833,7 @@ INPUT:
     OverlapList  : {LIST}        List of Overlap filenames containing different cases, e.g. Pairs, different Groups, ...;
 OUTPUT:
     return OvR - {NP.NDARRAY} containing for each group
-            Threshold | densO1 | confO1 | densO2 | confO2 | ...
+            Threshold | densO1 | err01 | confO1 | densO2 | err02 | confO2 | ...
     """
     for FileName in OverlapList:
     #----- Loaded Overlap with all groups
@@ -4798,23 +4849,33 @@ OUTPUT:
             pass
 
     #----- generate OvR for this Overlap only: Threshold | densO1 | confO1 | densO2 | confO2 | ...
-        tempOvR = NP.zeros( (len(NP.unique(tempO[:,1])),2*len(tempO[0,2:])/3) )  
+        tempOvR = NP.zeros( (len(NP.unique(tempO[:,1])),3*len(tempO[0,2:])/4) )  
         if NP.all(tempO[:,0]+1): # True <=> AllPrject = False
             OvR_Row = 0
             for Threshold in NP.unique(tempO[:,1]): ## 
                 #tempOvR[OvR, 0] = Threshold
-                for Koi in range(0,len(tempOvR[0,:]),2):
+                for Koi in range(0,len(tempOvR[0,:]),3):
                     ## densO
-                    tempOvR[OvR_Row, Koi]   = NP.average(tempO[tempO[:,1]==Threshold][:,2+3*Koi/2])
+                    tempOvR[OvR_Row, Koi]   = NP.round(NP.sum([Avg*1./NP.power(Std+0.000001,2) for Avg,Std in zip(tempO[tempO[:,1]==Threshold][:,2+4*Koi/3],
+                                                                                                                  tempO[tempO[:,1]==Threshold][:,3+4*Koi/3])])/\
+                                                       NP.sum([1./NP.power(Std+0.000001,2) for Std in tempO[tempO[:,1]==Threshold][:,3+4*Koi/3]]),4)
+                    ## errO
+                    tempOvR[OvR_Row, Koi+1] = NP.round(max(1./NP.sqrt(NP.sum([1./NP.power(Std+0.000001,2) for Std in tempO[tempO[:,1]==Threshold][:,3+4*Koi/3]])),
+                                                           NP.sqrt(NP.sum([1./NP.power(STD+0.000001,2)*NP.power((tempOvR[OvR_Row, Koi]-Xi),2) \
+                                                                   for Xi,STD in zip(tempO[tempO[:,1]==Threshold][:,2+4*Koi/3],
+                                                                                     tempO[tempO[:,1]==Threshold][:,3+4*Koi/3])])/\
+                                                                   ((len(tempO[tempO[:,1]==Threshold][:,0])-1)*NP.sum([1./NP.power(STD+0.000001,2) \
+                                                                   for STD in tempO[tempO[:,1]==Threshold][:,3+4*Koi/3]])))),4)
                     ## confO
-                    tempOvR[OvR_Row, Koi+1] = NP.divide(NP.sum(tempO[tempO[:,1]==Threshold][:,3+3*Koi/2]),
-                                                        NP.sum(tempO[tempO[:,1]==Threshold][:,4+3*Koi/2]))
+                    tempOvR[OvR_Row, Koi+2] = NP.round(NP.divide(NP.sum(tempO[tempO[:,1]==Threshold][:,4+4*Koi/3]),
+                                                                 NP.sum(tempO[tempO[:,1]==Threshold][:,5+4*Koi/3])),4)
                 OvR_Row += 1
         else:                    # False <=> AllPrject = True
             #tempOvR[:,0] = tempO[:,0]
-            tempOvR[:,range(0,len(tempOvR[0,:]),2)] = tempO[:,range(2,len(tempO[0,:]),3)]
-            for Koi in range(1,len(tempOvR[0,:]),2):
-                tempOvR[:, Koi] = NP.divide(tempO[:,3+3*(Koi-1)/2], tempO[:,4+3*(Koi-1)/2])
+            tempOvR[:,range(0,len(tempOvR[0,:]),3)] = tempO[:,range(2,len(tempO[0,:]),4)]
+            tempOvR[:,range(1,len(tempOvR[0,:]),3)] = tempO[:,range(3,len(tempO[0,:]),4)]
+            for Koi in range(1,len(tempOvR[0,:]),3):
+                tempOvR[:, Koi+1] = NP.divide(tempO[:,4+4*(Koi-1)/3], tempO[:,5+4*(Koi-1)/3])
     #----- Store everything in ONE MATRIX
         try:
             OvR = NP.concatenate( (OvR, tempOvR), axis=1 )
@@ -4828,21 +4889,20 @@ OUTPUT:
 ##### ##### ##### ##### ##### 
 def Helper_Generate_Integrals(Overlap, Rlower, Rupper):
     """
-v29.06.16
+v28.10.16
 - supporting function to calculate the integral below the curve 'Overlap vs Threshold' 
 - uses Simpson and trapezoidal integration
 - integrates EITHER from lowest Threshold to the largest Threshold, if Rlower & Rupper are None
              OR     from (the closest value to) Rlower to (the closest value to) Rupper
 INPUT:
-    Overlap - {NP.NDARRAY} contains 'Threshold | densO | confO' with AllPrject = True, Overlap projected on all frames
+    Overlap - {NP.NDARRAY} contains 'Threshold | densO | ErrO | confO' with AllPrject = True, Overlap projected on all frames
     Rlower  - {FLOAT}      if None, Integral between lowest Threshold and largest Threshold, else start from value closest to Rlower
     Rupper  - {FLOAT}      if None, Integral between lowest Threshold and largest Threshold, else end at value closest to Rupper
 OUTPUT:
-    return densIS1, confIS1, densIT1, confIT1
-    densIS1 = SimpsonIntegral of density overlap
+    return densIS1, densErr, confIS1
+    densIS1 = SimpsonIntegral of density overlap, the average area between the maximal and minimal points
+    densErr = +- area = 1/2*(densUp-densLo)
     confIS1 = SimpsonIntegral of conformational overlap
-    densIT1 = TrapezIntegral  of density overlap
-    confIT1 = TrapezIntegral  of conformational overlap
     """
   ##### CALCULATE INTEGRAL: if Rlower/Rupper is not None, they are used for the integration
   #     due to discrete usage of R extract the CLOSEST R to Rlower/Rupper to avoid additional fitting
@@ -4860,13 +4920,12 @@ OUTPUT:
    #----- Maximal Area approx: Rmax*1 - Rmin*1
     FULL = Overlap[Iupper-1,0]-Overlap[Ilower,0] # Rmax-Rmin
    #----- Calculate Integral
-    densIS1 = round(simps(y=Overlap[Ilower:Iupper,1], x=Overlap[Ilower:Iupper,0])/FULL,4)
-    densIT1 = round(trapz(y=Overlap[Ilower:Iupper,1], x=Overlap[Ilower:Iupper,0])/FULL,4)
-    confIS1 = round(simps(y=Overlap[Ilower:Iupper,2], x=Overlap[Ilower:Iupper,0])/FULL,4)
-    confIT1 = round(trapz(y=Overlap[Ilower:Iupper,2], x=Overlap[Ilower:Iupper,0])/FULL,4)
+    densIS1_up = round(simps(y=NP.add(Overlap[Ilower:Iupper,1],Overlap[Ilower:Iupper,2]), x=Overlap[Ilower:Iupper,0])/FULL,4)
+    densIS1_lo = round(simps(y=NP.subtract(Overlap[Ilower:Iupper,1],Overlap[Ilower:Iupper,2]), x=Overlap[Ilower:Iupper,0])/FULL,4)
+    confIS1 = round(simps(y=Overlap[Ilower:Iupper,3], x=Overlap[Ilower:Iupper,0])/FULL,4)
  #----- RETURN Overlap[Threshold|densO|confO], 
     #   densO Integral simpson | confO  Integral simpson | densO Integral trapez | confO  Integral trapez
-    return densIS1, confIS1, densIT1, confIT1
+    return densIS1_up-(1./2.*(densIS1_up-densIS1_lo)), 1./2.*(densIS1_up-densIS1_lo), confIS1
 
 #######################################################
 #--- HEATMAP
@@ -4999,7 +5058,7 @@ OUTPUT:
 def Generate_1vs1_Matrix(OverlapDir='Amber14Trajs/Overlap/', FileName='Overlap_R5_AllPairs_0-2000_MF+sMD.txt',
                          Threshold=0.4, Case='conformational', AllPrject=False, TrajExcept=[]):
     """
-v27.06.16
+v28.10.16
 This function generates HeatMaps of the OVERLAP (conformational or density) for [Group]X vs [Group]Y.
 It is possible to generate a symmetric HeatMap using AllPrject=True or construct the projection on both groups 
 OR             to generate an asymmetric HeatMap, where on the lower triangular is the projection on the first group
@@ -5026,7 +5085,7 @@ OUTPUT:
                 ThresholdList = [float(elem.replace(',','')) for elem in line[line.find('[')+1:line.find(']')].split()]
                 break
     #------- detects automatically number of Pairs in Overlap and create a Matrix
-    NrOfTrajs = int( 1/2.+NP.sqrt(1/4.+2*len(NP.genfromtxt('%s%s' % (OverlapDir, FileName))[0,2:])/3) )
+    NrOfTrajs = int( 1/2.+NP.sqrt(1/4.+2*len(NP.genfromtxt('%s%s' % (OverlapDir, FileName))[0,2:])/4) )
     HeatMap = NP.ones( (NrOfTrajs, NrOfTrajs) )
 #### #### ####
 # ERROR DETECTION
@@ -5036,7 +5095,6 @@ OUTPUT:
     if not AllPrject and not NP.all(1+GroupNrs):
         raise ValueError('You are trying to generate HeatMap 1vs1 for SINGLE-GroupNrs with AllPrject=True\n'+\
                          'This is not working, GroupNrs have to be [1,2], check your input! AllPrject could be set to \'True\'')
-              
 #### #### ####
 # AllPrject = True
     if AllPrject:
@@ -5047,50 +5105,69 @@ OUTPUT:
                 #--- SUM for both GroupNrs confO & TotFrames, THEN DIVIDE them
                 HeatMap[NP.triu_indices(NrOfTrajs,1)] = \
                     NP.divide(NP.add(NP.genfromtxt('%s%s' % (OverlapDir, FileName),
-                                                      usecols=[0+3+3*elem for elem in range(NrOfTrajs*(NrOfTrajs-1)/2)],
-                                                      skip_header=1+34+ThresholdList.index(Threshold)*2,
+                                                      usecols=[0+4+4*elem for elem in range(NrOfTrajs*(NrOfTrajs-1)/2)],
+                                                      skip_header=1+35+ThresholdList.index(Threshold)*2,
                                                       skip_footer=0+(len(ThresholdList)-ThresholdList.index(Threshold)-1)*2),
                                      NP.genfromtxt('%s%s' % (OverlapDir, FileName),
-                                                      usecols=[0+3+3*elem for elem in range(NrOfTrajs*(NrOfTrajs-1)/2)],
-                                                      skip_header=0+34+ThresholdList.index(Threshold)*2,
+                                                      usecols=[0+4+4*elem for elem in range(NrOfTrajs*(NrOfTrajs-1)/2)],
+                                                      skip_header=0+35+ThresholdList.index(Threshold)*2,
                                                       skip_footer=1+(len(ThresholdList)-ThresholdList.index(Threshold)-1)*2)),
                               NP.add(NP.genfromtxt('%s%s' % (OverlapDir, FileName),
-                                                      usecols=[1+3+3*elem for elem in range(NrOfTrajs*(NrOfTrajs-1)/2)],
-                                                      skip_header=1+34+ThresholdList.index(Threshold)*2,
+                                                      usecols=[1+4+4*elem for elem in range(NrOfTrajs*(NrOfTrajs-1)/2)],
+                                                      skip_header=1+35+ThresholdList.index(Threshold)*2,
                                                       skip_footer=0+(len(ThresholdList)-ThresholdList.index(Threshold)-1)*2),
                                      NP.genfromtxt('%s%s' % (OverlapDir, FileName),
-                                                      usecols=[1+3+3*elem for elem in range(NrOfTrajs*(NrOfTrajs-1)/2)],
-                                                      skip_header=0+34+ThresholdList.index(Threshold)*2,
+                                                      usecols=[1+4+4*elem for elem in range(NrOfTrajs*(NrOfTrajs-1)/2)],
+                                                      skip_header=0+35+ThresholdList.index(Threshold)*2,
                                                       skip_footer=1+(len(ThresholdList)-ThresholdList.index(Threshold)-1)*2)) )
                 
           ## if Overlap is generated for AllPrject=True: no SUM is needed, ensure correct skip_X
             else:
                 HeatMap[NP.triu_indices(NrOfTrajs,1)] = \
                     NP.divide(NP.genfromtxt('%s%s' % (OverlapDir, FileName),
-                                                      usecols=[0+3+3*elem for elem in range(NrOfTrajs*(NrOfTrajs-1)/2)],
-                                                      skip_header=0+34+ThresholdList.index(Threshold),
+                                                      usecols=[0+4+4*elem for elem in range(NrOfTrajs*(NrOfTrajs-1)/2)],
+                                                      skip_header=0+35+ThresholdList.index(Threshold),
                                                       skip_footer=0+(len(ThresholdList)-ThresholdList.index(Threshold)-1)),
                               NP.genfromtxt('%s%s' % (OverlapDir, FileName),
-                                                      usecols=[1+3+3*elem for elem in range(NrOfTrajs*(NrOfTrajs-1)/2)],
-                                                      skip_header=0+34+ThresholdList.index(Threshold),
+                                                      usecols=[1+4+4*elem for elem in range(NrOfTrajs*(NrOfTrajs-1)/2)],
+                                                      skip_header=0+35+ThresholdList.index(Threshold),
                                                       skip_footer=0+(len(ThresholdList)-ThresholdList.index(Threshold)-1)))
             
       #--- ABSOLUTE
         else:
           ## if Overlap is generated for AllPrject=False: generate HeatMap AllPrject from Singles
             if NP.all(1+NP.genfromtxt('%s%s' % (OverlapDir, FileName),usecols=(0))):
-                HeatMap[NP.triu_indices(NrOfTrajs,1)] = \
-                    NP.average(NP.genfromtxt('%s%s' % (OverlapDir, FileName),
-                                                          usecols=[2+3*elem for elem in range(NrOfTrajs*(NrOfTrajs-1)/2)],
-                                                          skip_header=0+34+ThresholdList.index(Threshold)*2,
+                HeatMap[NP.triu_indices(NrOfTrajs,1)] = NP.round(\
+                    NP.divide(NP.add(NP.multiply(NP.genfromtxt('%s%s' % (OverlapDir, FileName),
+                                                          usecols=[2+4*elem for elem in range(NrOfTrajs*(NrOfTrajs-1)/2)],
+                                                          skip_header=0+35+ThresholdList.index(Threshold)*2,
+                                                          skip_footer=1+(len(ThresholdList)-ThresholdList.index(Threshold)-1)*2),
+                                                [1./NP.power(STDi,2) for STDi in  NP.genfromtxt('%s%s' % (OverlapDir, FileName),
+                                                          usecols=[3+4*elem for elem in range(NrOfTrajs*(NrOfTrajs-1)/2)],
+                                                          skip_header=0+35+ThresholdList.index(Threshold)*2,
+                                                          skip_footer=1+(len(ThresholdList)-ThresholdList.index(Threshold)-1)*2)]),
+                                     NP.multiply(NP.genfromtxt('%s%s' % (OverlapDir, FileName),
+                                                          usecols=[2+4*elem for elem in range(NrOfTrajs*(NrOfTrajs-1)/2)],
+                                                          skip_header=1+35+ThresholdList.index(Threshold)*2,
                                                           skip_footer=0+(len(ThresholdList)-ThresholdList.index(Threshold)-1)*2),
-                               axis=0)
+                                                [1./NP.power(STDi,2) for STDi in NP.genfromtxt('%s%s' % (OverlapDir, FileName),
+                                                          usecols=[3+4*elem for elem in range(NrOfTrajs*(NrOfTrajs-1)/2)],
+                                                          skip_header=1+35+ThresholdList.index(Threshold)*2,
+                                                          skip_footer=0+(len(ThresholdList)-ThresholdList.index(Threshold)-1)*2)])),
+                              NP.add([1./NP.power(STDi,2) for STDi in NP.genfromtxt('%s%s' % (OverlapDir, FileName),
+                                                          usecols=[3+4*elem for elem in range(NrOfTrajs*(NrOfTrajs-1)/2)],
+                                                          skip_header=0+35+ThresholdList.index(Threshold)*2,
+                                                          skip_footer=1+(len(ThresholdList)-ThresholdList.index(Threshold)-1)*2)],
+                                     [1./NP.power(STDi,2) for STDi in NP.genfromtxt('%s%s' % (OverlapDir, FileName),
+                                                          usecols=[3+4*elem for elem in range(NrOfTrajs*(NrOfTrajs-1)/2)],
+                                                          skip_header=1+35+ThresholdList.index(Threshold)*2,
+                                                          skip_footer=0+(len(ThresholdList)-ThresholdList.index(Threshold)-1)*2)])),4)
           ## if Overlap is generated for AllPrject=True: no AVERAGE is needed, ensure correct skip_X
             else:
                 HeatMap[NP.triu_indices(NrOfTrajs,1)] = \
                             NP.genfromtxt('%s%s' % (OverlapDir, FileName),
-                                                          usecols=[2+3*elem for elem in range(NrOfTrajs*(NrOfTrajs-1)/2)],
-                                                          skip_header=0+34+ThresholdList.index(Threshold),
+                                                          usecols=[2+4*elem for elem in range(NrOfTrajs*(NrOfTrajs-1)/2)],
+                                                          skip_header=0+35+ThresholdList.index(Threshold),
                                                           skip_footer=0+(len(ThresholdList)-ThresholdList.index(Threshold)-1))
                                
         #--- Make it symmetric to the Lower Triangular
@@ -5104,37 +5181,37 @@ OUTPUT:
             ## First
             HeatMap[NP.triu_indices(NrOfTrajs,1)] = NP.divide(\
                                           NP.genfromtxt('%s%s' % (OverlapDir, FileName),
-                                              usecols=[0+3+3*elem for elem in range(NrOfTrajs*(NrOfTrajs-1)/2)],
-                                              skip_header=1+34+ThresholdList.index(Threshold)*2,
+                                              usecols=[0+4+4*elem for elem in range(NrOfTrajs*(NrOfTrajs-1)/2)],
+                                              skip_header=1+35+ThresholdList.index(Threshold)*2,
                                               skip_footer=0+(len(ThresholdList)-ThresholdList.index(Threshold)-1)*2),
                                           NP.genfromtxt('%s%s' % (OverlapDir, FileName),
-                                              usecols=[1+3+3*elem for elem in range(NrOfTrajs*(NrOfTrajs-1)/2)],
-                                              skip_header=1+34+ThresholdList.index(Threshold)*2,
+                                              usecols=[1+4+4*elem for elem in range(NrOfTrajs*(NrOfTrajs-1)/2)],
+                                              skip_header=1+35+ThresholdList.index(Threshold)*2,
                                               skip_footer=0+(len(ThresholdList)-ThresholdList.index(Threshold)-1)*2) )
             HeatMap = NP.transpose(HeatMap)
             ## Second
             HeatMap[NP.triu_indices(NrOfTrajs,1)] = NP.divide(\
                                           NP.genfromtxt('%s%s' % (OverlapDir, FileName),
-                                              usecols=[0+3+3*elem for elem in range(NrOfTrajs*(NrOfTrajs-1)/2)],
-                                              skip_header=0+34+ThresholdList.index(Threshold)*2,
+                                              usecols=[0+4+4*elem for elem in range(NrOfTrajs*(NrOfTrajs-1)/2)],
+                                              skip_header=0+35+ThresholdList.index(Threshold)*2,
                                               skip_footer=1+(len(ThresholdList)-ThresholdList.index(Threshold)-1)*2),
                                           NP.genfromtxt('%s%s' % (OverlapDir, FileName),
-                                              usecols=[1+3+3*elem for elem in range(NrOfTrajs*(NrOfTrajs-1)/2)],
-                                              skip_header=0+34+ThresholdList.index(Threshold)*2,
+                                              usecols=[1+4+4*elem for elem in range(NrOfTrajs*(NrOfTrajs-1)/2)],
+                                              skip_header=0+35+ThresholdList.index(Threshold)*2,
                                               skip_footer=1+(len(ThresholdList)-ThresholdList.index(Threshold)-1)*2) )
       #--- ABSOLUTE
         else:
             ## First
             HeatMap[NP.triu_indices(NrOfTrajs,1)] = NP.genfromtxt('%s%s' % (OverlapDir, FileName),
-                                                      usecols=[2+3*elem for elem in range(NrOfTrajs*(NrOfTrajs-1)/2)],
-                                                      skip_header=1+34+ThresholdList.index(Threshold)*2,
+                                                      usecols=[2+4*elem for elem in range(NrOfTrajs*(NrOfTrajs-1)/2)],
+                                                      skip_header=1+35+ThresholdList.index(Threshold)*2,
                                                       skip_footer=0+(len(ThresholdList)-ThresholdList.index(Threshold)-1)*2)
             HeatMap = NP.transpose(HeatMap)
             ## Second
             HeatMap[NP.triu_indices(NrOfTrajs,1)] = \
                                         NP.genfromtxt('%s%s' % (OverlapDir, FileName),
-                                                  usecols=[2+3*elem for elem in range(NrOfTrajs*(NrOfTrajs-1)/2)],
-                                                  skip_header=0+34+ThresholdList.index(Threshold)*2,
+                                                  usecols=[2+4*elem for elem in range(NrOfTrajs*(NrOfTrajs-1)/2)],
+                                                  skip_header=0+35+ThresholdList.index(Threshold)*2,
                                                   skip_footer=1+(len(ThresholdList)-ThresholdList.index(Threshold)-1)*2)
     #-----------------------------------
     # DELETE ROWS/COLS of specific TrajNrs
@@ -5222,7 +5299,7 @@ OUTPUT:
 def Plot_Overlap_VS_Time(OverlapDir, OverlapList, Threshold, SimTimeList, TimeStep, 
                          LegendList=[], Title='', LegendNcols=1, SaveDir=None, SaveName=None, logX=False, LegendDens=True):
     """
-v17.10.16
+v28.10.16
 This function generates the plots 'Overlap vs simulation Time' for conformational & density overlap
 - possibility to submit multiple OverlapMatrices to plot for instance multiple groups together
 - each element of OverlapList MUST constain 'Start-End' which are replaced by the elements of SimTimeList, because
@@ -5251,6 +5328,7 @@ OUTPUT:
     """
     import matplotlib.pyplot as plt
     if SaveDir is not None and SaveName is not None and os.path.exists(SaveDir+SaveName):
+        print 'Figure already exists\n%s%s' % (SaveDir, SaveName)
         return
     Color = ['bs', 'ks', 'rs', 'gs', 'k<', 'r<', 'g<', 'k>', 'r>', 'g>', 
              'b<', 'ms', 'cs', 'ys', 'b>', 'm<', 'c<', 'y<', 'm>', 'c>', 'y>'];
@@ -5259,7 +5337,7 @@ OUTPUT:
         raise ValueError('All Overlap-files in <OverlapList> must include >Start-End< as StartFrame-EndingFrame '+\
                          'replacements! Check your input.\n%s' % OverlapList)
  #################################
-    OvT = Generate_Overlap_VS_Time(OverlapDir, OverlapList, Threshold, SimTimeList, TimeStep)
+    OvT = Generate_Overlap_VS_Time(OverlapDir, OverlapList, Threshold, SimTimeList, TimeStep) # StartTime | EndTime | densO1 | Err01 | confO1 | densO2 | Err02 | ...
     #----- PLOTTING
     fig = plt.figure(figsize=(11,5))
     for RelAbs in [0,1]:  ## 0 = conformational; 1 = density
@@ -5268,9 +5346,14 @@ OUTPUT:
         plt.subplots_adjust(left=0.095, right=0.99, bottom=0.20, top=0.93, wspace=0.025)
       #### PLOTTING
         plt.title('%s  %s overlap' % (Title, ['conformational','density'][RelAbs]), fontsize=25)
-        for CaseIndex in range(0,len(OvT[0,2:]),2):
-            plt.plot(NP.subtract(OvT[:,1],OvT[:,0]), OvT[:,1-RelAbs+2+CaseIndex], color=Color[(CaseIndex/2)%21][0], ms=8, 
-                     ls='--', marker=Color[(CaseIndex/2)%21][1], mfc='None', mec=Color[(CaseIndex/2)%21][0], mew=2);
+        if RelAbs == 1:
+            for CaseIndex in range(0,len(OvT[0,2:]),3):
+                plt.errorbar(NP.subtract(OvT[:,1],OvT[:,0]), OvT[:,2+CaseIndex], yerr=1.96*OvT[:,3+CaseIndex], color=Color[(CaseIndex/3)%21][0], ms=10, 
+                     ls='--', marker=Color[(CaseIndex/3)%21][1], mfc='None', mec=Color[(CaseIndex/3)%21][0], mew=2, barsabove=False, capsize=5, capthick=1.0)
+        else:
+            for CaseIndex in range(0,len(OvT[0,2:]),3):
+                plt.plot(NP.subtract(OvT[:,1],OvT[:,0]), OvT[:,4+CaseIndex], color=Color[(CaseIndex/3)%21][0], ms=10, 
+                         ls='--', marker=Color[(CaseIndex/3)%21][1], mfc='None', mec=Color[(CaseIndex/3)%21][0], mew=2);
       #### Xticks / Xlabel / Xlim
         if logX: plt.xscale('log'); 
         plt.xlim([(OvT[0,1]-OvT[0,0])-.01*(OvT[-1,1]-OvT[-1,0]), 1.05*(OvT[-1,1]-OvT[-1,0])])
@@ -5281,7 +5364,7 @@ OUTPUT:
         plt.ylim([-0.05,1.05]); 
       #### LEGEND
         if ((LegendDens and RelAbs == 1) or (not LegendDens and RelAbs==0)) and LegendList != []:
-            plt.legend(LegendList, numpoints=1, ncol=LegendNcols, loc=0, framealpha=0.5, fontsize=19)
+            plt.legend(LegendList, numpoints=1, ncol=LegendNcols, loc=0, framealpha=0.5, fontsize=18)
   ##########------- SAVE PDF ---------##########
     if SaveDir is not None and SaveName is not None:
         #### #### ####
@@ -5295,7 +5378,7 @@ OUTPUT:
 #----- GENERATE Overlap VS Time
 def Generate_Overlap_VS_Time(OverlapDir, OverlapList, Threshold, SimTimeList, TimeStep):
     """
-v18.10.16
+v28.10.16
 - supporting function to merge/generate OverlaPvsTime NP.ndarray from Overlapfiles with different simulation times
 - extracts the overlap for a certain threshold of different simulation time files and merge them in the ROW-dimension
 - different groups are also extracted from different OverlapList elements and merged in the COLUMN-dimension
@@ -5310,19 +5393,20 @@ INPUT:
                                         e.g. [(0,100), (0,250), (0,500), (0,750), (0,1000), (0,1500), (0,2000)];
     TimeStep     : {FLOAT}       defines the step, 1 frame refers to TimeStep [ns], e.g. TimeStep = 0.01 means, 1 Frame = 10ps;
 OUTPUT:
-    return OvT {NP.NDARRAY} - StartTime | EndTime | densO1 | confO1 | densO2 | confO2 | ...
+    return OvT {NP.NDARRAY} - StartTime | EndTime | densO1 | Err01 | confO1 | densO2 | Err02 | confO2 | ...
     """
 ###########
     ColLength = 2
     if len(OverlapList) > 1:
         for FF in OverlapList:
-            if not os.path.exists('%s%s' % (OverlapDir, 
-                                            FF.replace('Start', str(SimTimeList[0][0])).replace('End',str(SimTimeList[0][1])))):
-                raise NameError('The submitted OverlapList does not exist! Check your input\n%s\n%s' % \
-                                (OverlapDir, OverlapList))
+            for First,Snd in SimTimeList:
+                if not os.path.exists('%s%s' % (OverlapDir, 
+                                                FF.replace('Start', str(First)).replace('End',str(Snd)))):
+                    raise NameError('The submitted\n\tOverlapFile=%s\ndoes not exist! Check your input\n%s\n%s\nwith\n%s' % \
+                                    (FF.replace('Start', str(First)).replace('End',str(Snd)), OverlapDir, OverlapList, SimTimeList))
         #----- Loaded Overlap for all different simulation times
-            ColLength += 2*len(NP.genfromtxt('%s%s' % (OverlapDir, 
-                                FF.replace('Start', str(SimTimeList[0][0])).replace('End',str(SimTimeList[0][1]))))[0,2:])/3
+            ColLength += 3*len(NP.genfromtxt('%s%s' % (OverlapDir, 
+                                FF.replace('Start', str(First)).replace('End',str(Snd))))[0,2:])/4
         OvT = NP.zeros( (len(SimTimeList), ColLength) )
         
 ###########
@@ -5333,10 +5417,11 @@ OUTPUT:
         OvT_Col = 2
         for FileName in OverlapList:
         #----- Loaded Overlap for all different simulation times
-            tempO = NP.genfromtxt('%s%s' % (OverlapDir, 
-                                            FileName.replace('Start', str(StartFrame)).replace('End',str(EndingFrame))))
+            if not os.path.exists('%s%s' % (OverlapDir, FileName.replace('Start', str(StartFrame)).replace('End',str(EndingFrame)))):
+                raise NameError('%s%s\ndoes not exist! Check your input!' % (OverlapDir, FileName.replace('Start', str(StartFrame)).replace('End',str(EndingFrame))))
+            tempO = NP.genfromtxt('%s%s' % (OverlapDir, FileName.replace('Start', str(StartFrame)).replace('End',str(EndingFrame))))
             if 'OvT' not in locals():
-                OvT = NP.zeros( (len(SimTimeList), 2+2*len(OverlapList)*len(tempO[0,2:])/3) ) # StartTime | EndTime | densO1 | confO1 | densO2 | confO2 | ...
+                OvT = NP.zeros( (len(SimTimeList), 2+3*len(OverlapList)*len(tempO[0,2:])/4) ) # StartTime | EndTime | densO1 | confO1 | densO2 | confO2 | ...
                 OvT[OvT_Row, 0] = StartFrame*TimeStep; OvT[OvT_Row, 1] = EndingFrame*TimeStep; 
 
             tempO = tempO[tempO[:,1]==Threshold]
@@ -5344,19 +5429,30 @@ OUTPUT:
             if len(tempO[:,0]) == 0:
                 raise ValueError('The submitted Overlap files do not include the submitted Threshold = %s!' % Threshold)
         #-----
-            for Koi in range(0,2*len(tempO[0,2:])/3,2):
+            for Koi in range(0,3*len(tempO[0,2:])/4,3):
                 if len(tempO[:,0]) > 1: ## AllPrject = False / SINGLES
+                
                     ## densO
-                    OvT[OvT_Row, OvT_Col+Koi]   = NP.average(tempO[tempO[:,1]==Threshold][:,2+3*Koi/2])
+                    OvT[OvT_Row, OvT_Col+Koi]   = NP.round(NP.sum([Avg*1./NP.power(Std+0.000001,2) for Avg,Std in zip(tempO[tempO[:,1]==Threshold][:,2+4*Koi/3],
+                                                                                                                      tempO[tempO[:,1]==Threshold][:,3+4*Koi/3])])/\
+                                                           NP.sum([1./NP.power(Std+0.000001,2) for Std in tempO[tempO[:,1]==Threshold][:,3+4*Koi/3]]),4)
+                    ## errO
+                    OvT[OvT_Row, OvT_Col+Koi+1] = NP.round(max(1./NP.sqrt(NP.sum([1./NP.power(Std+0.000001,2) for Std in tempO[tempO[:,1]==Threshold][:,3+4*Koi/3]])),
+                                                               NP.sqrt(NP.sum([1./NP.power(STD+0.000001,2)*NP.power((OvT[OvT_Row, OvT_Col+Koi]-Xi),2) \
+                                                                       for Xi,STD in zip(tempO[tempO[:,1]==Threshold][:,2+4*Koi/3],
+                                                                                         tempO[tempO[:,1]==Threshold][:,3+4*Koi/3])])/\
+                                                                       ((len(tempO[tempO[:,1]==Threshold][:,0])-1)*NP.sum([1./NP.power(STD+0.000001,2) \
+                                                                       for STD in tempO[tempO[:,1]==Threshold][:,3+4*Koi/3]])))),4)
                     ## confO
-                    OvT[OvT_Row, OvT_Col+Koi+1] = NP.divide(NP.sum(tempO[tempO[:,1]==Threshold][:,3+3*Koi/2]),
-                                                            NP.sum(tempO[tempO[:,1]==Threshold][:,4+3*Koi/2]))
+                    OvT[OvT_Row, OvT_Col+Koi+2] = NP.divide(NP.sum(tempO[tempO[:,1]==Threshold][:,4+4*Koi/3]),
+                                                            NP.sum(tempO[tempO[:,1]==Threshold][:,5+4*Koi/3]))
                 else:                   ## AllPrject = True
-                    OvT[OvT_Row, OvT_Col+Koi]   = tempO[tempO[:,1]==Threshold][:,2+3*Koi/2]
-                    OvT[OvT_Row, OvT_Col+Koi+1] = NP.divide(tempO[tempO[:,1]==Threshold][:,3+3*Koi/2],
-                                                            tempO[tempO[:,1]==Threshold][:,4+3*Koi/2])
+                    OvT[OvT_Row, OvT_Col+Koi]   = tempO[tempO[:,1]==Threshold][:,2+4*Koi/3]
+                    OvT[OvT_Row, OvT_Col+Koi+1] = tempO[tempO[:,1]==Threshold][:,3+4*Koi/3]
+                    OvT[OvT_Row, OvT_Col+Koi+2] = NP.divide(tempO[tempO[:,1]==Threshold][:,4+4*Koi/3],
+                                                            tempO[tempO[:,1]==Threshold][:,5+4*Koi/3])
         #-----
-            OvT_Col += 2*len(tempO[0,2:])/3
+            OvT_Col += 3*len(tempO[0,2:])/4
         OvT_Row += 1
 
     return OvT

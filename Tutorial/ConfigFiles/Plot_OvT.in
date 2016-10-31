@@ -5,7 +5,7 @@
 ##  ##  ##  ##  ##
 ### DESCRIPTION: ###
 # 
-# v17.10.16
+# v28.10.16
 # This function generates the plots 'Overlap vs simulation Time' for conformational & density overlap
 # - possibility to submit multiple OverlapMatrices to plot for instance multiple groups together
 # - each element of OverlapList MUST constain 'Start-End' which are replaced by the elements of SimTimeList, because
@@ -25,7 +25,7 @@ OverlapList = "Overlap_Met_Amber_Start-End_noWeight.txt"                # <LIST>
 Threshold = "0.15"                  # <FLOAT> format example: "203.12"
 #-------------------------------------------
 # (StartFrame,EndingFrame) tuples of the calculated simulation times, e.g. [(0,100), (0,250), (0,500), (0,750), (0,1000), (0,1500), (0,2000)]
-SimTimeList = ""                # <TUPLE-LIST> format example: "[(0,100), (0,500), (0,1000)]"
+SimTimeList = "[(0,300), (0,600), (0,1000)]"                # <TUPLE-LIST> format example: "[(0,100), (0,500), (0,1000)]"
 #-------------------------------------------
 # defines the step, 1 frame refers to TimeStep [ns], e.g. TimeStep = 0.01 means, 1 Frame = 10ps
 TimeStep = "0.1"                   # <FLOAT> format example: "203.12"

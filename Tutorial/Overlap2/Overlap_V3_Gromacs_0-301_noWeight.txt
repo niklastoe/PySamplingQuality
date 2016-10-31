@@ -20,31 +20,32 @@
 # 		Lambda                 = 1
 # 		Order                  = 10
 # 
-# calculation time = 0.01 seconds
+# calculation time = 0.07 seconds
 # 
 # 	densO has to be averaged for different trajectory Nr projections
+# 	Err   is the standard error of the mean, which is taken for the weighted average calculation for different trajectory projections
 # 	confO means the number of frames which have at least 1 event for each trajectory group
 # 	TotFrames means the total number of frames of the certain trajectory group
 # 	confO and TotFrames have to be summed for different trajectory Nr projections
 # 		and then divided to obtain the real conformational overlap value
 # 	GroupNr monitors the number of the comparing group of [X]vs[Y]vs... meaning that
 # 		the overlap value corresponds to the projection on the i-th group
-# 		-1 means projection on all groups
+# 		-1 means projection on all groups, then densO +- Err means the weighted average for different trajectory projections
 # 
-# GroupNr | Threshold | [densO|confO|TotFrames] of [1]vs.[2] | 
-1 0.15    0.0000 0 301
-2 0.15    0.0000 0 301
-1 0.25    0.0000 0 301
-2 0.25    0.0000 0 301
-1 0.35    0.0000 0 301
-2 0.35    0.0000 0 301
-1 0.45    0.0003 15 301
-2 0.45    0.0005 5 301
-1 0.55    0.0223 250 301
-2 0.55    0.0226 139 301
-1 0.65    0.4158 301 301
-2 0.65    0.4143 297 301
-1 0.75    0.9208 301 301
-2 0.75    0.9207 301 301
-1 0.85    0.9968 301 301
-2 0.85    0.9968 301 301
+# GroupNr | Threshold | [densO|Err|confO|TotFrames] of [1]vs.[2] | 
+1 0.15    0.0000 0.0000 0 301
+2 0.15    0.0000 0.0000 0 301
+1 0.25    0.0000 0.0000 0 301
+2 0.25    0.0000 0.0000 0 301
+1 0.35    0.0000 0.0000 0 301
+2 0.35    0.0000 0.0000 0 301
+1 0.45    0.0003 0.0001 15 301
+2 0.45    0.0005 0.0003 5 301
+1 0.55    0.0223 0.0020 250 301
+2 0.55    0.0226 0.0045 139 301
+1 0.65    0.4158 0.0132 301 301
+2 0.65    0.4143 0.0141 297 301
+1 0.75    0.9208 0.0059 301 301
+2 0.75    0.9207 0.0071 301 301
+1 0.85    0.9968 0.0005 301 301
+2 0.85    0.9968 0.0014 301 301
