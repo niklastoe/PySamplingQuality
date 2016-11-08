@@ -9,7 +9,7 @@
 #
 # Author:     Mike Nemec <mike.nemec@uni-due.de>
 #
-# current version: v31.10.16-1
+# current version: v07.11.16-1
 #######################################################
 # tested with following program versions:
 #        Gromacs       v4.6 | v5.1 
@@ -409,8 +409,8 @@ OUTPUT:
             #### #### #### v20.10.16
             #---- STD_densO
                         with NP.errstate(divide='ignore', invalid='ignore'):
-                            STD_densO += NP.sum(NP.power(\
-                                      NP.multiply(\
+                            STD_densO += NP.sum(NP.multiply(\
+                                      NP.power(\
                                         NP.divide(\
                                           NP.min([NP.divide(\
                                                         NP.sum(EventCurve[EventCurve[:,1]==TrajNr][:,elem], axis=1),
@@ -419,9 +419,9 @@ OUTPUT:
                                           NP.max([NP.divide(\
                                                         NP.sum(EventCurve[EventCurve[:,1]==TrajNr][:,elem], axis=1),
                                                         NP.sum(NormMatrix[0,elem], axis=0)) \
-                                                  for elem in mod_ComGrp], axis=0)),
+                                                  for elem in mod_ComGrp], axis=0)),2),
                                         (Weights if Weights.shape == (len(EventCurve[EventCurve[:,1]==TrajNr][:,0]),)\
-                                                 else Weights[:,ThresholdList.index(Threshold)])),2))
+                                                 else Weights[:,ThresholdList.index(Threshold)])))
 
             #### #### ####
             #---- Total Nr of Weights for the average of densO
@@ -3780,7 +3780,7 @@ OUTPUT:
 
 def Generate_Centers_GLOBAL_singles(ClusterDir, GlobalName, ThresholdList, SaveDir):
     """
-v12.10.16
+v07.11.16
 - this function generates Centers_GLOBAL_singles.txt containing
     
         TrajNr | Threshold | Nr of Clusters | Centers (1 to NrofClusters)
@@ -3818,6 +3818,11 @@ OUTPUT:
                 if len(line.split()) > 1 and line.split()[1] == 'ThresholdList':
                     if line.split(' = ')[1] == '{}\n'.format(ThresholdList):
                         CorrectThreshold = True
+                        break
+                if len(ThresholdList) == 1 and len(line.split()) > 1 and line.split()[1] == 'Threshold':
+                    if line.split(' = ')[1] == '{}\n'.format(ThresholdList[0]):
+                        CorrectThreshold = True
+                        break
         if CorrectThreshold:
             t1 = time.time()
           #---- LOAD GLOBAL CLUSTERING/PROFILE: load Time[ns] | TrajNr | PROF r1 | PROF r2 | PROF r3 | ... 
@@ -5304,7 +5309,7 @@ OUTPUT:
 def Plot_Overlap_VS_Time(OverlapDir, OverlapList, Threshold, SimTimeList, TimeStep, 
                          LegendList=[], Title='', LegendNcols=1, SaveDir=None, SaveName=None, logX=False, LegendDens=True):
     """
-v28.10.16
+v02.11.16
 This function generates the plots 'Overlap vs simulation Time' for conformational & density overlap
 - possibility to submit multiple OverlapMatrices to plot for instance multiple groups together
 - each element of OverlapList MUST constain 'Start-End' which are replaced by the elements of SimTimeList, because
@@ -5369,7 +5374,8 @@ OUTPUT:
         plt.ylim([-0.05,1.05]); 
       #### LEGEND
         if ((LegendDens and RelAbs == 1) or (not LegendDens and RelAbs==0)) and LegendList != []:
-            plt.legend(LegendList, numpoints=1, ncol=LegendNcols, loc=0, framealpha=0.5, fontsize=18)
+            plt.legend(LegendList, numpoints=1, ncol=LegendNcols, loc=0, framealpha=0.5, fontsize=17.5,
+                   bbox_to_anchor=(0.0, +0.00, 1.0, .77))
   ##########------- SAVE PDF ---------##########
     if SaveDir is not None and SaveName is not None:
         #### #### ####
