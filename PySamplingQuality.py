@@ -5216,6 +5216,7 @@ OUTPUT:
     """
     import matplotlib.pyplot as plt
     if SaveDir is not None and SaveName is not None and os.path.exists(SaveDir+SaveName):
+        print 'Figure already exists\n%s%s' % (SaveDir, SaveName)
         return
     #---- DENDROGRAM
     Heat_mat = Generate_1vs1_Matrix(OverlapDir, FileName, Threshold, Case, True, TrajExcept)
