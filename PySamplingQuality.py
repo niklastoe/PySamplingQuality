@@ -5096,7 +5096,6 @@ OUTPUT:
                 SkipHead += 1
             else:
                 break
-    print SkipHead
     #------- detects automatically number of Pairs in Overlap and create a Matrix
     NrOfTrajs = int( 1/2.+NP.sqrt(1/4.+2*len(NP.genfromtxt('%s%s' % (OverlapDir, FileName))[0,2:])/4) )
     HeatMap = NP.ones( (NrOfTrajs, NrOfTrajs) )
