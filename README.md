@@ -1,11 +1,11 @@
 # PySamplingQuality
 _Released under the GNU General Public License version 3 by MikeN12_
 
-v31.10.16
+v21.11.16
 
 Python tool to assess the sampling quality of Molecular Dynamics (MD) simulations using multiple trajectories
 
-Checked version is released (v31.10.16-2) with the following modules:
+Checked version is released (v21.11.16-2) with the following modules:
 
 1. Overlap calculation
 
@@ -30,6 +30,7 @@ Checked version is released (v31.10.16-2) with the following modules:
         Plot_HeatMap_1vs1()
         Plot_HeatMap_as_Dendro()
         Plot_Overlap_VS_Time()
+        Plot_Overlap_VS_Cluster()
 
 It is possible, to split trajectories into smaller pieces to fit into the memory of the computation node.
 
