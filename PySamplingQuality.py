@@ -4786,7 +4786,7 @@ OUTPUT:
         plt.xticks(range(1,1+len(OvR1[0,1:])/5,1), LEGEND[-len(OvR1[0,1:])/5:], fontsize=21, rotation=45)
     else:            
         plt.xticks(range(1,1+len(OvR1[0,1:])/5,1), fontsize=21)
-    plt.yticks([])
+    plt.yticks(fontsize=0)
     plt.xlim([0.5, len(OvR1[0,1:])/5+0.5]); plt.ylim([-0.025,1.025]); plt.grid(axis='y')
     IntColors = ['ro:', 'r*:']
     plt.errorbar(range(1,1+len(Integrals1[:,0]),1), Integrals1[:,0], yerr=[Integrals1[:,1],Integrals1[:,2]], color='r', marker='o', ms=8, barsabove=True, capsize=5, capthick=2.0); 
@@ -5347,7 +5347,7 @@ OUTPUT:
         plt.xlabel('simulation time [ns]', fontsize=22); 
       #### Yticks / Ylabel / Ylim
         if RelAbs == 0: plt.yticks(fontsize=21); plt.ylabel('Overlap, r=%snm' % Threshold, fontsize=22);
-        else:           plt.yticks([]); 
+        else:           plt.yticks(fontsize=0) 
         plt.ylim([-0.05,1.05]); 
       #### LEGEND
         if ((LegendDens and RelAbs == 1) or (not LegendDens and RelAbs==0)) and LegendList != []:
