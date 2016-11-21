@@ -9,7 +9,7 @@
 #
 # Author:     Mike Nemec <mike.nemec@uni-due.de>
 #
-# current version: v21.11.16-1
+# current version: v21.11.16-2
 #######################################################
 # tested with following program versions:
 #        Gromacs       v4.6 | v5.1 
@@ -5066,7 +5066,7 @@ OUTPUT:
 def Generate_1vs1_Matrix(OverlapDir='Amber14Trajs/Overlap/', FileName='Overlap_R5_AllPairs_0-2000_MF+sMD.txt',
                          Threshold=0.4, Case='conformational', AllPrject=False, TrajExcept=[]):
     """
-v08.11.16
+v21.11.16
 This function generates HeatMaps of the OVERLAP (conformational or density) for [Group]X vs [Group]Y.
 It is possible to generate a symmetric HeatMap using AllPrject=True or construct the projection on both groups 
 OR             to generate an asymmetric HeatMap, where on the lower triangular is the projection on the first group
@@ -5081,7 +5081,7 @@ INPUT:
                                                False- Heatmap is asymmetric = lower triangular projection on X, upper on Y;
     TrajExcept : {INT-LIST}    <default []>       possibility to EXCLUDE manually trajectories by deleting the 
                                                   Rows and Columns (starting from 1 to N) of the HeatMap
-                                                    e.g. TrajExcept=[1,2] delete the first 2 trajectories;
+                                                    e.g. TrajExcept=[1,2] delete the first 2 trajectories resp. rows and columns;
 OUTPUT:
     return HeatMap
     """
@@ -5100,84 +5100,35 @@ OUTPUT:
     GroupNrs = NP.genfromtxt('%s%s' % (OverlapDir, FileName), usecols=(0))
     if len(NP.unique(GroupNrs)) > 2:
         raise ValueError('There are more than two GroupNrs. Check your input!')
-    if not AllPrject and not NP.all(1+GroupNrs):
-        raise ValueError('You are trying to generate HeatMap 1vs1 for SINGLE-GroupNrs with AllPrject=True\n'+\
-                         'This is not working, GroupNrs have to be [1,2], check your input! AllPrject could be set to \'True\'')
 #### #### ####
 # AllPrject = True
     if AllPrject:
       #--- RELATIVE        
         if Case == 'conformational':
-          ## if Overlap is generated for AllPrject=False: generate HeatMap AllPrject from Singles
-            if NP.all(1+GroupNrs):
-                #--- SUM for both GroupNrs confO & TotFrames, THEN DIVIDE them
-                HeatMap[NP.triu_indices(NrOfTrajs,1)] = \
-                    NP.divide(NP.add(NP.genfromtxt('%s%s' % (OverlapDir, FileName),
-                                                      usecols=[0+4+4*elem for elem in range(NrOfTrajs*(NrOfTrajs-1)/2)],
-                                                      skip_header=1+35+ThresholdList.index(Threshold)*2,
-                                                      skip_footer=0+(len(ThresholdList)-ThresholdList.index(Threshold)-1)*2),
-                                     NP.genfromtxt('%s%s' % (OverlapDir, FileName),
-                                                      usecols=[0+4+4*elem for elem in range(NrOfTrajs*(NrOfTrajs-1)/2)],
-                                                      skip_header=0+35+ThresholdList.index(Threshold)*2,
-                                                      skip_footer=1+(len(ThresholdList)-ThresholdList.index(Threshold)-1)*2)),
-                              NP.add(NP.genfromtxt('%s%s' % (OverlapDir, FileName),
-                                                      usecols=[1+4+4*elem for elem in range(NrOfTrajs*(NrOfTrajs-1)/2)],
-                                                      skip_header=1+35+ThresholdList.index(Threshold)*2,
-                                                      skip_footer=0+(len(ThresholdList)-ThresholdList.index(Threshold)-1)*2),
-                                     NP.genfromtxt('%s%s' % (OverlapDir, FileName),
-                                                      usecols=[1+4+4*elem for elem in range(NrOfTrajs*(NrOfTrajs-1)/2)],
-                                                      skip_header=0+35+ThresholdList.index(Threshold)*2,
-                                                      skip_footer=1+(len(ThresholdList)-ThresholdList.index(Threshold)-1)*2)) )
-                
-          ## if Overlap is generated for AllPrject=True: no SUM is needed, ensure correct skip_X
-            else:
-                HeatMap[NP.triu_indices(NrOfTrajs,1)] = \
-                    NP.divide(NP.genfromtxt('%s%s' % (OverlapDir, FileName),
-                                                      usecols=[0+4+4*elem for elem in range(NrOfTrajs*(NrOfTrajs-1)/2)],
-                                                      skip_header=0+35+ThresholdList.index(Threshold),
-                                                      skip_footer=0+(len(ThresholdList)-ThresholdList.index(Threshold)-1)),
-                              NP.genfromtxt('%s%s' % (OverlapDir, FileName),
-                                                      usecols=[1+4+4*elem for elem in range(NrOfTrajs*(NrOfTrajs-1)/2)],
-                                                      skip_header=0+35+ThresholdList.index(Threshold),
-                                                      skip_footer=0+(len(ThresholdList)-ThresholdList.index(Threshold)-1)))
-            
+            #--- SUM for both GroupNrs confO & TotFrames, THEN DIVIDE them
+            HeatMap[NP.triu_indices(NrOfTrajs,1)] = \
+                NP.divide(NP.add(NP.genfromtxt('%s%s' % (OverlapDir, FileName),
+                                                  usecols=[0+4+4*elem for elem in range(NrOfTrajs*(NrOfTrajs-1)/2)],
+                                                  skip_header=1+35+ThresholdList.index(Threshold)*2,
+                                                  skip_footer=0+(len(ThresholdList)-ThresholdList.index(Threshold)-1)*2),
+                                 NP.genfromtxt('%s%s' % (OverlapDir, FileName),
+                                                  usecols=[0+4+4*elem for elem in range(NrOfTrajs*(NrOfTrajs-1)/2)],
+                                                  skip_header=0+35+ThresholdList.index(Threshold)*2,
+                                                  skip_footer=1+(len(ThresholdList)-ThresholdList.index(Threshold)-1)*2)),
+                          NP.add(NP.genfromtxt('%s%s' % (OverlapDir, FileName),
+                                                  usecols=[1+4+4*elem for elem in range(NrOfTrajs*(NrOfTrajs-1)/2)],
+                                                  skip_header=1+35+ThresholdList.index(Threshold)*2,
+                                                  skip_footer=0+(len(ThresholdList)-ThresholdList.index(Threshold)-1)*2),
+                                 NP.genfromtxt('%s%s' % (OverlapDir, FileName),
+                                                  usecols=[1+4+4*elem for elem in range(NrOfTrajs*(NrOfTrajs-1)/2)],
+                                                  skip_header=0+35+ThresholdList.index(Threshold)*2,
+                                                  skip_footer=1+(len(ThresholdList)-ThresholdList.index(Threshold)-1)*2)) )
       #--- ABSOLUTE
         else:
-          ## if Overlap is generated for AllPrject=False: generate HeatMap AllPrject from Singles
-            if NP.all(1+NP.genfromtxt('%s%s' % (OverlapDir, FileName),usecols=(0))):
-                HeatMap[NP.triu_indices(NrOfTrajs,1)] = NP.round(\
-                    NP.divide(NP.add(NP.multiply(NP.genfromtxt('%s%s' % (OverlapDir, FileName),
-                                                          usecols=[2+4*elem for elem in range(NrOfTrajs*(NrOfTrajs-1)/2)],
-                                                          skip_header=0+35+ThresholdList.index(Threshold)*2,
-                                                          skip_footer=1+(len(ThresholdList)-ThresholdList.index(Threshold)-1)*2),
-                                                [1./NP.power(STDi+0.000001,2) for STDi in  NP.genfromtxt('%s%s' % (OverlapDir, FileName),
-                                                          usecols=[3+4*elem for elem in range(NrOfTrajs*(NrOfTrajs-1)/2)],
-                                                          skip_header=0+35+ThresholdList.index(Threshold)*2,
-                                                          skip_footer=1+(len(ThresholdList)-ThresholdList.index(Threshold)-1)*2)]),
-                                     NP.multiply(NP.genfromtxt('%s%s' % (OverlapDir, FileName),
-                                                          usecols=[2+4*elem for elem in range(NrOfTrajs*(NrOfTrajs-1)/2)],
-                                                          skip_header=1+35+ThresholdList.index(Threshold)*2,
-                                                          skip_footer=0+(len(ThresholdList)-ThresholdList.index(Threshold)-1)*2),
-                                                [1./NP.power(STDi+0.000001,2) for STDi in NP.genfromtxt('%s%s' % (OverlapDir, FileName),
-                                                          usecols=[3+4*elem for elem in range(NrOfTrajs*(NrOfTrajs-1)/2)],
-                                                          skip_header=1+35+ThresholdList.index(Threshold)*2,
-                                                          skip_footer=0+(len(ThresholdList)-ThresholdList.index(Threshold)-1)*2)])),
-                              NP.add([1./NP.power(STDi+0.000001,2) for STDi in NP.genfromtxt('%s%s' % (OverlapDir, FileName),
-                                                          usecols=[3+4*elem for elem in range(NrOfTrajs*(NrOfTrajs-1)/2)],
-                                                          skip_header=0+35+ThresholdList.index(Threshold)*2,
-                                                          skip_footer=1+(len(ThresholdList)-ThresholdList.index(Threshold)-1)*2)],
-                                     [1./NP.power(STDi+0.000001,2) for STDi in NP.genfromtxt('%s%s' % (OverlapDir, FileName),
-                                                          usecols=[3+4*elem for elem in range(NrOfTrajs*(NrOfTrajs-1)/2)],
-                                                          skip_header=1+35+ThresholdList.index(Threshold)*2,
-                                                          skip_footer=0+(len(ThresholdList)-ThresholdList.index(Threshold)-1)*2)])),4)
-          ## if Overlap is generated for AllPrject=True: no AVERAGE is needed, ensure correct skip_X
-            else:
-                HeatMap[NP.triu_indices(NrOfTrajs,1)] = \
-                            NP.genfromtxt('%s%s' % (OverlapDir, FileName),
-                                                          usecols=[2+4*elem for elem in range(NrOfTrajs*(NrOfTrajs-1)/2)],
-                                                          skip_header=0+35+ThresholdList.index(Threshold),
-                                                          skip_footer=0+(len(ThresholdList)-ThresholdList.index(Threshold)-1))
-                               
+            HeatMap[NP.triu_indices(NrOfTrajs,1)] = NP.average(NP.genfromtxt('%s%s' % (OverlapDir, FileName),
+                                                      usecols=[2+4*elem for elem in range(NrOfTrajs*(NrOfTrajs-1)/2)],
+                                                      skip_header=0+35+ThresholdList.index(Threshold)*2,
+                                                      skip_footer=0+(len(ThresholdList)-ThresholdList.index(Threshold)-1)*2), axis=0)
         #--- Make it symmetric to the Lower Triangular
         HeatMap[(NP.tril_indices(NrOfTrajs,-1))] = NP.transpose(HeatMap)[(NP.tril_indices(NrOfTrajs,-1))]    
                 
@@ -5502,7 +5453,7 @@ OUTPUT:
 #######################################################
 #--- OVERLAP vs NUMBER of CLUSTERS
 #################
-def Plot_OverlapVScluster(OverlapDir, OverlapList, Threshold, ClusterDir, Centers_GLOBAL_singles, Case='density', 
+def Plot_Overlap_VS_Cluster(OverlapDir, OverlapList, Threshold, ClusterDir, Centers_GLOBAL_singles, Case='density', 
                           XLIM=None, YLIM=None, LEGEND=None, Percentile1=25, Percentile2=75, Median=False, 
                           Interpolation='linear', SaveDir=None, SaveName=None,
                           Symbols=['bs', 'ks', 'rs', 'gs', 'ko', 'ro', 'go', 'k<', 'r<', 'g<', 'g<', 'm<', 'c<', 'y<']):
