@@ -5,7 +5,7 @@ v21.11.16
 
 Python tool to assess the sampling quality of Molecular Dynamics (MD) simulations using multiple trajectories
 
-Checked version is released (v21.11.16-2) with the following modules:
+Checked version is released (v21.11.16-3) with the following modules:
 
 1. Overlap calculation
 

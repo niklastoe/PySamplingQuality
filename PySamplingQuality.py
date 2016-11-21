@@ -9,7 +9,7 @@
 #
 # Author:     Mike Nemec <mike.nemec@uni-due.de>
 #
-# current version: v21.11.16-2
+# current version: v21.11.16-3
 #######################################################
 # tested with following program versions:
 #        Gromacs       v4.6 | v5.1 
@@ -4754,7 +4754,7 @@ OUTPUT:
         if XLIM1 != [None, None]: plt.xlim(XLIM1)
         else:                     plt.xlim([OvR1[0,0], OvR1[-1,0]])
         if densconfIndex == 0: plt.yticks(fontsize=21); plt.ylabel('overlap', fontsize=23);
-        else:                  plt.yticks([]);
+        else:                  plt.yticks(fontsize=0);
         plt.xlabel('threshold r [nm]', fontsize=23);
         plt.grid(axis='y')
         plt.ylim([-0.025,1.025])
@@ -5087,11 +5087,16 @@ OUTPUT:
     """
     #t1 = time.time()
     #-------
+    SkipHead = 0
     with open('%s%s' % (OverlapDir, FileName), 'r') as INPUT:
         for line in INPUT:
             if len(line.split()) > 2 and line.split()[1] == 'ThresholdList':
                 ThresholdList = [float(elem.replace(',','')) for elem in line[line.find('[')+1:line.find(']')].split()]
+            if len(line.split()) == 0 or line[0] == '#':
+                SkipHead += 1
+            else:
                 break
+    print SkipHead
     #------- detects automatically number of Pairs in Overlap and create a Matrix
     NrOfTrajs = int( 1/2.+NP.sqrt(1/4.+2*len(NP.genfromtxt('%s%s' % (OverlapDir, FileName))[0,2:])/4) )
     HeatMap = NP.ones( (NrOfTrajs, NrOfTrajs) )
@@ -5109,25 +5114,25 @@ OUTPUT:
             HeatMap[NP.triu_indices(NrOfTrajs,1)] = \
                 NP.divide(NP.add(NP.genfromtxt('%s%s' % (OverlapDir, FileName),
                                                   usecols=[0+4+4*elem for elem in range(NrOfTrajs*(NrOfTrajs-1)/2)],
-                                                  skip_header=1+35+ThresholdList.index(Threshold)*2,
+                                                  skip_header=1+SkipHead+ThresholdList.index(Threshold)*2,
                                                   skip_footer=0+(len(ThresholdList)-ThresholdList.index(Threshold)-1)*2),
                                  NP.genfromtxt('%s%s' % (OverlapDir, FileName),
                                                   usecols=[0+4+4*elem for elem in range(NrOfTrajs*(NrOfTrajs-1)/2)],
-                                                  skip_header=0+35+ThresholdList.index(Threshold)*2,
+                                                  skip_header=0+SkipHead+ThresholdList.index(Threshold)*2,
                                                   skip_footer=1+(len(ThresholdList)-ThresholdList.index(Threshold)-1)*2)),
                           NP.add(NP.genfromtxt('%s%s' % (OverlapDir, FileName),
                                                   usecols=[1+4+4*elem for elem in range(NrOfTrajs*(NrOfTrajs-1)/2)],
-                                                  skip_header=1+35+ThresholdList.index(Threshold)*2,
+                                                  skip_header=1+SkipHead+ThresholdList.index(Threshold)*2,
                                                   skip_footer=0+(len(ThresholdList)-ThresholdList.index(Threshold)-1)*2),
                                  NP.genfromtxt('%s%s' % (OverlapDir, FileName),
                                                   usecols=[1+4+4*elem for elem in range(NrOfTrajs*(NrOfTrajs-1)/2)],
-                                                  skip_header=0+35+ThresholdList.index(Threshold)*2,
+                                                  skip_header=0+SkipHead+ThresholdList.index(Threshold)*2,
                                                   skip_footer=1+(len(ThresholdList)-ThresholdList.index(Threshold)-1)*2)) )
       #--- ABSOLUTE
         else:
             HeatMap[NP.triu_indices(NrOfTrajs,1)] = NP.average(NP.genfromtxt('%s%s' % (OverlapDir, FileName),
                                                       usecols=[2+4*elem for elem in range(NrOfTrajs*(NrOfTrajs-1)/2)],
-                                                      skip_header=0+35+ThresholdList.index(Threshold)*2,
+                                                      skip_header=0+SkipHead+ThresholdList.index(Threshold)*2,
                                                       skip_footer=0+(len(ThresholdList)-ThresholdList.index(Threshold)-1)*2), axis=0)
         #--- Make it symmetric to the Lower Triangular
         HeatMap[(NP.tril_indices(NrOfTrajs,-1))] = NP.transpose(HeatMap)[(NP.tril_indices(NrOfTrajs,-1))]    
@@ -5141,36 +5146,36 @@ OUTPUT:
             HeatMap[NP.triu_indices(NrOfTrajs,1)] = NP.divide(\
                                           NP.genfromtxt('%s%s' % (OverlapDir, FileName),
                                               usecols=[0+4+4*elem for elem in range(NrOfTrajs*(NrOfTrajs-1)/2)],
-                                              skip_header=1+35+ThresholdList.index(Threshold)*2,
+                                              skip_header=1+SkipHead+ThresholdList.index(Threshold)*2,
                                               skip_footer=0+(len(ThresholdList)-ThresholdList.index(Threshold)-1)*2),
                                           NP.genfromtxt('%s%s' % (OverlapDir, FileName),
                                               usecols=[1+4+4*elem for elem in range(NrOfTrajs*(NrOfTrajs-1)/2)],
-                                              skip_header=1+35+ThresholdList.index(Threshold)*2,
+                                              skip_header=1+SkipHead+ThresholdList.index(Threshold)*2,
                                               skip_footer=0+(len(ThresholdList)-ThresholdList.index(Threshold)-1)*2) )
             HeatMap = NP.transpose(HeatMap)
             ## Second
             HeatMap[NP.triu_indices(NrOfTrajs,1)] = NP.divide(\
                                           NP.genfromtxt('%s%s' % (OverlapDir, FileName),
                                               usecols=[0+4+4*elem for elem in range(NrOfTrajs*(NrOfTrajs-1)/2)],
-                                              skip_header=0+35+ThresholdList.index(Threshold)*2,
+                                              skip_header=0+SkipHead+ThresholdList.index(Threshold)*2,
                                               skip_footer=1+(len(ThresholdList)-ThresholdList.index(Threshold)-1)*2),
                                           NP.genfromtxt('%s%s' % (OverlapDir, FileName),
                                               usecols=[1+4+4*elem for elem in range(NrOfTrajs*(NrOfTrajs-1)/2)],
-                                              skip_header=0+35+ThresholdList.index(Threshold)*2,
+                                              skip_header=0+SkipHead+ThresholdList.index(Threshold)*2,
                                               skip_footer=1+(len(ThresholdList)-ThresholdList.index(Threshold)-1)*2) )
       #--- ABSOLUTE
         else:
             ## First
             HeatMap[NP.triu_indices(NrOfTrajs,1)] = NP.genfromtxt('%s%s' % (OverlapDir, FileName),
                                                       usecols=[2+4*elem for elem in range(NrOfTrajs*(NrOfTrajs-1)/2)],
-                                                      skip_header=1+35+ThresholdList.index(Threshold)*2,
+                                                      skip_header=1+SkipHead+ThresholdList.index(Threshold)*2,
                                                       skip_footer=0+(len(ThresholdList)-ThresholdList.index(Threshold)-1)*2)
             HeatMap = NP.transpose(HeatMap)
             ## Second
             HeatMap[NP.triu_indices(NrOfTrajs,1)] = \
                                         NP.genfromtxt('%s%s' % (OverlapDir, FileName),
                                                   usecols=[2+4*elem for elem in range(NrOfTrajs*(NrOfTrajs-1)/2)],
-                                                  skip_header=0+35+ThresholdList.index(Threshold)*2,
+                                                  skip_header=0+SkipHead+ThresholdList.index(Threshold)*2,
                                                   skip_footer=1+(len(ThresholdList)-ThresholdList.index(Threshold)-1)*2)
     #-----------------------------------
     # DELETE ROWS/COLS of specific TrajNrs
