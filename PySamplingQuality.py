@@ -5498,6 +5498,7 @@ OUTPUT:
     plots the pareto plot overlap (dens/conf) vs. the number of clusters which are found by all trajectories involved
     in the overlap calculation [L of O(K,L;r)]
     """
+    import matplotlib.pyplot as plt
     if Case != 'density':
         Case = 'conformational'
     SkipHead = 0
