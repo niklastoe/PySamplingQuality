@@ -5,7 +5,7 @@
 ##  ##  ##  ##  ##
 ### DESCRIPTION: ###
 # 
-# v12.10.16
+# v07.11.16
 # - this function generates Centers_GLOBAL_singles.txt containing
 #     
 #         TrajNr | Threshold | Nr of Clusters | Centers (1 to NrofClusters)

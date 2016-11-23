@@ -9,7 +9,6 @@
 # 	COL_TrajNrList           = None
 # 	aMD_Nrs                  = []
 # 	sMD_Nrs                  = []
-# 	AllPrject                = True
 # 		TrajNameList           = ['Met_Amber1_stripped', 'Met_Amber2_stripped']
 # 		ThresholdList             = [0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4]
 # 		StartFrame             = [0, 0]
@@ -20,7 +19,7 @@
 # 		Lambda                 = 1
 # 		Order                  = 10
 # 
-# calculation time = 0.07 seconds
+# calculation time = 0.06 seconds
 # 
 # 	densO has to be averaged for different trajectory Nr projections
 # 	Err   is the standard error of the mean, which is taken for the weighted average calculation for different trajectory projections
@@ -28,16 +27,23 @@
 # 	TotFrames means the total number of frames of the certain trajectory group
 # 	confO and TotFrames have to be summed for different trajectory Nr projections
 # 		and then divided to obtain the real conformational overlap value
-# 	GroupNr monitors the number of the comparing group of [X]vs[Y]vs... meaning that
-# 		the overlap value corresponds to the projection on the i-th group
-# 		-1 means projection on all groups, then densO +- Err means the weighted average for different trajectory projections
+# 	GroupNr monitors the number of the comparing group of [X]vs[Y]vs... (K of O(K,L:r)) meaning that
+# 		the overlap value corresponds to the reference trajectory (set) of the K-th group
 # 
 # GroupNr | Threshold | [densO|Err|confO|TotFrames] of [1]vs.[2] | 
--1 0.05    0.1489 0.0066 467 2000
--1 0.1    0.4064 0.0071 1965 2000
--1 0.15    0.5422 0.0114 2000 2000
--1 0.2    0.6948 0.0049 2000 2000
--1 0.25    0.8083 0.0023 2000 2000
--1 0.3    0.9038 0.0021 2000 2000
--1 0.35    0.9702 0.0011 2000 2000
--1 0.4    0.9966 0.0003 2000 2000
+1 0.05    0.1517 0.0876 237 1000
+2 0.05    0.1461 0.0869 230 1000
+1 0.1    0.4116 0.0945 978 1000
+2 0.1    0.4003 0.1102 987 1000
+1 0.15    0.5312 0.0376 1000 1000
+2 0.15    0.5540 0.0405 1000 1000
+1 0.2    0.6898 0.0170 1000 1000
+2 0.2    0.6995 0.0161 1000 1000
+1 0.25    0.8074 0.0130 1000 1000
+2 0.25    0.8090 0.0094 1000 1000
+1 0.3    0.9032 0.0101 1000 1000
+2 0.3    0.9043 0.0074 1000 1000
+1 0.35    0.9701 0.0031 1000 1000
+2 0.35    0.9702 0.0021 1000 1000
+1 0.4    0.9966 0.0002 1000 1000
+2 0.4    0.9965 0.0001 1000 1000

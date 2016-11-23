@@ -9,7 +9,6 @@
 # 	COL_TrajNrList           = None
 # 	aMD_Nrs                  = []
 # 	sMD_Nrs                  = []
-# 	AllPrject                = False
 # 		TrajNameList           = ['V3_Gromacs1_stripped', 'V3_Gromacs2_stripped']
 # 		ThresholdList             = [0.15, 0.25, 0.35, 0.45, 0.55, 0.65, 0.75, 0.85]
 # 		StartFrame             = [0, 0]
@@ -20,7 +19,7 @@
 # 		Lambda                 = 1
 # 		Order                  = 10
 # 
-# calculation time = 0.17 seconds
+# calculation time = 0.09 seconds
 # 
 # 	densO has to be averaged for different trajectory Nr projections
 # 	Err   is the standard error of the mean, which is taken for the weighted average calculation for different trajectory projections
@@ -28,9 +27,8 @@
 # 	TotFrames means the total number of frames of the certain trajectory group
 # 	confO and TotFrames have to be summed for different trajectory Nr projections
 # 		and then divided to obtain the real conformational overlap value
-# 	GroupNr monitors the number of the comparing group of [X]vs[Y]vs... meaning that
-# 		the overlap value corresponds to the projection on the i-th group
-# 		-1 means projection on all groups, then densO +- Err means the weighted average for different trajectory projections
+# 	GroupNr monitors the number of the comparing group of [X]vs[Y]vs... (K of O(K,L:r)) meaning that
+# 		the overlap value corresponds to the reference trajectory (set) of the K-th group
 # 
 # GroupNr | Threshold | [densO|Err|confO|TotFrames] of [1]vs.[2] | 
 1 0.15    0.0000 0.0000 0 601
@@ -39,13 +37,13 @@
 2 0.25    0.0000 0.0000 0 601
 1 0.35    0.0000 0.0000 0 601
 2 0.35    0.0000 0.0000 0 601
-1 0.45    0.0002 0.0001 19 601
-2 0.45    0.0002 0.0001 12 601
-1 0.55    0.0233 0.0018 443 601
-2 0.55    0.0184 0.0022 291 601
-1 0.65    0.2897 0.0110 598 601
-2 0.65    0.2730 0.0077 594 601
-1 0.75    0.8657 0.0044 601 601
-2 0.75    0.8517 0.0083 601 601
-1 0.85    0.9900 0.0007 601 601
-2 0.85    0.9892 0.0019 601 601
+1 0.45    0.0002 0.0000 19 601
+2 0.45    0.0002 0.0000 12 601
+1 0.55    0.0233 0.0019 443 601
+2 0.55    0.0184 0.0030 291 601
+1 0.65    0.2897 0.0726 598 601
+2 0.65    0.2730 0.0351 594 601
+1 0.75    0.8657 0.0114 601 601
+2 0.75    0.8517 0.0418 601 601
+1 0.85    0.9900 0.0003 601 601
+2 0.85    0.9892 0.0022 601 601

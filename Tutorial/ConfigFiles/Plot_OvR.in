@@ -5,13 +5,16 @@
 ##  ##  ##  ##  ##
 ### DESCRIPTION: ###
 # 
-# v28.10.16
+# v18.11.16
 # This function generates the plots "Overlap vs Threshold r" for conf/dens + the corresponding integral.
+# - uses always ALL K reference trajectories
 # - possibility to submit multiple OverlapMatrices to plot for instance multiple groups together
 # - possibility to submit a second OverlapMatrix to compare a second molecule with its own x-axis
-# - possibility to submit different X-limites to "normalize" the curves for instance on a certain threshold interval
+# - possibility to submit different X-limits to "normalize" the curves for instance on a certain threshold interval
 # - all Groups from one OverlapList are used
 # - XLIM1 & XLIM2 are used also for the integral limits
+# - ERROR HANDLING: plots the first percentile and second percentile as error bars,
+#                   if the average value is outside, use the average as one limit
 # 
 ##  ##  ##  ##  ##
 #-------------------------------------------
@@ -20,6 +23,18 @@ OverlapDir = "Overlap/"                 # <STRING> format example: (non-director
 #-------------------------------------------
 # List of Overlap filenames containing different cases, e.g. Pairs, different Groups, which are then plotted separately in one plot e.g. ['Overlap_ALLvsALL.txt' 'Overlap_AvsB.txt']
 OverlapList = "Overlap_Met_Amber_0-1000_noWeight.txt Overlap_Met_Amber_0-600_noWeight.txt Overlap_Met_Amber_0-300_noWeight.txt"                # <LIST> format example: "Name1 Name2 Name3 Name4"
+#-------------------------------------------
+# <default 25> Value of the 1st percentile [in %], e.g. 25 for the 1st quartile
+Percentile1 = "0"              # <INT> format example: "502"
+#-------------------------------------------
+# <default 75> Value of the 2nd percentile [in %], e.g. 75 for the 3rd quartile
+Percentile2 = "100"              # <INT> format example: "502"
+#-------------------------------------------
+# <default False> if True, the median is plotted over all K reference trajs, else the Avg
+Median = "False"                # <BOOL> format example: "False" or "True"
+#-------------------------------------------
+# <default linear> Interpolation method to find the percentile values, e.g. 'linear', 'lower', 'higher', 'midpoint', 'nearest'
+Interpolation = "linear"        # <STRING> format example: (non-directory) "TEXT" | (directory) "TEXT/"
 #-------------------------------------------
 # <default None> second List, with same properties as OverlapList2, e.g. a second molecule to compare
 OverlapList2 = "None"           # <LIST> format example: "Name1 Name2 Name3 Name4"
