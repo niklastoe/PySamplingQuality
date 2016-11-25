@@ -1,11 +1,11 @@
 # PySamplingQuality
 _Released under the GNU General Public License version 3 by MikeN12_
 
-v21.11.16
+v25.11.16
 
 Python tool to assess the sampling quality of Molecular Dynamics (MD) simulations using multiple trajectories
 
-Checked version is released (v21.11.16-3) with the following modules:
+Checked version is released with the following modules:
 
 1. Overlap calculation
 
