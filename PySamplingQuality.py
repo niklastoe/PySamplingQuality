@@ -9,7 +9,7 @@
 #
 # Author:     Mike Nemec <mike.nemec@uni-due.de>
 #
-# current version: v25.11.16-1
+# current version: v28.11.16-1
 #######################################################
 # tested with following program versions:
 #        Gromacs       v4.6 | v5.1 
@@ -50,7 +50,7 @@ from scipy.stats import t as TPPF
 #######################################################
 def Calc_Overlap(EventDir, EventNames, SaveDir, SaveName, CompareList, WeightDir=None, aMD_Nrs=[], sMD_Nrs=[], SameTraj=None):
     """ 
-v18.11.16
+v28.11.16
 - calculates <conformational overlap> and <density overlap> : Overlap between different trajectories/groups 
   for different Threshold and reference Trajectories
 - CompareList has to match the TrajNr in the EventCurves: the overlap is than calculated between the sets of trajectory numbers defined in CompareList
@@ -267,7 +267,7 @@ OUTPUT:
     #---- CompareList has to have same lengths to combine them
         if NP.any([len(elem)-len(CompareList[0]) for elem in CompareList]):
             raise ValueError('CompareList does not have the same lengths of TrajNrs'+\
-                             '\n\tCompareList lengths = {}'.format([len(elem)-len(CompareList[0]) for elem in CompareList]))
+                             '\n\tCompareList lengths = {}'.format([len(elem) for elem in CompareList]))
     #---- the trajs in CompareList have to match the TrajNr-windows of EventCurve
         Unique_Compare = []
         for First in CompareList:
@@ -787,7 +787,7 @@ def Generate_EventCurves(TrajNameList, TrajLengthList, MatrixDir, SaveDir, SaveN
      aMD_Nrs=[], aMD_reweight='MF', aMDlogDir=None, aMDlogName=None, AmberVersion='Amber14', WeightStep=1, Temp=300,
      sMD_Nrs=[], Lambda=1, Order=10, BinFile_precision=NP.float32, Iterations=1, RMSD_SaveAdder=''):
     """ 
-v31.10.16
+v28.11.16
     This function calculates the EventCurves using calculated RMSD matrices and possible aMD/sMD Weights: 
         - Events are the number of neighboring frames with Threshold < RMSD for each reference frame and for each traj
         - Events as a function of Simulation time
@@ -848,7 +848,8 @@ INPUT:
     Lambda         : {FLOAT}     <default 1> FOR RE-WEIGHTING ONLY, scaling factor for scaledMD, e.g. 0.7, 1 means no scaling;
     Order          : {INT}       <default 10> FOR RE-WEIGHTING ONLY, Order for the MacLaurin expansion, ONLY NECESSARY IF aMD_reweight = 'McL';
  BinFile_precision : {TYPE}      FORMAT, [GROMACS/BINARY] single precision 'float32', double precision 'float64', [AMBER/ELSE] 'None';
-    Iterations     : {INT}       <default 1> FOR RE-WEIGHTING ONLY, defines the number of MF iterations if aMD (aMD_reweight=MF) or sMD trajectories are present;
+    Iterations     : {INT}       <default 1> FOR RE-WEIGHTING ONLY, defines the number of MF iterations if aMD (aMD_reweight=MF) or sMD trajectories are present,
+                                             for Iterations=-1, it iterates until convergence or 100000 steps;
 OUTPUT:
     STORE noWeight & possible enhancedMatrix
     """
@@ -1443,7 +1444,7 @@ def Generate_Weights(TrajName, noWeights, Indices, RangeArray, SaveDir, SaveName
                     aMD_reweight='MF', Iterations=1, Lambda=1, aMDlogCombo=None, WeightStep=1, 
                     AmberVersion='Amber14', Temp=300):
     """ 
-v12.10.16
+v28.11.16
     This function calculates the >Mean-Field< approach for aMD/sMD using the 
         >Events< (noWeight) and RMSD matrix >Indices< and the standard aMD.log Weights, 
         >Indices< store the frames for the corresponding Weights
@@ -1465,7 +1466,8 @@ INPUT:
     EndY         : {INT}        Ending frame of the trajectory,   correspond to EndY   of RMSD_mat, e.g. 2000;
     ThresholdList: {FLOAT-LIST} different thresholds r for which the Events are counted, e.g. [0.1, 0.2, 0.3, ...];
     aMD_reweight : {STRING}     <default MF>      reweighting Method -> 'MF', 'Exp', 'McL' OR 'sMD';
-    Iterations   : {INT}        <default 1>         number of iterations for the Mean-Field approach of 'MF' OR 'sMD';      
+    Iterations   : {INT}        <default 1>         number of iterations for the Mean-Field approach of 'MF' OR 'sMD',
+                                                    for Iterations=-1, it iterates until convergence or 100000 steps;
     Lambda       : {FLOAT}      <default 1>         scaling factor lambda for 'sMD', 1 means no rescaling;
     aMDlogCombo  : {STRING}     <default None>      name of the reweighting file WITH DIRECTORY 'Dir/aMD.log' produced by Amber;
     WeightStep   : {INT}        <default 1>         skip every WeightStep-th frame, i.e. Weight[0-last, every WeightStep], 
@@ -1483,7 +1485,7 @@ OUTPUT:
 #### #### #### 
 #-------------
 #### #### ####
-    if Iterations < 1: Iterations = 1;
+    if Iterations < 0: Iterations = 100000;
     #--- aMD + <'MF'> + FILE EXIST
     if aMD_reweight == 'MF' and os.path.exists('%s%s' % (SaveDir, SaveName)):
         #---- load ThresholdList
@@ -1542,13 +1544,14 @@ OUTPUT:
         ## INIT RadList: if for specific threshold the Weights are already converged, delete it from RadList
         RadList = range(len(noWeights[0,:]))
         Iter = 0
+        ConvIter = [-1]*len(RadList)
 #### #### #### 
 #-------------
 #### #### ####
       #### v05.09.16 variable which monitors, if Indices has to be loaded
         IndicesLoad = False
       ####
-        while Iter < Iterations and len(RadList) != 0:
+        while (Iter < Iterations) and len(RadList) != 0:
             ## Store current Weights_MF (n) step to control convergency
             Weights_MF0 = NP.copy(Weights_MF1)
          #### v25.08.16: LOAD INDICES IF NECESSARY, take care about noWeights = Ev[BeginY:EndY,:]
@@ -1602,6 +1605,7 @@ OUTPUT:
             for RadIndex in RadList:
                 if NP.all(NP.absolute(Weights_MF1[:,RadIndex]-Weights_MF0[:,RadIndex]) < 10e-6):
                     Delete.append(RadIndex)
+                    ConvIter[RadIndex] = Iter
             if Delete != []:
                 RadList = [elem for elem in RadList if Delete.count(elem) == 0]
 #### #### ####
@@ -1609,9 +1613,11 @@ OUTPUT:
 #### #### ####
         t2 = time.time()
         if len(RadList) == 0:
-            Conv = 'The weight calculation converged in %s iterations to < 10e-6' % Iter 
+            Conv = 'The weight calculation converged in %s iterations to < 10e-6, for the corresponding threshold' % ConvIter 
         else:
-            Conv = 'Maximal iterations (= %s) for the weight calculation are reached' % Iterations
+            if Iterations >= 100000:
+                print '####\nWARNING: the Weights did not converge for all thresholds! Check the WeightFile for further information\n###'
+            Conv = 'Maximal iterations (= %s) for the weight calculation are reached. -1 means, the Weight did not converge after 100000 steps for the corresponding threshold' % ConvIter
         if SaveDir is not None and SaveName is not None:
             Generate_Directories(SaveDir)
             HEADER = 'generated Weights for '+aMD_reweight+'\n'+\
