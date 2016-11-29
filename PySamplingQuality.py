@@ -9,7 +9,7 @@
 #
 # Author:     Mike Nemec <mike.nemec@uni-due.de>
 #
-# current version: v29.11.16-1
+# current version: v29.11.16-2
 #######################################################
 # tested with following program versions:
 #        Gromacs       v4.6 | v5.1 
@@ -2444,7 +2444,7 @@ OUTPUT:
                     break
          #-----------------------------------
       #------- Plot Min/Max lines
-        if XLIM is not None:
+        if XLIM is None:
             POS = AX.get_position()
             plt.figtext((POS.x1-POS.x0)/AX.get_xlim()[1]*(Min*1.15)+POS.x0, (POS.y1-POS.y0)*0.85+POS.y0,
                     '%.4fnm' % Min, rotation=90, color='k', fontsize=20)
@@ -2486,7 +2486,7 @@ OUTPUT:
                  #-----------------------------------  
                     plt.plot(temp[:,0], temp[:,1]/NP.sum(temp[:,1]))
           #------- Plot Min/Max lines
-            if XLIM is not None:
+            if XLIM is None:
                 POS = AX.get_position()
                 plt.figtext((POS.x1-POS.x0)/AX.get_xlim()[1]*(Min*1.15)+POS.x0, (POS.y1-POS.y0)*0.85+POS.y0,
                         '%.4fnm' % Min, rotation=90, color='k', fontsize=20)
@@ -2526,7 +2526,7 @@ OUTPUT:
                             break
                  #-----------------------------------  
       #------- Plot Min/Max lines
-        if XLIM is not None:
+        if XLIM is None:
             POS = AX.get_position()
             plt.figtext((POS.x1-POS.x0)/AX.get_xlim()[1]*(Min*1.15)+POS.x0, (POS.y1-POS.y0)*0.85+POS.y0,
                     '%.4fnm' % Min, rotation=90, color='k', fontsize=20)
@@ -2569,7 +2569,7 @@ OUTPUT:
             break
                  #-----------------------------------  
   #------- Plot Min/Max lines
-    if XLIM is not None:
+    if XLIM is None:
         POS = AX.get_position()
         plt.figtext((POS.x1-POS.x0)/AX.get_xlim()[1]*(Min*1.15)+POS.x0, (POS.y1-POS.y0)*0.85+POS.y0,
                     '%.4fnm' % Min, rotation=90, color='k', fontsize=20)
