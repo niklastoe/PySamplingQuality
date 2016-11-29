@@ -9,7 +9,7 @@
 #
 # Author:     Mike Nemec <mike.nemec@uni-due.de>
 #
-# current version: v28.11.16-1
+# current version: v29.11.16-1
 #######################################################
 # tested with following program versions:
 #        Gromacs       v4.6 | v5.1 
@@ -1593,8 +1593,9 @@ OUTPUT:
                     elif aMD_reweight == 'sMD':
                         ## Indices[Rows, 0:Events] returns frames -> Weights_MF0[Rows, frames] weights the frames
                         weightedEvents = NP.sum( Weights_MF0[temp[0:noWeights[Rows, RadIndex]], RadIndex] )
-                        Weights_MF1[Rows, RadIndex] = NP.divide( NP.power(weightedEvents, 1./Lambda),
-                                                                 noWeights[Rows, RadIndex] )
+                        Weights_MF1[Rows, RadIndex] = NP.power(weightedEvents, 1./Lambda-1)
+                        #Weights_MF1[Rows, RadIndex] = NP.divide( NP.power(weightedEvents, 1./Lambda),
+                        #                                         noWeights[Rows, RadIndex] )
                 IIII += 1
               ####
             Iter += 1
@@ -2349,7 +2350,7 @@ def Plot_determineR_using_RMSD_distributions(TrajNameList, SaveName='V3', SaveNa
                                              SaveDir = 'Amber14Trajs/RMSD_distributions/', Bins=250, Percent=1,
                                              DiagTitle=[''], OffDiagTitle=[''], Legend=[], Indices1=None, Indices2=None, XLIM=None):
     """
-v28.10.16
+v29.11.16
     Plotting RMSD distributions into different subplots
 
 INPUT:
@@ -2443,15 +2444,16 @@ OUTPUT:
                     break
          #-----------------------------------
       #------- Plot Min/Max lines
-        POS = AX.get_position()
-        plt.figtext((POS.x1-POS.x0)/AX.get_xlim()[1]*(Min*1.15)+POS.x0, (POS.y1-POS.y0)*0.85+POS.y0,
-                '%.4fnm' % Min, rotation=90, color='k', fontsize=20)
-        plt.figtext((POS.x1-POS.x0)/AX.get_xlim()[1]*(Max*.94)+POS.x0, (POS.y1-POS.y0)*0.49+POS.y0,
-                '%.4fnm' % Max, rotation=90, color='k', fontsize=20)
-        plt.axvline(Min, ls=':', color='grey', lw=2); plt.axvline(Max, ls=':', color='grey', lw=2);
+        if XLIM is not None:
+            POS = AX.get_position()
+            plt.figtext((POS.x1-POS.x0)/AX.get_xlim()[1]*(Min*1.15)+POS.x0, (POS.y1-POS.y0)*0.85+POS.y0,
+                    '%.4fnm' % Min, rotation=90, color='k', fontsize=20)
+            plt.figtext((POS.x1-POS.x0)/AX.get_xlim()[1]*(Max*.94)+POS.x0, (POS.y1-POS.y0)*0.49+POS.y0,
+                    '%.4fnm' % Max, rotation=90, color='k', fontsize=20)
+            plt.axvline(Min, ls=':', color='grey', lw=2); plt.axvline(Max, ls=':', color='grey', lw=2);
       #--------------------------
         if Kug == len(Indices1)-1: plt.xlabel('RMSD [nm]', fontsize=22);
-        plt.xticks(fontsize=20); plt.yticks(fontsize=0); 
+        plt.xticks(fontsize=20); plt.yticks([]); 
         plt.ylabel('frequency [a.u.]', fontsize=22); #plt.xlabel('threshold r', fontsize=15)
       #--------------------------  
         if logX: plt.xscale('log'); 
@@ -2484,15 +2486,16 @@ OUTPUT:
                  #-----------------------------------  
                     plt.plot(temp[:,0], temp[:,1]/NP.sum(temp[:,1]))
           #------- Plot Min/Max lines
-            POS = AX.get_position()
-            plt.figtext((POS.x1-POS.x0)/AX.get_xlim()[1]*(Min*1.15)+POS.x0, (POS.y1-POS.y0)*0.85+POS.y0,
-                    '%.4fnm' % Min, rotation=90, color='k', fontsize=20)
-            plt.figtext((POS.x1-POS.x0)/AX.get_xlim()[1]*(Max*.94)+POS.x0, (POS.y1-POS.y0)*0.49+POS.y0,
-                    '%.4fnm' % Max, rotation=90, color='k', fontsize=20)
-            plt.axvline(Min, ls=':', color='grey', lw=2); plt.axvline(Max, ls=':', color='grey', lw=2);
+            if XLIM is not None:
+                POS = AX.get_position()
+                plt.figtext((POS.x1-POS.x0)/AX.get_xlim()[1]*(Min*1.15)+POS.x0, (POS.y1-POS.y0)*0.85+POS.y0,
+                        '%.4fnm' % Min, rotation=90, color='k', fontsize=20)
+                plt.figtext((POS.x1-POS.x0)/AX.get_xlim()[1]*(Max*.94)+POS.x0, (POS.y1-POS.y0)*0.49+POS.y0,
+                        '%.4fnm' % Max, rotation=90, color='k', fontsize=20)
+                plt.axvline(Min, ls=':', color='grey', lw=2); plt.axvline(Max, ls=':', color='grey', lw=2);
           #--------------------------
             if Kug == len(Indices1)-1: plt.xlabel('RMSD [nm]', fontsize=22)
-            plt.xticks(fontsize=20); plt.yticks(fontsize=0); 
+            plt.xticks(fontsize=20); plt.yticks([]); 
             #if Kug == 0: plt.ylabel('normalized frequency', fontsize=15); 
           #--------------------------  
             if logX: plt.xscale('log'); 
@@ -2523,14 +2526,15 @@ OUTPUT:
                             break
                  #-----------------------------------  
       #------- Plot Min/Max lines
-        POS = AX.get_position()
-        plt.figtext((POS.x1-POS.x0)/AX.get_xlim()[1]*(Min*1.15)+POS.x0, (POS.y1-POS.y0)*0.85+POS.y0,
-                '%.4fnm' % Min, rotation=90, color='k', fontsize=20)
-        plt.figtext((POS.x1-POS.x0)/AX.get_xlim()[1]*(Max*.94)+POS.x0, (POS.y1-POS.y0)*0.49+POS.y0,
-                '%.4fnm' % Max, rotation=90, color='k', fontsize=20)
-        plt.axvline(Min, ls=':', color='grey', lw=2); plt.axvline(Max, ls=':', color='grey', lw=2);
+        if XLIM is not None:
+            POS = AX.get_position()
+            plt.figtext((POS.x1-POS.x0)/AX.get_xlim()[1]*(Min*1.15)+POS.x0, (POS.y1-POS.y0)*0.85+POS.y0,
+                    '%.4fnm' % Min, rotation=90, color='k', fontsize=20)
+            plt.figtext((POS.x1-POS.x0)/AX.get_xlim()[1]*(Max*.94)+POS.x0, (POS.y1-POS.y0)*0.49+POS.y0,
+                    '%.4fnm' % Max, rotation=90, color='k', fontsize=20)
+            plt.axvline(Min, ls=':', color='grey', lw=2); plt.axvline(Max, ls=':', color='grey', lw=2);
       #--------------------------
-        plt.xticks(fontsize=20); plt.yticks(fontsize=0); 
+        plt.xticks(fontsize=20); plt.yticks([]); 
       #--------------------------  
         if logX: plt.xscale('log'); 
         if XLIM is not None: plt.xlim(XLIM);
@@ -2565,14 +2569,15 @@ OUTPUT:
             break
                  #-----------------------------------  
   #------- Plot Min/Max lines
-    POS = AX.get_position()
-    plt.figtext((POS.x1-POS.x0)/AX.get_xlim()[1]*(Min*1.15)+POS.x0, (POS.y1-POS.y0)*0.85+POS.y0,
-                '%.4fnm' % Min, rotation=90, color='k', fontsize=20)
-    plt.figtext((POS.x1-POS.x0)/AX.get_xlim()[1]*(Max*.94)+POS.x0, (POS.y1-POS.y0)*0.49+POS.y0,
-            '%.4fnm' % Max, rotation=90, color='k', fontsize=20)
-    plt.axvline(Min, ls=':', color='grey', lw=2); plt.axvline(Max, ls=':', color='grey', lw=2);
+    if XLIM is not None:
+        POS = AX.get_position()
+        plt.figtext((POS.x1-POS.x0)/AX.get_xlim()[1]*(Min*1.15)+POS.x0, (POS.y1-POS.y0)*0.85+POS.y0,
+                    '%.4fnm' % Min, rotation=90, color='k', fontsize=20)
+        plt.figtext((POS.x1-POS.x0)/AX.get_xlim()[1]*(Max*.94)+POS.x0, (POS.y1-POS.y0)*0.49+POS.y0,
+                '%.4fnm' % Max, rotation=90, color='k', fontsize=20)
+        plt.axvline(Min, ls=':', color='grey', lw=2); plt.axvline(Max, ls=':', color='grey', lw=2);
   #------- Plot MarkerL/MarkerR lines
-    if Percent < 1 and Percent > 0:
+    if Percent < 1 and Percent > 0 and XLIM is not None:
         MarkerL, MarkerR = ReturnPercentRMSD(Percent, Full_dist, temp2)
         plt.figtext((POS.x1-POS.x0)/AX.get_xlim()[1]*(MarkerL*1.12)+POS.x0, (POS.y1-POS.y0)*0.85+POS.y0,
                     '%.4fnm' % MarkerL, rotation=90, color='r', fontsize=20)
@@ -2581,7 +2586,7 @@ OUTPUT:
                     '%.4fnm' % MarkerR, rotation=90, color='r', fontsize=20)
         plt.axvline(MarkerR, ls=':', color='r', lw=2)
   #--------------------------
-    plt.xticks(fontsize=20); plt.yticks(fontsize=0); plt.xlabel('RMSD [nm]', fontsize=22)
+    plt.xticks(fontsize=20); plt.yticks([]); plt.xlabel('RMSD [nm]', fontsize=22)
     plt.legend(['all single', 'all trajX vs Y', 'full'], fontsize=19, numpoints=1, framealpha=0.5)
     plt.locator_params(axis = 'x', nbins = 5)
  #----------------------
