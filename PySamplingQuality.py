@@ -9,7 +9,7 @@
 #
 # Author:     Mike Nemec <mike.nemec@uni-due.de>
 #
-# current version: v29.11.16-2
+# current version: v30.11.16-1
 #######################################################
 # tested with following program versions:
 #        Gromacs       v4.6 | v5.1 
@@ -787,7 +787,7 @@ def Generate_EventCurves(TrajNameList, TrajLengthList, MatrixDir, SaveDir, SaveN
      aMD_Nrs=[], aMD_reweight='MF', aMDlogDir=None, aMDlogName=None, AmberVersion='Amber14', WeightStep=1, Temp=300,
      sMD_Nrs=[], Lambda=1, Order=10, BinFile_precision=NP.float32, Iterations=1, RMSD_SaveAdder=''):
     """ 
-v28.11.16
+v30.11.16
     This function calculates the EventCurves using calculated RMSD matrices and possible aMD/sMD Weights: 
         - Events are the number of neighboring frames with Threshold < RMSD for each reference frame and for each traj
         - Events as a function of Simulation time
@@ -1008,20 +1008,28 @@ OUTPUT:
     #----        and have the correct lengths as TrajLengthLis
         if aMD_Nrs != []:
             for Kai in aMD_Nrs:
+              #-----------  
+                if PartList[Kai-1] > 1:
+                    EndY = min(EndingFrame, NP.sum([TrajLenDict['%s_part%s' % (Kai-1, PayY)][0] 
+                                                    for PayY in range(1,1+PartList[Kai-1]) 
+                                                    if TrajLenDict['%s_part%s' % (Kai-1, PayY)][0] > 0]))
+                else:
+                    EndY = min(EndingFrame, TrajLenDict['%s' % (Kai-1)][0])
+              #-----------  
                 if trajYList.count(Kai-1) > 0:
                     for PartY in [(('_part%s' % Part) if PartList[Kai-1] != 1 else '') \
                                   for Part in range(1,PartList[Kai-1]+1)]:
                         if  (aMD_reweight == 'MF' and os.path.exists('%sWeights/aMD_Weight_MF_%s_%s-%s%s_Iter%s.txt' % \
-                                  (SaveDir, TrajNameList[Kai-1], StartFrame, EndingFrame, PartY, Iterations))) \
+                                  (SaveDir, TrajNameList[Kai-1], StartFrame, EndY, PartY, Iterations))) \
                             or \
                             os.path.exists('%sWeights/aMD_Weight_%s%s.txt' % (SaveDir, TrajNameList[Kai-1], PartY)):
                             pass
                         elif aMD_reweight == 'MF' and trajXList.count(Kai-1) == 0:
                             raise ValueError('aMD Weights for <MF> cannot be calculated: not all aMD trajectories '+\
                                              'are present in ROW_TrajNrList\n'+\
-                                             ('\t%s not in %s\nTrajName = %s, StartFrame, EndingFrame, Iterations = (%s, %s, %s)' % \
+                                             ('\t%s not in %s\nTrajName = %s, StartFrame, EndY, Iterations = (%s, %s, %s)' % \
                                                   (Kai, [elem+1 for elem in trajXList], TrajNameList[Kai-1], 
-                                                   StartFrame, EndingFrame, Iterations)))
+                                                   StartFrame, EndY, Iterations)))
                         elif aMDlogCombo is not None and os.path.exists(aMDlogCombo[aMD_Nrs.index(Kai)]):
                             temp = NP.genfromtxt(aMDlogCombo[aMD_Nrs.index(Kai)])[0::WeightStep]
                             if PartList[Kai-1] > 1 and len(temp[:,0])==NP.sum([TrajLenDict['%s_part%s' % (Kai-1, elem)][0] \
@@ -1042,7 +1050,7 @@ OUTPUT:
                         else:
                             raise NameError('aMD Weight Check failed: no appropriate aMD-Weight-File is submitted!\n'+\
                                     ('Neither >%sWeights/aMD_Weight_MF_%s_%s-%s%s_Iter%s.txt<\n' % \
-                                  (SaveDir, TrajNameList[trajY], StartFrame, EndingFrame, PartY, Iterations))+\
+                                  (SaveDir, TrajNameList[trajY], StartFrame, EndY, PartY, Iterations))+\
                                     ('nor >%sWeights/aMD_Weight_%s%s.txt\n' % (SaveDir, TrajNameList[trajY], PartY))+\
                                     ('nor >%s<\nexist! Calculation stopped' % \
                          (aMDlogCombo[aMD_Nrs.index(Kai)] if aMDlogCombo is not None else 'aMDlogDir/aMDlogName')))
@@ -1050,17 +1058,25 @@ OUTPUT:
     #----       OR if the weights already exist
         if sMD_Nrs != []:
             for Kai in sMD_Nrs:
+              #-----------  
+                if PartList[Kai-1] > 1:
+                    EndY = min(EndingFrame, NP.sum([TrajLenDict['%s_part%s' % (Kai-1, PayY)][0] 
+                                                    for PayY in range(1,1+PartList[Kai-1]) 
+                                                    if TrajLenDict['%s_part%s' % (Kai-1, PayY)][0] > 0]))
+                else:
+                    EndY = min(EndingFrame, TrajLenDict['%s' % (Kai-1)][0])
+              #-----------  
                 if trajYList.count(Kai-1) > 0:
                     for PartY in [(('_part%s' % Part) if PartList[Kai-1] != 1 else '') \
                                   for Part in range(1,PartList[Kai-1]+1)]:
                         if trajXList.count(Kai-1) == 0 and \
                             not os.path.exists('%sWeights/sMD_Weight_lambda%s_%s_%s-%s%s_Iter%s.txt' % \
-                                      (SaveDir, Lambda, TrajNameList[Kai-1], StartFrame, EndingFrame, PartY, Iterations)):
+                                      (SaveDir, Lambda, TrajNameList[Kai-1], StartFrame, EndY, PartY, Iterations)):
                             raise ValueError('<sMD> Weights cannot be calculated because not all sMD trajectories '+\
                                              'are present in ROW_TrajNrList\n'+\
                                              ('\t%s not in %s\nsMD_Weight_lambda%s_%s_%s-%s%s_Iter%s.txt' % \
                                                   (Kai, [elem+1 for elem in trajXList], Lambda, 
-                                                   TrajNameList[Kai-1], StartFrame, EndingFrame, PartY, Iterations))) 
+                                                   TrajNameList[Kai-1], StartFrame, EndY, PartY, Iterations))) 
 #### #### #### #### #### #### 
 # if trajectories are split into parts, the EventCurve HAS TO BE built completely before generating the aMD/sMD MF weights
 #### #### #### #### #### 
@@ -1199,7 +1215,8 @@ OUTPUT:
         # LOAD/GENERATE aMD Weights
         ##### ##### #####
                 WeightName = 'aMD_Weight_MF_%s_%s-%s_Iter%s.txt' % \
-                              (TrajNameList[trajY], StartFrame, EndingFrame, Iterations)
+                              (TrajNameList[trajY], BeginY, EndY, Iterations)
+                              #(TrajNameList[trajY], StartFrame, EndingFrame, Iterations)
                 if aMD_reweight == 'MF':
                     ## for Weight generation, trajX==trajY, thus the trajY specific ROWS of EventMatrix are used
                     if PartList[trajY] > 1:
@@ -1279,7 +1296,8 @@ OUTPUT:
             # LOAD/GENERATE sMD Weights
             ##### ##### #####
                 WeightName = 'sMD_Weight_lambda%s_%s_%s-%s_Iter%s.txt' % \
-                              (Lambda, TrajNameList[trajY], StartFrame, EndingFrame, Iterations)
+                              (Lambda, TrajNameList[trajY], BeginY, EndY, Iterations)
+                              #(Lambda, TrajNameList[trajY], StartFrame, EndingFrame, Iterations)
                 ## for Weight generation, trajX==trajY, thus the trajY specific ROWS of EventMatrix are used
                 if PartList[trajY] > 1:
                     SpecEventRow = sum(TrajLengthList[:TrajLenDict['%s_part1' % (trajY)][1]])
