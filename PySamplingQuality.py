@@ -9,7 +9,7 @@
 #
 # Author:     Mike Nemec <mike.nemec@uni-due.de>
 #
-# current version: v30.11.16-1
+# current version: v08.01.17-1
 #######################################################
 # tested with following program versions:
 #        Gromacs       v4.6 | v5.1 
