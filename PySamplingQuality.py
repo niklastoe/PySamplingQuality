@@ -2156,7 +2156,7 @@ def determineR_generate_RMSD_distributions(TrajNameList, SaveName='V3',
                                            BinFile_precision=NP.float32,
                                            Bins=250, RMSD_SaveAdder=''):
     """
-v12.10.16
+v08.01.17
     generate RMSD distributions using ALL RMSD matrices | ADD MinRMSD to MaxMinRMSD_<SaveName>.txt
 
 INPUT:
@@ -2290,7 +2290,7 @@ OUTPUT:
                             if NP.sum(NP.absolute(temp[:,0]-range(1,len(temp[:,0])+1))) < 10e-6:
                               #--- AmberTool14 uses Angstrom, thus /10 for NM
                                 temp = temp[:,1:]/10.
-                            temp = NP.reshape(temp, (len(temp[:,0])*len(temp[:,0]),))
+                            temp = NP.reshape(temp, (len(temp[:,0])*len(temp[0,:]),))
                         else:
                             temp = NP.fromfile('%s%s_%s%s_bin.dat' % \
                                                (MatrixDir, TrajNameList[Kai], TrajNameList[Kai2], RMSD_SaveAdder), 
