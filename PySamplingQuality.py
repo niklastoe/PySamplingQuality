@@ -9,7 +9,7 @@
 #
 # Author:     Mike Nemec <mike.nemec@uni-due.de>
 #
-# current version: v08.01.17-1
+# current version: v09.01.17-1
 #######################################################
 # tested with following program versions:
 #        Gromacs       v4.6 | v5.1 
@@ -785,9 +785,9 @@ OUTPUT:
 def Generate_EventCurves(TrajNameList, TrajLengthList, MatrixDir, SaveDir, SaveName, ThresholdList, MaxNumberLines, \
      ROW_TrajNrList=None, COL_TrajNrList=None, StartFrame=0, EndingFrame=NP.infty, PartList=None,
      aMD_Nrs=[], aMD_reweight='MF', aMDlogDir=None, aMDlogName=None, AmberVersion='Amber14', WeightStep=1, Temp=300,
-     sMD_Nrs=[], Lambda=1, Order=10, BinFile_precision=NP.float32, Iterations=1, RMSD_SaveAdder=''):
+     sMD_Nrs=[], Lambda=1, Order=10, BinFile_precision=NP.float32, Iterations=1):
     """ 
-v30.11.16
+v09.01.17
     This function calculates the EventCurves using calculated RMSD matrices and possible aMD/sMD Weights: 
         - Events are the number of neighboring frames with Threshold < RMSD for each reference frame and for each traj
         - Events as a function of Simulation time
@@ -990,20 +990,20 @@ OUTPUT:
     #---- CHECK, if RMSD matrices exist
         for Kai in range(len(TrajNameList)):
             for PartX in [(('_part%s' % Part) if PartList[Kai] != 1 else '') for Part in range(1,PartList[Kai]+1)]:
-                if not os.path.exists('%s%s%s%s_bin.dat' % (MatrixDir, TrajNameList[Kai], PartX, RMSD_SaveAdder)):
-                    raise NameError('RMSD matrix \n\t>%s%s%s%s_bin.dat<\nnot found' % \
-                                    (MatrixDir,TrajNameList[Kai],PartX, RMSD_SaveAdder))
+                if not os.path.exists('%s%s%s_bin.dat' % (MatrixDir, TrajNameList[Kai], PartX)):
+                    raise NameError('RMSD matrix \n\t>%s%s%s_bin.dat<\nnot found' % \
+                                    (MatrixDir,TrajNameList[Kai],PartX))
                 for Kai2 in range(Kai+1,len(TrajNameList),1):
                     if Kai2 > Kai:
                         for PartY in [(('_part%s' % Part) if PartList[Kai2] != 1 else '') \
                                       for Part in range(1,PartList[Kai2]+1)]:
-                            if not os.path.exists('%s%s%s_%s%s%s_bin.dat' % \
-                                      (MatrixDir, TrajNameList[Kai], PartX, TrajNameList[Kai2], PartY, RMSD_SaveAdder)) \
-                               and not os.path.exists('%s%s%s_%s%s%s_bin.dat' % \
-                                      (MatrixDir, TrajNameList[Kai2], PartY, TrajNameList[Kai], PartX, RMSD_SaveAdder)):
-                                raise NameError('RMSD matrix \n\t>%s%s%s_%s%s%s_bin.dat<\nand\n\t>%s%s%s_%s%s%s_bin.dat<\n not found' % \
-                                     (MatrixDir, TrajNameList[Kai], PartX, TrajNameList[Kai2], PartY, RMSD_SaveAdder, 
-                                      MatrixDir, TrajNameList[Kai2], PartY, TrajNameList[Kai], PartX, RMSD_SaveAdder))
+                            if not os.path.exists('%s%s%s_%s%s_bin.dat' % \
+                                      (MatrixDir, TrajNameList[Kai], PartX, TrajNameList[Kai2], PartY)) \
+                               and not os.path.exists('%s%s%s_%s%s_bin.dat' % \
+                                      (MatrixDir, TrajNameList[Kai2], PartY, TrajNameList[Kai], PartX)):
+                                raise NameError('RMSD matrix \n\t>%s%s%s_%s%s_bin.dat<\nand\n\t>%s%s%s_%s%s_bin.dat<\n not found' % \
+                                     (MatrixDir, TrajNameList[Kai], PartX, TrajNameList[Kai2], PartY, 
+                                      MatrixDir, TrajNameList[Kai2], PartY, TrajNameList[Kai], PartX))
     #---- CHECK, if aMD.log are present for aMD_Nrs != []
     #----        and have the correct lengths as TrajLengthLis
         if aMD_Nrs != []:
@@ -1130,7 +1130,7 @@ OUTPUT:
                     Return_FullColRMSD(MatrixDir, TrajNameList, CurrentRow, 
                                        MaxNumberLines, TrajLenDict, FullCumTrajLenList, PartList=PartList, 
                                        BinFile_precision=BinFile_precision, GLOBAL=True, 
-                                       EventCurve=True, trajYList=[trajY], RMSD_SaveAdder=RMSD_SaveAdder)
+                                       EventCurve=True, trajYList=[trajY])
               ################
                 BeginY = StartFrame;  
                 if PartList[trajY] > 1:
@@ -2006,9 +2006,9 @@ def determineR_extract_MaxRMSD(TrajNameList, SaveName,
                                RMSD_dist_Dir = 'Amber14Trajs/RMSD_files/',
                                MatrixDir = 'Amber14Trajs/RMSD_files/BinFiles/',
                                SaveDir = 'Amber14Trajs/RMSD_distributions/',
-                               BinFile_precision=NP.float32, RMSD_SaveAdder=''):
+                               BinFile_precision=NP.float32):
     """
-v12.10.16
+v09.01.17
     extract and store MaxRMSD for the RMSD histrograms
     (1) EITHER uses the last "BIN" of RMSD_dist (GROMACS)
     (2) OR screen through every RMSD matrix
@@ -2055,18 +2055,18 @@ added:
         for Kai in range(len(TrajNameList)):
          #-- DIAGS
             # TRY TO LOAD RMSD_dist.xvg
-            if os.path.exists('%s%s%s_dist.xvg' % (RMSD_dist_Dir, TrajNameList[Kai], RMSD_SaveAdder)):
+            if os.path.exists('%s%s_dist.xvg' % (RMSD_dist_Dir, TrajNameList[Kai])):
               # g_rms -dist generates always 101 bins
-                temp = NP.genfromtxt('%s%s%s_dist.xvg' % (RMSD_dist_Dir, TrajNameList[Kai], RMSD_SaveAdder), 
+                temp = NP.genfromtxt('%s%s_dist.xvg' % (RMSD_dist_Dir, TrajNameList[Kai]), 
                                      skip_header=50) # skip_header, if XVG header is used
                 MaxRMSD = max(MaxRMSD, temp[-1,0])
                 del temp
             # TRY TO LOAD RMSD_bin.dat
-            elif os.path.exists('%s%s%s_bin.dat' % (MatrixDir, TrajNameList[Kai], RMSD_SaveAdder)):
+            elif os.path.exists('%s%s_bin.dat' % (MatrixDir, TrajNameList[Kai])):
                 if BinFile_precision is None:
                   #----- TRY TO LOAD NP.NDarray like input, like generated by AmberTools14
                     try:
-                        temp = NP.genfromtxt('%s%s%s_bin.dat' % (MatrixDir, TrajNameList[Kai], RMSD_SaveAdder))
+                        temp = NP.genfromtxt('%s%s_bin.dat' % (MatrixDir, TrajNameList[Kai]))
                     except ValueError:
                         raise ValueError('The RMSD matrix is not stored in a txt-file.\n\t'+\
                                          ('Check your RMSD matrix format and >>BinFile_precision=%s<< input\n' % BinFile_precision)+\
@@ -2081,7 +2081,7 @@ added:
                     else:
                         MaxRMSD = max(MaxRMSD, NP.max(temp))               
                 else:
-                    temp = NP.fromfile('%s%s%s_bin.dat' % (MatrixDir, TrajNameList[Kai], RMSD_SaveAdder), dtype=BinFile_precision)
+                    temp = NP.fromfile('%s%s_bin.dat' % (MatrixDir, TrajNameList[Kai]), dtype=BinFile_precision)
                     if len(temp) != int(NP.sqrt(len(temp)))*int(NP.sqrt(len(temp))):
                         raise ValueError(('The RMSD matrix generated by GROMACS is not loaded correctly!\n\tCheck your >>BinFile_precision=%s<< input\n' % \
                                 BinFile_precision)+\
@@ -2093,27 +2093,26 @@ added:
                 del temp
             else:
                 raise NameError('Error extracting the maximal RMSD for the given TrajNameList: \n'+\
-                    'Diagonal RMSD_dist.xvg or RMSD_bin.dat\n\t%s%s%s_dist.xvg or \n\t%s%s%s_bin.dat\nnot found' % \
-                        (RMSD_dist_Dir, TrajNameList[Kai],RMSD_SaveAdder, 
-                         MatrixDir, TrajNameList[Kai], RMSD_SaveAdder))
+                    'Diagonal RMSD_dist.xvg or RMSD_bin.dat\n\t%s%s_dist.xvg or \n\t%s%s_bin.dat\nnot found' % \
+                        (RMSD_dist_Dir, TrajNameList[Kai], MatrixDir, TrajNameList[Kai]))
          #-- OFF-Diags   
             for Kai2 in range(Kai+1,len(TrajNameList)):
                 if Kai != Kai2:
-                    if os.path.exists('%s%s_%s%s_dist.xvg' % \
-                                      (RMSD_dist_Dir, TrajNameList[Kai],TrajNameList[Kai2], RMSD_SaveAdder)):
+                    if os.path.exists('%s%s_%s_dist.xvg' % \
+                                      (RMSD_dist_Dir, TrajNameList[Kai],TrajNameList[Kai2])):
                       # g_rms -dist generates always 101 bins
-                        temp = NP.genfromtxt('%s%s_%s%s_dist.xvg' % \
-                                             (RMSD_dist_Dir, TrajNameList[Kai],TrajNameList[Kai2], RMSD_SaveAdder), 
+                        temp = NP.genfromtxt('%s%s_%s_dist.xvg' % \
+                                             (RMSD_dist_Dir, TrajNameList[Kai],TrajNameList[Kai2]), 
                                              skip_header=50) # skip_header, if XVG header is used
                         MaxRMSD = max(MaxRMSD, temp[-1,0])
                         del temp
-                    elif os.path.exists('%s%s_%s%s_bin.dat' % \
-                                        (MatrixDir, TrajNameList[Kai],TrajNameList[Kai2], RMSD_SaveAdder)):
+                    elif os.path.exists('%s%s_%s_bin.dat' % \
+                                        (MatrixDir, TrajNameList[Kai],TrajNameList[Kai2])):
                         if BinFile_precision is None:
                          #----- TRY TO LOAD NP.NDarray like input, like generated by AmberTools14
                             try:
-                                temp = NP.genfromtxt('%s%s_%s%s_bin.dat' % \
-                                       (MatrixDir, TrajNameList[Kai], TrajNameList[Kai2], RMSD_SaveAdder))
+                                temp = NP.genfromtxt('%s%s_%s_bin.dat' % \
+                                       (MatrixDir, TrajNameList[Kai], TrajNameList[Kai2]))
                             except ValueError:
                                 raise ValueError('The RMSD matrix is not stored in a txt-file.\n\t'+\
                                                  ('Check your RMSD matrix format and >>BinFile_precision=%s<< input\n' % BinFile_precision)+\
@@ -2128,17 +2127,17 @@ added:
                             else:
                                 MaxRMSD = max(MaxRMSD, NP.max(temp))               
                         else: 
-                            temp = NP.fromfile('%s%s_%s%s_bin.dat' % \
-                                   (MatrixDir, TrajNameList[Kai], TrajNameList[Kai2], RMSD_SaveAdder), 
+                            temp = NP.fromfile('%s%s_%s_bin.dat' % \
+                                   (MatrixDir, TrajNameList[Kai], TrajNameList[Kai2]), 
                                                dtype=BinFile_precision)
                             MaxRMSD = max(MaxRMSD, NP.max(temp)) 
                         del temp
                     else:
                         raise NameError('Error extracting the maximal RMSD for the given TrajNameList: \n'+\
                                         'Off-Diagonal RMSD_dist.xvg or RMSD_bin.dat\n'+\
-                                        '\t%s%s_%s%s_dist.xvg or \n\t%s%s_%s%s_bin.dat\nnot found' % \
-                                        (RMSD_dist_Dir, TrajNameList[Kai], TrajNameList[Kai2],RMSD_SaveAdder, 
-                                         MatrixDir,  TrajNameList[Kai], TrajNameList[Kai2],RMSD_SaveAdder))
+                                        '\t%s%s_%s_dist.xvg or \n\t%s%s_%s_bin.dat\nnot found' % \
+                                        (RMSD_dist_Dir, TrajNameList[Kai], TrajNameList[Kai2], 
+                                         MatrixDir,  TrajNameList[Kai], TrajNameList[Kai2]))
       #------- STORE MaxRMSD to File
         with open('%sMaxMinRMSD_%s.txt' % (SaveDir, SaveName), 'w') as OUTPUT:
             OUTPUT.write('# This file stores the maximal AND minimal RMSD value for the given TrajNameList\n'+\
@@ -2154,9 +2153,9 @@ def determineR_generate_RMSD_distributions(TrajNameList, SaveName='V3',
                                            MatrixDir = 'RMSD_files/BinFiles/',
                                            SaveDir = 'Amber14Trajs/RMSD_distributions/',
                                            BinFile_precision=NP.float32,
-                                           Bins=250, RMSD_SaveAdder=''):
+                                           Bins=250):
     """
-v08.01.17
+v09.01.17
     generate RMSD distributions using ALL RMSD matrices | ADD MinRMSD to MaxMinRMSD_<SaveName>.txt
 
 INPUT:
@@ -2213,11 +2212,11 @@ OUTPUT:
         for Kai in range(len(TrajNameList)):
          #----- GENERATE  DIAGS
             # TRY TO LOAD RMSD_dist.xvg
-            if os.path.exists('%s%s%s_bin.dat' % (MatrixDir, TrajNameList[Kai], RMSD_SaveAdder)):
+            if os.path.exists('%s%s_bin.dat' % (MatrixDir, TrajNameList[Kai])):
                 if BinFile_precision is None:
                  #----- TRY TO LOAD NP.NDarray like input, like generated by AmberTools14
                     try:
-                        temp = NP.genfromtxt('%s%s%s_bin.dat' % (MatrixDir, TrajNameList[Kai], RMSD_SaveAdder))
+                        temp = NP.genfromtxt('%s%s_bin.dat' % (MatrixDir, TrajNameList[Kai]))
                     except ValueError:
                         raise ValueError('The RMSD matrix is not stored in a txt-file.\n\t'+\
                                          ('Check your RMSD matrix format and >>BinFile_precision=%s<< input\n' % BinFile_precision)+\
@@ -2231,7 +2230,7 @@ OUTPUT:
                         temp = temp[:,1:]/10.
                     temp_len = int(len(temp[:,0]))
                 else:
-                    temp = NP.fromfile('%s%s%s_bin.dat' % (MatrixDir, TrajNameList[Kai], RMSD_SaveAdder), 
+                    temp = NP.fromfile('%s%s_bin.dat' % (MatrixDir, TrajNameList[Kai]), 
                                        dtype=BinFile_precision)
                     temp_len = int(NP.sqrt(len(temp)))
                     if len(temp) != temp_len*temp_len:
@@ -2267,18 +2266,17 @@ OUTPUT:
                 del temp, temp_len
             else:
                 raise NameError('Error extracting the maximal RMSD for the given TrajNameList: \n'+\
-                        'Diagonal RMSD_bin.dat\n\t%s%s%s_bin.dat\nnot found' % \
-                        (MatrixDir, TrajNameList[Kai], RMSD_SaveAdder))
+                        'Diagonal RMSD_bin.dat\n\t%s%s_bin.dat\nnot found' % (MatrixDir, TrajNameList[Kai]))
          #----- GENERATE  OFF-Diags   
             for Kai2 in range(Kai+1,len(TrajNameList)):
                 if Kai != Kai2:
-                    if os.path.exists('%s%s_%s%s_bin.dat' % \
-                                      (MatrixDir, TrajNameList[Kai],TrajNameList[Kai2], RMSD_SaveAdder)):
+                    if os.path.exists('%s%s_%s_bin.dat' % \
+                                      (MatrixDir, TrajNameList[Kai],TrajNameList[Kai2])):
                         if BinFile_precision is None:
                          #----- TRY TO LOAD NP.NDarray like input, like generated by AmberTools14
                             try:
-                                temp = NP.genfromtxt('%s%s_%s%s_bin.dat' % \
-                                                   (MatrixDir, TrajNameList[Kai], TrajNameList[Kai2], RMSD_SaveAdder))
+                                temp = NP.genfromtxt('%s%s_%s_bin.dat' % \
+                                                   (MatrixDir, TrajNameList[Kai], TrajNameList[Kai2]))
                             except ValueError:
                                 raise ValueError('The RMSD matrix is not stored in a txt-file.\n\t'+\
                                                  ('Check your RMSD matrix format and >>BinFile_precision=%s<< input\n' % BinFile_precision)+\
@@ -2292,8 +2290,8 @@ OUTPUT:
                                 temp = temp[:,1:]/10.
                             temp = NP.reshape(temp, (len(temp[:,0])*len(temp[0,:]),))
                         else:
-                            temp = NP.fromfile('%s%s_%s%s_bin.dat' % \
-                                               (MatrixDir, TrajNameList[Kai], TrajNameList[Kai2], RMSD_SaveAdder), 
+                            temp = NP.fromfile('%s%s_%s_bin.dat' % \
+                                               (MatrixDir, TrajNameList[Kai], TrajNameList[Kai2]), 
                                                dtype=BinFile_precision)
                       ## for OFF-Diags: one needs to take EVERY value, because no is present twice
                         temp_offdiag_dist, temp_offdiag_dist_edges2 = \
@@ -2314,8 +2312,8 @@ OUTPUT:
                     else:
                         raise NameError('Error extracting the maximal RMSD for the given TrajNameList: \n'+\
                                         'Off-Diagonal RMSD_bin.dat\n'+\
-                                        '\t%s%s_%s%s_bin.dat\nnot found' % \
-                                        (MatrixDir,  TrajNameList[Kai], TrajNameList[Kai2], RMSD_SaveAdder))
+                                        '\t%s%s_%s_bin.dat\nnot found' % \
+                                        (MatrixDir,  TrajNameList[Kai], TrajNameList[Kai2]))
      #----- STORE FULL DIAG
         with open('%sDiag_%s_ALL_dist_Bins%s.txt' % (SaveDir, SaveName, Bins), 'w') as OUTPUT:
             OUTPUT.write('# This file stores the RMSD distribution for all Trajectories\n'+\
@@ -2595,7 +2593,7 @@ OUTPUT:
                 '%.4fnm' % Max, rotation=90, color='k', fontsize=20)
         plt.axvline(Min, ls=':', color='grey', lw=2); plt.axvline(Max, ls=':', color='grey', lw=2);
   #------- Plot MarkerL/MarkerR lines
-    if Percent < 1 and Percent > 0 and XLIM is not None:
+    if Percent < 1 and Percent > 0 and XLIM is None:
         MarkerL, MarkerR = ReturnPercentRMSD(Percent, Full_dist, temp2)
         plt.figtext((POS.x1-POS.x0)/AX.get_xlim()[1]*(MarkerL*1.12)+POS.x0, (POS.y1-POS.y0)*0.85+POS.y0,
                     '%.4fnm' % MarkerL, rotation=90, color='r', fontsize=20)
@@ -2617,9 +2615,9 @@ def determineR_using_RMSD_distributions(TrajNameList, SaveName='V3', SaveNamePdf
                                         RMSD_dist_Dir = 'Amber14Trajs/RMSD_files/',
                                         MatrixDir = 'Amber14Trajs/RMSD_files/BinFiles/',
                                         BinFile_precision=NP.float32,
-                                        Bins=250, Percent=1, RMSD_SaveAdder=''):
+                                        Bins=250, Percent=1):
     """
-v12.10.16
+v09.01.17
     this function plots the RMSD distributions within a certain interval 
     containing Percent-amount of the Full RMSD distribution
     
@@ -2655,13 +2653,11 @@ OUTPUT:
 #-------------------------------------
  #---- EXTRACT MAXIMAL RMSD VALUE 
 #-------------------------------------    
-    MaxRMSD = determineR_extract_MaxRMSD(TrajNameList, SaveName, RMSD_dist_Dir, MatrixDir, SaveDir, BinFile_precision,
-                                         RMSD_SaveAdder)
+    MaxRMSD = determineR_extract_MaxRMSD(TrajNameList, SaveName, RMSD_dist_Dir, MatrixDir, SaveDir, BinFile_precision)
 #-------------------------------------
  #---- Generate RMSD_distributions
 #-------------------------------------
-    determineR_generate_RMSD_distributions(TrajNameList, SaveName, MatrixDir, SaveDir, BinFile_precision, Bins,
-                                           RMSD_SaveAdder)
+    determineR_generate_RMSD_distributions(TrajNameList, SaveName, MatrixDir, SaveDir, BinFile_precision, Bins)
 #-------------------------------------
 #---- GENERATE PLOTS 
 #-- using different INDICEs to plot different Groups of Trajectories
@@ -2710,9 +2706,9 @@ def Generate_Clustering(MatrixDir, SaveDir, TrajNameList, TrajLengthList, Thresh
                         TimeStep=None, StartFrame=0, EndingFrame=NP.infty, PartList=None, GLOBAL=True,
                         RMSDdir=None, TrajDir=None, TopologyDir=None, TopologyName=None, Ending='.xtc',
                         Select1=None, Select2=None, AmberHome='', GromacsHome='', Program_Suffix='', ReferencePDB=None, 
-                        BinFile_precision=NP.float32, RefFrame=None, RMSD_SaveAdder=''):
+                        BinFile_precision=NP.float32, RefFrame=None):
     """
-v12.10.16
+v09.01.17
 Calculates and generates the LOCAL or GLOBAL PROFILE & CENTROIDS for effective clustering for the submitted 
 trajectories, 
     - using Generate_reference_for_Clustering() & Return_FullColRMSD()
@@ -2941,7 +2937,7 @@ OUTPUT:
                                                                          MaxNumberLines, TrajLenDict, 
                                                                          FullCumTrajLenList, StartFrame, 
                                                                          EndingFrame, PartList, 
-                                                                         BinFile_precision, GLOBAL, RMSD_SaveAdder)
+                                                                         BinFile_precision, GLOBAL)
 ###########################
 ##  CALCULATION
 ###########################
@@ -3312,9 +3308,9 @@ OUTPUT:
 ###############
 def Return_FullColRMSD(MatrixDir, TrajNameList, CurrentRow, MaxNumberLines, TrajLenDict, FullCumTrajLenList,
                        StartFrame=0, EndingFrame=NP.infty, PartList=None, BinFile_precision=NP.float32, GLOBAL=True,
-                       EventCurve=False, trajYList=None, RMSD_SaveAdder=''):
+                       EventCurve=False, trajYList=None):
     """ 
-v11.10.16
+v09.01.17
     - Helper function for <Generate_EventCurves()> AND <Generate_Clustering()> to return the full ROW of the 
       whole RMSD matrix for every submitted trajectory files
     - to select adequate cluster, it is necessary to load at least ONE FULL ROW of all involved RMSD matrices
@@ -3527,7 +3523,7 @@ OUTPUT:
     ## Diagonal RMSD matrix - single traj
     #####
             if trajX == trajY and PartX == PartY and BeginX < EndX and BeginY < EndY:
-                FileName = '%s%s%s_bin.dat' % (TrajNameList[trajX], PartX, RMSD_SaveAdder)
+                FileName = '%s%s_bin.dat' % (TrajNameList[trajX], PartX)
                 if BinFile_precision is not None:
                     RMSD_mat = NP.fromfile('%s%s' % (MatrixDir, FileName), dtype=BinFile_precision)
                     LenX = NP.sqrt(len(RMSD_mat))
@@ -3570,14 +3566,14 @@ OUTPUT:
     ## Off-Diagonal RMSD matrix - trajX vs trajY
     #####
             elif BeginX < EndX and BeginY < EndY:
-                if os.path.exists('%s%s%s_%s%s%s_bin.dat' % \
-                                  (MatrixDir, TrajNameList[trajX], PartX, TrajNameList[trajY], PartY, RMSD_SaveAdder)):
-                    FileName = '%s%s_%s%s%s_bin.dat' % \
-                                      (TrajNameList[trajX], PartX, TrajNameList[trajY], PartY, RMSD_SaveAdder)
+                if os.path.exists('%s%s%s_%s%s_bin.dat' % \
+                                  (MatrixDir, TrajNameList[trajX], PartX, TrajNameList[trajY], PartY)):
+                    FileName = '%s%s_%s%s_bin.dat' % \
+                                      (TrajNameList[trajX], PartX, TrajNameList[trajY], PartY)
                     TransPose = False
                 else:
-                    FileName = '%s%s_%s%s%s_bin.dat' % \
-                                      (TrajNameList[trajY], PartY, TrajNameList[trajX], PartX, RMSD_SaveAdder)
+                    FileName = '%s%s_%s%s_bin.dat' % \
+                                      (TrajNameList[trajY], PartY, TrajNameList[trajX], PartX)
                     TransPose = True
              #---- LenX is the length of the X trajectory, should be equal to the transposed if necessary   
                 LenX = TrajLenDict['%s%s' % (trajX, PartX)][0]
@@ -5789,7 +5785,7 @@ v07.09.16
 
 ##### ##### #####
 
-## v09.09.16
+## v09.01.17
 if __name__ == '__main__':
     if len(sys.argv) < 2:
         print """
@@ -5804,6 +5800,4 @@ usage example:
             Function(Args.input, Args.output)
         else:
             INPUT = ReadConfigFile(Args.input)
-            if ['Generate_EventCurves', 'determineR_using_RMSD_distributions', 'Generate_Clustering'].count(Args.module) == 1:
-                INPUT.append('')
             Function(*INPUT)
