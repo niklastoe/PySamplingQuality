@@ -9,7 +9,7 @@
 #
 # Author:     Mike Nemec <mike.nemec@uni-due.de>
 #
-# current version: v09.01.17-1
+# current version: v14.02.17-1
 #######################################################
 # tested with following program versions:
 #        Gromacs       v4.6 | v5.1 
@@ -787,7 +787,7 @@ def Generate_EventCurves(TrajNameList, TrajLengthList, MatrixDir, SaveDir, SaveN
      aMD_Nrs=[], aMD_reweight='MF', aMDlogDir=None, aMDlogName=None, AmberVersion='Amber14', WeightStep=1, Temp=300,
      sMD_Nrs=[], Lambda=1, Order=10, BinFile_precision=NP.float32, Iterations=1):
     """ 
-v09.01.17
+v30.01.17
     This function calculates the EventCurves using calculated RMSD matrices and possible aMD/sMD Weights: 
         - Events are the number of neighboring frames with Threshold < RMSD for each reference frame and for each traj
         - Events as a function of Simulation time
@@ -934,19 +934,23 @@ OUTPUT:
         SaveAdd2 = SaveAdd2 + '_Col'+'_'.join([str(elem) for elem in COL_TrajNrList])
     SaveEventMatrix    = '%s_%s-%s_noWeight%s.npy' % (SaveName, StartFrame, EndingFrame, SaveAdd1)
     SaveNormMatrix     = 'Norm_%s_%s-%s_noWeight%s.txt' % (SaveName, StartFrame, EndingFrame, SaveAdd2)
-    if aMD_Nrs == [] and sMD_Nrs != []:
-        SaveAdd1 = '_sMD' + SaveAdd1
-        SaveAdd2 = '_sMD' + SaveAdd2
-    elif sMD_Nrs == [] and aMD_Nrs != []:
-        SaveAdd1 = '_'+aMD_reweight + SaveAdd1
-        SaveAdd2 = '_'+aMD_reweight + SaveAdd2
-    else:
-        SaveAdd1 = '_'+aMD_reweight+'+sMD' + SaveAdd1
-        SaveAdd2 = '_'+aMD_reweight+'+sMD' + SaveAdd2
+    ## v30.01.17
+    #if aMD_Nrs == [] and sMD_Nrs != []:
+    #    SaveAdd1 = '_sMD' + SaveAdd1
+    #    SaveAdd2 = '_sMD' + SaveAdd2
+    #elif sMD_Nrs == [] and aMD_Nrs != []:
+    #    SaveAdd1 = '_'+aMD_reweight + SaveAdd1
+    #    SaveAdd2 = '_'+aMD_reweight + SaveAdd2
+    #else:
+    #    SaveAdd1 = '_'+aMD_reweight+'+sMD' + SaveAdd1
+    #    SaveAdd2 = '_'+aMD_reweight+'+sMD' + SaveAdd2
     if aMD_Nrs == [] and sMD_Nrs == []:
         SaveEnhancedMatrix = ''
         SaveEnhancedNorm   = ''
     else:
+    ## v30.01.17
+        SaveAdd1 = '_'+aMD_reweight+'+sMD' + SaveAdd1
+        SaveAdd2 = '_'+aMD_reweight+'+sMD' + SaveAdd2
         SaveEnhancedMatrix = '%s_%s-%s%s.npy' % (SaveName, StartFrame, EndingFrame, SaveAdd1)
         SaveEnhancedNorm   = 'Norm_%s_%s-%s%s.txt' % (SaveName, StartFrame, EndingFrame, SaveAdd2)
     if os.path.exists('%s%s' % (SaveDir, SaveEventMatrix)) and \
@@ -1219,10 +1223,12 @@ OUTPUT:
                               #(TrajNameList[trajY], StartFrame, EndingFrame, Iterations)
                 if aMD_reweight == 'MF':
                     ## for Weight generation, trajX==trajY, thus the trajY specific ROWS of EventMatrix are used
+                ## v11.01.17 UPDATE: if ROW_TrajLenList does not start at 1, there is a wrong shift, 
+                ##                   thus use "-FullCumTrajLenList[trajXList[0]]"
                     if PartList[trajY] > 1:
-                        SpecEventRow = sum(TrajLengthList[:TrajLenDict['%s_part1' % (trajY)][1]])
+                        SpecEventRow = sum(TrajLengthList[:TrajLenDict['%s_part1' % (trajY)][1]])-FullCumTrajLenList[trajXList[0]]
                     else:
-                        SpecEventRow = sum(TrajLengthList[:TrajLenDict['%s' % (trajY)][1]])
+                        SpecEventRow = sum(TrajLengthList[:TrajLenDict['%s' % (trajY)][1]])-FullCumTrajLenList[trajXList[0]]
                 else:
                     SpecEventRow = 0
                 Weights = Generate_Weights(TrajNameList[trajY], 
@@ -1299,10 +1305,12 @@ OUTPUT:
                               (Lambda, TrajNameList[trajY], BeginY, EndY, Iterations)
                               #(Lambda, TrajNameList[trajY], StartFrame, EndingFrame, Iterations)
                 ## for Weight generation, trajX==trajY, thus the trajY specific ROWS of EventMatrix are used
+            ## v11.01.17 UPDATE: if ROW_TrajLenList does not start at 1, there is a wrong shift, 
+            ##                   thus use "-FullCumTrajLenList[trajXList[0]]"
                 if PartList[trajY] > 1:
-                    SpecEventRow = sum(TrajLengthList[:TrajLenDict['%s_part1' % (trajY)][1]])
+                    SpecEventRow = sum(TrajLengthList[:TrajLenDict['%s_part1' % (trajY)][1]])-FullCumTrajLenList[trajXList[0]]
                 else:
-                    SpecEventRow = sum(TrajLengthList[:TrajLenDict['%s' % (trajY)][1]])
+                    SpecEventRow = sum(TrajLengthList[:TrajLenDict['%s' % (trajY)][1]])-FullCumTrajLenList[trajXList[0]]
                 Weights = Generate_Weights(TrajNameList[trajY], 
                               EventMatrix[(SpecEventRow+BeginY):(SpecEventRow+EndY),
                                           [2+trajYList.index(trajY)+elem*len(trajYList) \
@@ -1462,7 +1470,7 @@ def Generate_Weights(TrajName, noWeights, Indices, RangeArray, SaveDir, SaveName
                     aMD_reweight='MF', Iterations=1, Lambda=1, aMDlogCombo=None, WeightStep=1, 
                     AmberVersion='Amber14', Temp=300):
     """ 
-v28.11.16
+v12.01.17
     This function calculates the >Mean-Field< approach for aMD/sMD using the 
         >Events< (noWeight) and RMSD matrix >Indices< and the standard aMD.log Weights, 
         >Indices< store the frames for the corresponding Weights
@@ -1470,6 +1478,7 @@ v28.11.16
     if aMD_reweight='MF' or sMD:
         Full noWeights for the corresponding trajNr is used with all THRESHOLDS, because the weights are 
         unique for each threshold
+    Iterations=-1 iterates until the convergence criterion of <10e-6 FOR EVERY WEIGHT is fulfilled
 INPUT:
     TrajName     : {STRING}     Name of the trajectory, used for aMD_Weight_TrajName.txt;
     noWeights    : {NP.ndarray} number of counts for certain threshold, ! TrajX=TrajY, Indices.shape == (X,X) !
@@ -2400,6 +2409,8 @@ OUTPUT:
     """
     import matplotlib.pyplot as plt
     logX=False; 
+    Diag_dist    = NP.zeros( (Bins) )
+    OffDiag_dist = NP.zeros( (Bins) )
   ###------- DEFAULT VALUES for Indices: simply use all Trajectories
     if Indices1 is None:
         Indices1 = [(0,len(TrajNameList))]
@@ -2429,6 +2440,7 @@ OUTPUT:
                                  usecols=(1,2), skip_footer=1)
             temp2= NP.genfromtxt('%sDiag_%s_%s_dist_Bins%s.txt' % (SaveDir, SaveName, Name, Bins),
                                  usecols=(0))
+            Diag_dist = NP.add(Diag_dist, temp[:,1])
             if len(Indices1) == 1:
                 plt.plot(temp[:,0], temp[:,1]/NP.sum(temp[:,1]), lw=2)
             else:
@@ -2490,6 +2502,7 @@ OUTPUT:
                     temp2 = NP.genfromtxt('%sOffDiag_%s_%s_%s_dist_Bins%s.txt' % \
                                              (SaveDir, SaveName, TrajNameList[Kai], TrajNameList[Kai2], Bins),
                                              usecols=(0))
+                    OffDiag_dist = NP.add(OffDiag_dist, temp[:,1])
                  #---------- Extract MIN & MAX values
                     for F in range(len(temp[:,0])):
                         if abs(temp[F,1]) > 10e-6:
@@ -2519,6 +2532,7 @@ OUTPUT:
             plt.locator_params(axis = 'x', nbins = 5)
   ###------- ALL OFF-Diagonals
     if len(Indices1) != 1:
+        OffDiag_dist = NP.zeros( (Bins) )
         AX = plt.subplot2grid( (len(Indices1),2 if Test2 else 3), (0,1 if Test2 else 2) )
         plt.title('trajX vs trajY', fontsize=25)
         for Kai in range(0,Indices2[-1][-1]-1):
@@ -2530,6 +2544,7 @@ OUTPUT:
                     temp2 = NP.genfromtxt('%sOffDiag_%s_%s_%s_dist_Bins%s.txt' % \
                                          (SaveDir, SaveName, TrajNameList[Kai], TrajNameList[Kai2], Bins),
                                          usecols=(0))
+                    OffDiag_dist = NP.add(OffDiag_dist, temp[:,1])
                     plt.plot(temp[:,0], temp[:,1]/NP.sum(temp[:,1]))
                  #---------- Extract MIN & MAX values
                     for F in range(len(temp[:,0])):
@@ -2557,33 +2572,43 @@ OUTPUT:
         plt.locator_params(axis = 'x', nbins = 5)
   ###------- ALL DIAGS in one, ALL OFF-DIAGS in one, EVERYTHING in one  
     Min = 100.0; Max = 0.0
-    Diag_dist    = NP.genfromtxt('%sDiag_%s_ALL_dist_Bins%s.txt' % (SaveDir, SaveName, Bins), 
-                                 usecols=(1,2), skip_footer=1)
-    OffDiag_dist = NP.genfromtxt('%sOffDiag_%s_ALL_dist_Bins%s.txt' % (SaveDir, SaveName, Bins), 
-                                 usecols=(1,2), skip_footer=1)
-    Full_dist    = NP.genfromtxt('%sFull_%s_ALL_dist_Bins%s.txt' % (SaveDir,SaveName,Bins), 
-                                 usecols=(1,2), skip_footer=1)
+    #Diag_dist    = NP.genfromtxt('%sDiag_%s_ALL_dist_Bins%s.txt' % (SaveDir, SaveName, Bins), 
+    #                             usecols=(1,2), skip_footer=1)
+    #OffDiag_dist = NP.genfromtxt('%sOffDiag_%s_ALL_dist_Bins%s.txt' % (SaveDir, SaveName, Bins), 
+    #                             usecols=(1,2), skip_footer=1)
+    #Full_dist    = NP.genfromtxt('%sFull_%s_ALL_dist_Bins%s.txt' % (SaveDir,SaveName,Bins), 
+    #                             usecols=(1,2), skip_footer=1)
     temp2        = NP.genfromtxt('%sFull_%s_ALL_dist_Bins%s.txt' % (SaveDir,SaveName,Bins), 
                                  usecols=(0))
     AX = plt.subplot2grid( (len(Indices1),2 if Test2 else 3), 
                            ((0 if len(Indices1)==1 else 1), 1 if Test2 else 2), 
                           rowspan=(1 if len(Indices1)==1 else len(Indices1)-1))
-    plt.plot(Diag_dist[:,0], Diag_dist[:,1]/NP.sum(Diag_dist[:,1]), 'bx-')
-    plt.plot(OffDiag_dist[:,0], OffDiag_dist[:,1]/NP.sum(OffDiag_dist[:,1]), 'rx-')
-    plt.plot(Full_dist[:,0], Full_dist[:,1]/NP.sum(Full_dist[:,1]), 'k+-') 
+    #plt.plot(Diag_dist[:,0], Diag_dist[:,1]/NP.sum(Diag_dist[:,1]), 'bx-')
+    #plt.plot(OffDiag_dist[:,0], OffDiag_dist[:,1]/NP.sum(OffDiag_dist[:,1]), 'rx-')
+    #plt.plot(Full_dist[:,0], Full_dist[:,1]/NP.sum(Full_dist[:,1]), 'k+-') 
+    plt.plot(temp[:,0], Diag_dist/NP.sum(Diag_dist), 'bx-')
+    plt.plot(temp[:,0], OffDiag_dist/NP.sum(OffDiag_dist), 'rx-')
+    plt.plot(temp[:,0], NP.add(Diag_dist,OffDiag_dist)/NP.sum(NP.add(Diag_dist,OffDiag_dist)), 'k+-') 
       #--------------------------  
     if logX: plt.xscale('log'); 
     if XLIM is not None: plt.xlim(XLIM);
    #---------- Extract MIN & MAX values
-    for F in range(len(Full_dist[:,0])):
-        if abs(Full_dist[F,1]) > 10e-6:
+    for F in range(len(temp[:,0])):
+        if abs(NP.add(Diag_dist,OffDiag_dist)[F]) > 10e-6:
             Min = min(Min,temp2[F])
             break
-    for F in range(len(Full_dist[:,0])):
-        if abs(Full_dist[-(1+F),1]) > 10e-6:
+    for F in range(len(temp[:,0])):
+        if abs(NP.add(Diag_dist,OffDiag_dist)[-(1+F)]) > 10e-6:
             Max = max(Max,temp2[-(1+F)])
             break
-                 #-----------------------------------  
+    #for F in range(len(Full_dist[:,0])):
+    #    if abs(Full_dist[F,1]) > 10e-6:
+    #        Min = min(Min,temp2[F])
+    #        break
+    #for F in range(len(Full_dist[:,0])):
+    #    if abs(Full_dist[-(1+F),1]) > 10e-6:
+    #        Max = max(Max,temp2[-(1+F)])
+    #        break
   #------- Plot Min/Max lines
     if XLIM is None:
         POS = AX.get_position()
@@ -2594,7 +2619,8 @@ OUTPUT:
         plt.axvline(Min, ls=':', color='grey', lw=2); plt.axvline(Max, ls=':', color='grey', lw=2);
   #------- Plot MarkerL/MarkerR lines
     if Percent < 1 and Percent > 0 and XLIM is None:
-        MarkerL, MarkerR = ReturnPercentRMSD(Percent, Full_dist, temp2)
+        MarkerL, MarkerR = ReturnPercentRMSD(Percent, NP.add(Diag_dist, OffDiag_dist), temp2)
+        #MarkerL, MarkerR = ReturnPercentRMSD(Percent, Full_dist[:,1], temp2)
         plt.figtext((POS.x1-POS.x0)/AX.get_xlim()[1]*(MarkerL*1.12)+POS.x0, (POS.y1-POS.y0)*0.85+POS.y0,
                     '%.4fnm' % MarkerL, rotation=90, color='r', fontsize=20)
         plt.axvline(MarkerL, ls=':', color='r', lw=2)
@@ -2688,11 +2714,11 @@ OUTPUT:
     """
     Min = -1; Max = -1;
     Calle = 0
-    for FF in range(len(Array1[:,1])):
-        Calle += Array1[FF,1]
-        if Calle/NP.sum(Array1[:,1]) > (1-Proz)/2. and Min == -1:
+    for FF in range(len(Array1[:])):
+        Calle += Array1[FF]
+        if Calle/NP.sum(Array1[:]) > (1-Proz)/2. and Min == -1:
             Min = Array2[FF]
-        if Calle/NP.sum(Array1[:,1]) > 1-(1-Proz)/2. and Max == -1:
+        if Calle/NP.sum(Array1[:]) > 1-(1-Proz)/2. and Max == -1:
             Max = Array2[FF]
     return Min, Max
   #####################  
@@ -3852,7 +3878,7 @@ OUTPUT:
 def Generate_CDE_to_File(ClusterDir, ClusterFileName, ThresholdList, Case, SaveDir=None, SaveName=None,
                          WeightDir=None, aMD_Nrs=[], sMD_Nrs=[], aMD_reweight='MF', Iterations=1, Lambda=1, Order=10):
     """
-v14.10.16
+v12.01.17
 - this function stores the cluster distribution entropy (CDE) using the idea of [Sawle & Ghosh JCTC 2016]
 - the following parameters are stored in SaveDir + SaveName for different ThresholdList
     >> Nr of Cluster vs Time <<
@@ -3928,6 +3954,9 @@ OUTPUT:
                 elif len(line.split()) > 1 and line.split()[1] == 'TrajNameList':
                     TrajNameList = [elem.replace('\'','').replace(',','') \
                                     for elem in line[line.find('[')+1:line.find(']')].split()]
+             ## v12.01.17 - EXTRACT updated TrjLenList: because use weights from StartFrame:(StartFrame+UpdTrjLenList[TrajNr])
+                elif len(line.split()) > 2 and line.split()[1] == 'updated' and line.split()[2] == 'TrjLenList':
+                    UpdTrjLenList = [int(elem) for elem in line[line.find('[')+1:line.find(']')].split(',')]
              ## EXTRACT StartFrame & EndingFrame for possible re-weighting
                 elif len(line.split()) > 1 and line.split()[1] == 'StartFrame':
                     StartFrame = int(line.split()[3])
@@ -4000,13 +4029,17 @@ OUTPUT:
                                                NP.divide( NP.power( tempWeight , Ord), float(scipy.misc.factorial(Ord))))
                         elif aMD_reweight == 'MF':
                       #--- extract ThresholdList of sMD_Weights, to match the correct Threshold
+             ## v12.01.17 - EXTRACT updated TrjLenList: because use weights from StartFrame:(StartFrame+UpdTrjLenList[TrajNr])
                             if not os.path.exists('%saMD_Weight_MF_%s_%s-%s_Iter%s.txt' % \
-                                                      (WeightDir, TrajNameList[rewTrajNr-1], StartFrame, EndingFrame, Iterations)):
+                                                      (WeightDir, TrajNameList[rewTrajNr-1], StartFrame, StartFrame+UpdTrjLenList[rewTrajNr-1], Iterations)):
+                                                      #(WeightDir, TrajNameList[rewTrajNr-1], StartFrame, EndingFrame, Iterations)):
                                 raise NameError(('You try to re-weight trajectory=%s using >MF<, but\n\t%saMD_Weight_MF_%s_%s-%s_Iter%s.txt\ndoes not exist.' % \
-                                                    (TrajNameList[rewTrajNr-1], WeightDir, TrajNameList[rewTrajNr-1], StartFrame, EndingFrame, Iterations))+\
+                                    (TrajNameList[rewTrajNr-1], WeightDir, TrajNameList[rewTrajNr-1],StartFrame, StartFrame+UpdTrjLenList[rewTrajNr-1], Iterations))+\
                                             'Check aMD_Nrs, WeightDir, Iterations and aMD_reweight, which have to match\n\tTrajNameList = {}'.format(TrajNameList))
+                                                    #(TrajNameList[rewTrajNr-1], WeightDir, TrajNameList[rewTrajNr-1], StartFrame, EndingFrame, Iterations))+\
                             with open('%saMD_Weight_MF_%s_%s-%s_Iter%s.txt' % \
-                                      (WeightDir, TrajNameList[rewTrajNr-1], StartFrame, EndingFrame, Iterations), 'r') as aMDin:
+                                      (WeightDir, TrajNameList[rewTrajNr-1], StartFrame, StartFrame+UpdTrjLenList[rewTrajNr-1], Iterations), 'r') as aMDin:
+                                      #(WeightDir, TrajNameList[rewTrajNr-1], StartFrame, EndingFrame, Iterations), 'r') as aMDin:
                                 for line in aMDin:
                                     if len(line.split()) > 2 and line.split()[0] == '#' and line.split()[1] == 'ThresholdList':
                                         aMD_ThresholdList = [float(elem.replace(',','')) \
@@ -4014,28 +4047,35 @@ OUTPUT:
                                         break
                             if 'aMD_ThresholdList' not in locals():
                                 raise ValueError('ThresholdList is not defined in\n\t%saMD_Weight_MF_%s_%s-%s_Iter%s.txt\nAdd the used >>ThresholdList = [...]<<.' % \
-                                                    (WeightDir, TrajNameList[rewTrajNr-1], StartFrame, EndingFrame, Iterations))
+                                                    (WeightDir, TrajNameList[rewTrajNr-1], StartFrame, StartFrame+UpdTrjLenList[rewTrajNr-1], Iterations))
+                                                    #(WeightDir, TrajNameList[rewTrajNr-1], StartFrame, EndingFrame, Iterations))
                             else:
                                 for TT in ThresholdList:
                                     if aMD_ThresholdList.count(TT) == 0:
                                         raise ValueError('There are no weights calculated for\n\tThreshold=%s\nin\n\t%saMD_Weight_MF_%s_%s-%s_Iter%s.txt!' % \
-                                                            (TT, WeightDir, TrajNameList[rewTrajNr-1], StartFrame, EndingFrame, Iterations))
+                                                            (TT, WeightDir, TrajNameList[rewTrajNr-1], StartFrame, StartFrame+UpdTrjLenList[rewTrajNr-1], Iterations))
+                                                            #(TT, WeightDir, TrajNameList[rewTrajNr-1], StartFrame, EndingFrame, Iterations))
                             Indo = 0
                             for rewThresh in ThresholdList:
                                 Weights[rewIndex:rewIndex+len(Ar[Ar[:,1]==rewTrajNr][:,0]), Indo] = \
                                     NP.exp(NP.genfromtxt('%saMD_Weight_MF_%s_%s-%s_Iter%s.txt' % \
-                                          (WeightDir, TrajNameList[rewTrajNr-1], StartFrame, EndingFrame, Iterations), 
+                                                         (WeightDir, TrajNameList[rewTrajNr-1], StartFrame, StartFrame+UpdTrjLenList[rewTrajNr-1], Iterations), 
                                                          usecols=(aMD_ThresholdList.index(rewThresh))))
+                                      #(WeightDir, TrajNameList[rewTrajNr-1], StartFrame, EndingFrame, Iterations), usecols=(aMD_ThresholdList.index(rewThresh))))
                                 Indo += 1
                     elif sMD_Nrs.count(rewTrajNr) > 0:
                       #--- extract ThresholdList of sMD_Weights, to match the correct Threshold
+             ## v12.01.17 - EXTRACT updated TrjLenList: because use weights from StartFrame:(StartFrame+UpdTrjLenList[TrajNr])
                         if not os.path.exists('%ssMD_Weight_lambda%s_%s_%s-%s_Iter%s.txt' % \
-                          (WeightDir, Lambda, TrajNameList[rewTrajNr-1], StartFrame, EndingFrame, Iterations)):
+                          (WeightDir, Lambda, TrajNameList[rewTrajNr-1], StartFrame, StartFrame+UpdTrjLenList[rewTrajNr-1], Iterations)):
+                          #(WeightDir, Lambda, TrajNameList[rewTrajNr-1], StartFrame, EndingFrame, Iterations)):
                             raise NameError(('You try to re-weight trajectory=%s using >sMD<, but\n\t%ssMD_Weight_lambda%s_%s_%s-%s_Iter%s.txt\ndoes not exist.' % \
-                                                (TrajNameList[rewTrajNr-1], WeightDir, Lambda, TrajNameList[rewTrajNr-1], StartFrame, EndingFrame, Iterations))+\
+                            (TrajNameList[rewTrajNr-1], WeightDir, Lambda, TrajNameList[rewTrajNr-1],StartFrame, StartFrame+UpdTrjLenList[rewTrajNr-1], Iterations))+\
                                     'Check sMD_Nrs, WeightDir, Iterations, Lambda and aMD_reweight, which have to match\n\tTrajNameList = {}'.format(TrajNameList))
+                                                #(TrajNameList[rewTrajNr-1], WeightDir, Lambda, TrajNameList[rewTrajNr-1], StartFrame, EndingFrame, Iterations))+\
                         with open('%ssMD_Weight_lambda%s_%s_%s-%s_Iter%s.txt' % \
-                          (WeightDir, Lambda, TrajNameList[rewTrajNr-1], StartFrame, EndingFrame, Iterations), 'r') as sMDin:
+                          (WeightDir, Lambda, TrajNameList[rewTrajNr-1], StartFrame, StartFrame+UpdTrjLenList[rewTrajNr-1], Iterations), 'r') as sMDin:
+                          #(WeightDir, Lambda, TrajNameList[rewTrajNr-1], StartFrame, EndingFrame, Iterations), 'r') as sMDin:
                             for line in sMDin:
                                 if len(line.split()) > 2 and line.split()[0] == '#' and line.split()[1] == 'ThresholdList':
                                     sMD_ThresholdList = [float(elem.replace(',','')) \
@@ -4044,22 +4084,26 @@ OUTPUT:
                         
                         if 'sMD_ThresholdList' not in locals():
                             raise ValueError('ThresholdList is not defined in\n\t%ssMD_Weight_lambda%s_%s_%s-%s_Iter%s.txt\nAdd used >>ThresholdList = [...]<<.' % \
-                                                (WeightDir, Lambda, TrajNameList[rewTrajNr-1], StartFrame, EndingFrame, Iterations))
+                                                (WeightDir, Lambda, TrajNameList[rewTrajNr-1], StartFrame, StartFrame+UpdTrjLenList[rewTrajNr-1], Iterations))
+                                                #(WeightDir, Lambda, TrajNameList[rewTrajNr-1], StartFrame, EndingFrame, Iterations))
                         else:
                             for TT in ThresholdList:
                                 if sMD_ThresholdList.count(TT) == 0:
                                     raise ValueError('There are no weights calculated for\n\tThreshold=%s\nin\n\t%ssMD_Weight_lambda%s_%s_%s-%s_Iter%s.txt!' % \
-                                                        (TT, WeightDir, Lambda, TrajNameList[rewTrajNr-1], StartFrame, EndingFrame, Iterations))
+                                                    (TT, WeightDir, Lambda, TrajNameList[rewTrajNr-1], StartFrame, StartFrame+UpdTrjLenList[rewTrajNr-1], Iterations))
+                                                        #(TT, WeightDir, Lambda, TrajNameList[rewTrajNr-1], StartFrame, EndingFrame, Iterations))
                         Indo = 0
                         for rewThresh in ThresholdList:
                             if sMD_ThresholdList.count(rewThresh) == 0:
                                 raise ValueError('You want to re-weight CDE, but the corresponding\n\tweight=%s\nwith\n\tThreshold=%s is not present! Check your input!' % \
                                                  ('%ssMD_Weight_lambda%s_%s_%s-%s_Iter%s.txt' % \
-                          (WeightDir, Lambda, TrajNameList[TrajNr-1], StartFrame, EndingFrame, Iterations), Threshold))
+                                          (WeightDir, Lambda, TrajNameList[TrajNr-1], StartFrame, StartFrame+UpdTrjLenList[rewTrajNr-1], Iterations), Threshold))
+                                          #(WeightDir, Lambda, TrajNameList[TrajNr-1], StartFrame, EndingFrame, Iterations), Threshold))
                             Weights[rewIndex:rewIndex+len(Ar[Ar[:,1]==rewTrajNr][:,0]), Indo] = \
                                 NP.genfromtxt('%ssMD_Weight_lambda%s_%s_%s-%s_Iter%s.txt' % \
-                          (WeightDir, Lambda, TrajNameList[rewTrajNr-1], StartFrame, EndingFrame, Iterations), 
-                                             usecols=(sMD_ThresholdList.index(rewThresh)))
+                                              (WeightDir, Lambda, TrajNameList[rewTrajNr-1], StartFrame, StartFrame+UpdTrjLenList[rewTrajNr-1], Iterations), 
+                                              usecols=(sMD_ThresholdList.index(rewThresh)))
+                                  #(WeightDir, Lambda, TrajNameList[rewTrajNr-1], StartFrame, EndingFrame, Iterations), usecols=(sMD_ThresholdList.index(rewThresh)))
                     rewIndex += len(Ar[Ar[:,1]==rewTrajNr][:,0])
         ####################
               ## extract correct parts to store the actual CDE to CDE_Array array
@@ -4702,7 +4746,7 @@ def Plot_Overlap_VS_Threshold(OverlapDir, OverlapList1, Percentile1=25, Percenti
                               Interpolation='linear', OverlapList2=None, XLIM1=[None,None], XLIM2=[None,None], 
                               MolName1='', MolName2='', LegendList=[None], SaveDir=None, SaveName=None):
     """
-v18.11.16
+v14.01.17
 This function generates the plots "Overlap vs Threshold r" for conf/dens + the corresponding integral.
 - uses always ALL K reference trajectories
 - possibility to submit multiple OverlapMatrices to plot for instance multiple groups together
@@ -4818,25 +4862,26 @@ OUTPUT:
   #------- AREA/Integral
     plt.subplot2grid( (1,5), (0,4) )
     plt.title('averaged\n', fontsize=25)
-    if LEGEND != []: 
-        plt.xticks(range(1,1+len(OvR1[0,1:])/5,1), LEGEND[-len(OvR1[0,1:])/5:], fontsize=21, rotation=45)
+    if LEGEND != [] and LegendList != [None]: 
+        plt.xticks(range(1,1+len(OvR1[0,1:])/6,1), LegendList, fontsize=19, rotation=45)
+        #plt.xticks(range(1,1+len(OvR1[0,1:])/6,1), LEGEND[-len(OvR1[0,1:])/5:], fontsize=21, rotation=45)
     else:            
-        plt.xticks(range(1,1+len(OvR1[0,1:])/5,1), fontsize=21)
+        plt.xticks(range(1,1+len(OvR1[0,1:])/6,1), fontsize=19)
     plt.yticks(fontsize=0)
-    plt.xlim([0.5, len(OvR1[0,1:])/5+0.5]); plt.ylim([-0.025,1.025]); plt.grid(axis='y')
+    plt.xlim([0.5, len(OvR1[0,1:])/6+0.5]); plt.ylim([-0.025,1.025]); plt.grid(axis='y')
     IntColors = ['ro:', 'r*:']
+    plt.errorbar(range(1,1+len(Integrals1[:,3]),1), Integrals1[:,3], yerr=[Integrals1[:,4],Integrals1[:,5]], color='r', marker='*', ms=12, barsabove=True, capsize=5, capthick=2.0); 
     plt.errorbar(range(1,1+len(Integrals1[:,0]),1), Integrals1[:,0], yerr=[Integrals1[:,1],Integrals1[:,2]], color='r', marker='o', ms=8, barsabove=True, capsize=5, capthick=2.0); 
-    plt.errorbar(range(1,1+len(Integrals1[:,3]),1), Integrals1[:,3], yerr=[Integrals1[:,4],Integrals1[:,5]], color='r', marker='*', ms=10, barsabove=True, capsize=5, capthick=2.0); 
     if OverlapList2 is not None:
+        plt.errorbar(range(1,1+len(Integrals2[:,3]),1), Integrals2[:,3], yerr=[Integrals2[:,4],Integrals2[:,5]], color='b', marker='*', ms=12, barsabove=True, capsize=5, capthick=2.0); 
         plt.errorbar(range(1,1+len(Integrals2[:,0]),1), Integrals2[:,0], yerr=[Integrals2[:,1],Integrals2[:,2]], color='b', marker='o', ms=8, barsabove=True, capsize=5, capthick=2.0); 
-        plt.errorbar(range(1,1+len(Integrals2[:,3]),1), Integrals2[:,3], yerr=[Integrals2[:,4],Integrals2[:,5]], color='b', marker='*', ms=10, barsabove=True, capsize=5, capthick=2.0); 
    ###
     if OverlapList2 is not None:
-        plt.legend(['%s (dens)' % MolName1,'%s (dens)' % MolName2,'%s (conf)' % MolName1,'%s (conf)' % MolName2], 
+        plt.legend(['%s (conf)' % MolName1,'%s (dens)' % MolName1,'%s (conf)' % MolName2,'%s (dens)' % MolName2], 
                    numpoints=1, ncol=4, loc='best', framealpha=0.35, fontsize=19,
                    bbox_to_anchor=(-1.056, -0.30, 1., .092))
     else:
-        plt.legend(['%s (dens)' % MolName1,'%s (conf)' % MolName1], 
+        plt.legend(['%s (conf)' % MolName1,'%s (dens)' % MolName1], 
                    numpoints=1, ncol=2, loc='best', framealpha=0.35, fontsize=19,
                    bbox_to_anchor=(0.036, 0.11, 1., .092))
   ##########------- SAVE PDF ---------##########
@@ -4845,6 +4890,7 @@ OUTPUT:
         #---- generate Directories  
         Generate_Directories(SaveDir)
         plt.savefig(SaveDir+SaveName)
+        plt.close()
 #--- --- --- --- --- --- --- --- --- --- ---
 def Generate_OvR(OverlapDir, OverlapList, Percentile1, Percentile2, Median=False, Interpolation='linear'):
     """
@@ -4974,21 +5020,30 @@ OUTPUT:
 #######################################################
 #--- HEATMAP
 #################
-def Plot_HeatMap_1vs1(OverlapDir, FileName, Threshold, ClusterDir=None, ClusterFileName=None, AllPrject=True, 
+def Plot_HeatMap_1vs1(OverlapDir, OverlapName, Threshold, StartFrame, EndingFrame, YLIM=None, 
+                      ClusterDir=None, ClusterFileName=None, AllPrject=True, 
                       TrajExcept=[], Title='', Grid=[], CaseTitles=[], SaveDir=None, SaveName=None):
     """
-v12.10.16   
+v16.01.17   
 This function plots the heatmap of trajectory X vs trajectory Y (whereas GroupX vs GroupY should also work).
 - possibility to use AllPrject EITHER projection on both groups, OR lower triangular projection on X and upper on Y
 - Grid & CaseTitles give the possibility to split the Heatmap into different regions, where Grid gives the split coords
 - if a ClusterFile is submitted, the number of clusters with the same TrajNr/GroupNr is plotted below
+- as clusterfile, it is possible to submit a GLOBAL clustering profile, where the number of clusters reached by single
+    trajectories is extracted by hand
 INPUT:
     OverlapDir      : {STRING}      Directory, where the overlap files are located, e.g. 'Overlap/';
-    FileName        : {STRING}      Overlap file, which contains ALL X vs Y Pairs, then a heatmap matrix is constructed;
+    OverlapName     : {STRING}      Overlap file, which contains ALL X vs Y Pairs, then a heatmap matrix is constructed;
     Threshold       : {FLOAT}       Threshold used for the overlap calculation, for which the heatmap is generated,
                                         e.g. 0.2, has to match the ThresholdList of the Overlap file;
+    StartFrame      : {INT}         starting frame of Trajectories, used for the clustering, should be the same as the overlapfile,
+                                        e.g. 0
+    EndingFrame     : {INT}         ending frame of Trajectories, used for the clustering, should be the same as the overlapfile,
+                                        e.g. 2000
+    YLIM            : {FLOAT-LIST}  <default None>  defines the y-limits for the number of found clusters, e.g. [0,100];
     ClusterDir      : {STRING}      <default None>  Directory, where the clustering files are located, e.g. 'Clustering/';
-    ClusterFileName : {STRING}      <default None>  Clustering file containing the centers, e.g. 'Cluster_Centers_LOCAL.txt';
+    ClusterFileName : {STRING}      <default None>  Clustering file containing EITHER the centers OR a GLOBAL clustering profile, 
+                            e.g. 'Cluster_Centers_LOCAL.txt' OR 'Cluster_GLOBAL.txt';
     AllPrject       : {BOOL}        <default True> True - Heatmap is  symmetric = overlap is projected on both groups X & Y,
                                                     False- Heatmap is asymmetric = lower triangular projection on X, upper on Y;
     TrajExcept      : {INT-LIST}    <default []>    possibility to EXCLUDE manually trajectories by deleting the 
@@ -5002,6 +5057,10 @@ INPUT:
     SaveDir         : {STRING}      Directory, where the PDF is stored, e.g. 'HeatMaps/';
     SaveName        : {STRING}      save name, e.g. 'Molecule_HeatMap_Specifications.pdf';
 OUTPUT:
+    (a) Heatmap of pair-overlaps, either symmetric or asymmetric depending on AllPrject
+    (b1) number of clusters per trajectory EITHER submitting a local clustering
+    (b2)                                   OR     submitting a GLOBAL clustering, where the numbers are extracted from
+                                                  one GLOBAL partitioning depending how many clusters are reached by the traj
     """
     import matplotlib.pyplot as plt
     if SaveDir is not None and SaveName is not None and os.path.exists(SaveDir+SaveName):
@@ -5011,12 +5070,25 @@ OUTPUT:
     #-----
     if os.path.exists('%s%s' % (ClusterDir, ClusterFileName)):
         RowFigs = 9
-        NrClusters = NP.genfromtxt('%s%s' % (ClusterDir, ClusterFileName), usecols=(0,1,2))
-        #### strip clusters with -1 & strip only correct threshold & strip TrajExcept
-        NrClusters = NrClusters[NrClusters[:,2]!=-1]
-        NrClusters = NrClusters[NrClusters[:,1]==Threshold]
-        for TrajNr in TrajExcept:
-            NrClusters = NrClusters[NrClusters[:,0]!=TrajNr]
+        if ClusterFileName.find('_Centers_') != -1:
+            NrClusters = NP.genfromtxt('%s%s' % (ClusterDir, ClusterFileName), usecols=(0,1,2))
+            #### strip clusters with -1 & strip only correct threshold & strip TrajExcept
+            NrClusters = NrClusters[NrClusters[:,2]!=-1]
+            NrClusters = NrClusters[NrClusters[:,1]==Threshold]
+            for TrajNr in TrajExcept:
+                NrClusters = NrClusters[NrClusters[:,0]!=TrajNr]
+        else:
+            with open('%s%s' % (ClusterDir, ClusterFileName), 'r') as INPUT:
+                for line in INPUT:
+                    if len(line.split()) > 1 and line.split()[1] == 'ThresholdList':
+                        ThresholdList = [float(elem) for elem in line[line.find('[')+1:line.find(']')].split(', ')]
+                        break
+            PROF = NP.genfromtxt('%s%s' % (ClusterDir, ClusterFileName), usecols=(1,2+6*ThresholdList.index(Threshold)))
+            TrajNrList = [elem for elem in NP.unique(PROF[:,0]) if TrajExcept.count(elem) < 1]
+            NrClusters = NP.zeros( (len(TrajNrList),3) )
+            for Koi in range(len(TrajNrList)):
+                NrClusters[Koi,2] = len(NP.unique(PROF[PROF[:,0]==TrajNrList[Koi]][StartFrame:EndingFrame,1]))
+            
     else:
         RowFigs = 8
   ##
@@ -5026,8 +5098,8 @@ OUTPUT:
         plt.subplot2grid( (RowFigs,1), (4*Relative,0), rowspan=4);
         plt.subplots_adjust(wspace=0.55, hspace=0.05, left=0.14, right=0.99, bottom=0.055, top=0.865)
       ## HEATMAP
-        Array = Generate_1vs1_Matrix(OverlapDir, FileName, Threshold, ['conformational','density'][Relative], 
-                                     AllPrject, TrajExcept)
+        Array = Generate_1vs1_Matrix(OverlapDir, OverlapName, Threshold, ['conformational','density'][Relative], 
+                                     AllPrject, TrajExcept=[])
         imgplot = plt.imshow(Array, interpolation='nearest', alpha=1, cmap='bwr', origin='low', 
                              aspect='auto',vmin=0, vmax=1)
       ## X-/Y-AXIS
@@ -5075,7 +5147,9 @@ OUTPUT:
     if os.path.exists('%s%s' % (ClusterDir, ClusterFileName)):
         AX2=plt.subplot2grid( (RowFigs,1), (8,0) )
         plt.plot(range(1,len(NrClusters)+1), NrClusters[:,2], color='g', marker='s', ls=':', ms=8.5); 
-        plt.ylim([0,max(NrClusters[:,2])*1.2]); plt.xlim([0.5,len(NrClusters)+0.5])
+        if YLIM is None: plt.ylim([0,max(NrClusters[:,2])*1.2]); 
+        else:            plt.ylim(YLIM); 
+        plt.xlim([0.5,len(NrClusters)+0.5])
       ## GRID - Nr of Clusters 
         Indo = 0
         for Kai in Grid:
@@ -5096,7 +5170,6 @@ OUTPUT:
         Generate_Directories(SaveDir)
         plt.savefig(SaveDir+SaveName)  
         plt.close()
-
 #----- ----- ----- ------ ------
 
 def Generate_1vs1_Matrix(OverlapDir='Amber14Trajs/Overlap/', FileName='Overlap_R5_AllPairs_0-2000_MF+sMD.txt',
@@ -5300,7 +5373,7 @@ def Plot_Overlap_VS_Time(OverlapDir, OverlapList, Threshold, SimTimeList, TimeSt
                          Median=False, Interpolation='linear', LegendList=[], Title='', LegendNcols=1, 
                          SaveDir=None, SaveName=None, logX=False, LegendDens=True):
     """
-v18.11.16
+v17.01.17
 This function generates the plots 'Overlap vs simulation Time' for conformational & density overlap
 - possibility to submit multiple OverlapMatrices to plot for instance multiple groups together
 - each element of OverlapList MUST constain 'Start-End' which are replaced by the elements of SimTimeList, because
@@ -5356,7 +5429,7 @@ OUTPUT:
     for RelAbs in [0,1]:  ## 0 = conformational; 1 = density
       #### suplot GRID / MARGINS
         plt.subplot2grid( (1,2), (0,RelAbs) ); 
-        plt.subplots_adjust(left=0.095, right=0.99, bottom=0.20, top=0.9, wspace=0.025)
+        plt.subplots_adjust(left=0.080, right=0.98, bottom=0.20, top=0.9, wspace=0.05)
       #### PLOTTING
         plt.title('%s  %s overlap' % (Title, ['conformational','density'][RelAbs]), fontsize=25)
         if RelAbs == 1:
@@ -5619,7 +5692,144 @@ OUTPUT:
         plt.savefig(SaveDir+SaveName)
         plt.close()
 
+#######################################################
+#--- ClusterSize vs Time for GLOBAL clustering 
 #################
+def Plot_ClusterSize_vs_Time_GLOBAL(ClusterDir, ClusterName, Threshold, StartEndList, TrajGrpList,
+                                             SaveDir=None, SaveName=None, SndAxis=2, 
+                                             LegendList=None, YLIM=None, FigSize=(12,4)):
+    """
+v14.02.17
+idea: 
+    (1) use GLOBAL clustering with all trajectories and full lengths
+    (2) extract from the GLOBAL Profile the different clusters which are occupied by the trajectories between Start:End
+    (3) count unique cluster centers = Nr of clusters for this simulation time and this trajectory/these trajectories
+    (4) store "TrajNr | Threshold | Nr of Clusters" in Cluster_Glob[:,:,SimTimeIndex]
+INPUT:
+    ClusterDir   : {STRING}     Directory, where effective Clustering output is located, e.g. 'effectiveClustering/';
+    ClusterName  : {STRING}     Clustering Name of GLOBAL effective clustering, which stores the FULL clustering profile,
+                            e.g. 'Profile_Met_ALLw1000_Ref_Met153_R0.1-0.13_0-10000_GLOBAL.txt'
+    Threshold    : {FLOAT}      threshold for the effective clustering, must be in the ThresholdList of the File, e.g. 0.1;
+    StartEndList : {TUPLE-LIST} (StartFrame,EndingFrame) tuples for which the total number of clusters are evaluated, 
+                            e.g. [(0,100), (0,250), (0,500), (0,750), (0,1000), (0,1500), (0,2000)];
+    TrajGrpList  : {LIST,LIST}  defines the trajectories which are concatenated into groups to evaluate the number of clusters,
+                            e.g. [[1,2,3], [5]] plots total number of unique clusters reached by trajs (1,2,3) and (5);
+    SaveDir      : {STRING}     storing directory for the output figure, e.g. PDFs/;
+    SaveName     : {STRING}     storing name for the output figure,      e.g. GlobalClustering_VS_time_result.pdf;
+    SndAxis      : {INT}        <default 2>, =0 no 2nd axis, 
+                                             = 1 & if len(TrajGrpList) > 1, show 2nd axis as total number of both groups, 
+                                             = 2 show as 2nd axis TOTAL NUMBER for given time;
+    LegendList   : {LIST}       <default None>   Legend for the single elements of the number of unique clusters, 
+                            e.g. ['cMD', 'aMD', '# clusters of all cMD', '# clusters of all aMD'];
+    YLIM         : {FLOAT-LIST} <default None>   defines the y-limits for the number of clusters;
+    FigSize      : {INT-LIST}   <default [12,4]> size of the figure (in inches), try to adjust this array depending on 
+                                                 the number of clusters and frames;
+OUTPUT:
+    a) Plots number of unique clusters for every single trajectory defined in the TrajGrpList as boxplots
+    b) plots number of unique clusters for COMBINED trajectories defined in the TrajGrpList as bar
+    c) optional: shows in the 2nd axis the TOTAL number of ALL COMBINED trajectories in defined in the TrajGrpList
+    """
+    Color = [('0.4','k'), ('0.6', 'r'), ('0.8', 'g'), ('0.4','m'), ('0.6', 'b'), ('0.8', 'c')]
+    # 12 trajs | trajNr+Threshold+NrClusts | sim Time
+    Cluster_Glob = NP.zeros( (NP.sum([len(elem) for elem in TrajGrpList]), 3, len(StartEndList)) ) 
+    # all cMD clusters | # all aMD clusters | # all concat clusters for all different sim times
+    ConcatClusterNumbers = NP.zeros( (len(TrajGrpList)+1, len(StartEndList)), dtype=int ) 
+    # load only 0-10000 GLOBAL.txt
+    with open(ClusterDir+ClusterName, 'r') as INPUT:
+        for line in INPUT:
+            if len(line.split()) > 1 and line.split()[1] == 'ThresholdList':
+                ThresholdList = [float(elem) for elem in line[line.find('[')+1:line.find(']')].split(', ')]
+                break
+            elif len(line.split()) > 1 and line.split()[1] == 'Threshold':
+                ThresholdList = [NP.float(line.split(' = ')[1])]
+    #------------
+    if 'ThesholdList' not in locals():
+        raise ValueError('ThresholdList is not defined in\n\t%s%s' % (ClusterDir, ClusterName))
+    elif ThresholdList.count(Threshold) == 0:
+        raise ValueError('Threshold = %s is not in ThresholdList = %s' % (Threshold, ThresholdList))
+    #------------
+    temp = NP.genfromtxt('%s%s' % (ClusterDir, ClusterName), usecols=(0,1,2+ThresholdList.index(Threshold)*6))
+    #############
+    TimeIndex = 0
+    for StartFrame, EndingFrame in StartEndList:
+        # for each group of TrajGrpList, produce one empty list
+        Centers = [[] for elem in range(len(TrajGrpList))]
+    #############
+        TrajIndex = 0
+        GrpIndex  = 0
+        for TrajGrp in TrajGrpList:
+            for TrajNr in TrajGrp:
+                ## COUNT ONLY IF Start:End MATCH the traj lengths
+                if EndingFrame-StartFrame == len(temp[temp[:,1]==(TrajNr)][StartFrame:EndingFrame,2]):
+                    Cluster_Glob[TrajIndex,:,TimeIndex] = [TrajNr, Threshold, 
+                                               len(NP.unique(temp[temp[:,1]==(TrajNr)][StartFrame:EndingFrame,2]))]
+                    Centers[GrpIndex].extend(NP.unique(temp[temp[:,1]==(TrajNr)][StartFrame:EndingFrame,2]))
+                TrajIndex += 1
+            GrpIndex += 1
+        #------
+        ConcatClusterNumbers[0:-1, TimeIndex] = [len(NP.unique(Centers[elem])) for elem in range(len(TrajGrpList))]
+        if SndAxis < 2:
+            ConcatClusterNumbers[-1,   TimeIndex] = len(NP.unique(NP.concatenate((Centers))))
+        else:
+            Centers = []
+            for TrajNr in NP.unique(temp[:,1]):
+                if EndingFrame-StartFrame == len(temp[temp[:,1]==(TrajNr)][StartFrame:EndingFrame,2]):
+                    Centers.extend(NP.unique(temp[temp[:,1]==(TrajNr)][StartFrame:EndingFrame,2]))
+            ConcatClusterNumbers[-1,   TimeIndex] = len(NP.unique(Centers))
+        #------
+        TimeIndex += 1   
+        
+    ############
+    plt.figure(figsize=FigSize)
+    plt.subplots_adjust(hspace=0, left=0.11, right=0.99, bottom=0.15, top=0.87)
+    for NrGrps in range(len(TrajGrpList)):
+        plt.plot([0],[0], Color[NrGrps][1], lw=3); 
+    for NrGrps in range(len(TrajGrpList)):
+        plt.plot([0],[2], lw=10, alpha=0.5, color=Color[NrGrps][1]); 
+    #-----------
+    GrpSum = 0
+    for NrGrps in range(len(TrajGrpList)):
+        # 0-20 Box1 | 20-30 Bar1 | 30-50 Box2 | 50-60 Bar2 | ...
+        # Box1: [30*NrGrps+30*len(TrajGrpList)*elem for elem in range(len(StartEndList))]
+        ARO = [[Cluster_Glob[Grp,2,Time] for Grp in range(GrpSum,GrpSum+len(TrajGrpList[NrGrps])) if Cluster_Glob[Grp,2,Time] != 0] \
+                for Time in range(len(StartEndList))]
+        BP1 = plt.boxplot(ARO,patch_artist=True,
+                          positions=[30*NrGrps+30*(len(TrajGrpList)+1)*elem for elem in range(len(StartEndList))], widths=20);
+        for patch, color in zip(BP1['boxes'], [Color[NrGrps][0]]*len(StartEndList)):
+                    patch.set_facecolor(color)
+                    patch.set_edgecolor('None')
+        for patch, color in zip(BP1['medians'], [Color[NrGrps][1]]*len(StartEndList)):
+            patch.set_color(color)
+        plt.setp(BP1['medians'], lw=3)
+        #-----
+        BAR1 = plt.bar([10+30*NrGrps+30*(len(TrajGrpList)+1)*elem for elem in range(len(StartEndList))], 
+                       ConcatClusterNumbers[NrGrps,:], width=10, alpha=0.5, color=Color[NrGrps][1], edgecolor=Color[NrGrps][1])
+        #-----
+        GrpSum += len(TrajGrpList[NrGrps])
+    #---
+    if LegendList is not None:
+        plt.legend(LegendList, ncol=2, loc=0, framealpha=0.6, numpoints=1, fontsize=17);
+    plt.yticks(fontsize=17); 
+    plt.xlim([-10,30*(len(TrajGrpList)-1)+(30*(len(TrajGrpList)+1))*(len(StartEndList)-1)+20])
+    if YLIM is not None: plt.ylim(YLIM); 
+    plt.xticks([30*len(TrajGrpList)/2.-10+30*(len(TrajGrpList)+1)*elem for elem in range(len(StartEndList))], 
+               [(StartEndList[elem][1]-StartEndList[elem][0])/10 for elem in range(len(StartEndList))], fontsize=17); 
+    plt.grid(color='0.7', lw=2)
+    plt.ylabel('number of clusters\n(global)', fontsize=20); plt.xlabel('simulation time [ns]', fontsize=20);
+  #### 2ND X-axis
+    if SndAxis > 0:
+        ax2 = plt.twiny(); 
+        plt.xticks([30*len(TrajGrpList)/2.-10+30*(len(TrajGrpList)+1)*elem for elem in range(len(StartEndList))], 
+                   ConcatClusterNumbers[-1,:], fontsize=17, color='b')
+        ax2.set_xlim([-10,30*(len(TrajGrpList)-1)+(30*(len(TrajGrpList)+1))*(len(StartEndList)-1)+20]); 
+        if SndAxis == 2:
+            ax2.set_xlabel('total number of unique clusters', fontsize=20, color='b')
+        else:
+            ax2.set_xlabel('number of unique clusters of the present groups', fontsize=20, color='b')
+    if SaveDir is not None and SaveName is not None:
+        plt.savefig('%s%s' % (SaveDir, SaveName))
+        plt.close()
+#####################################################################################
 
 def Generate_Directories(SaveDir):
     """
