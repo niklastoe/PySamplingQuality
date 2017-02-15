@@ -9,7 +9,7 @@
 #
 # Author:     Mike Nemec <mike.nemec@uni-due.de>
 #
-# current version: v14.02.17-1
+# current version: v15.02.17-1
 #######################################################
 # tested with following program versions:
 #        Gromacs       v4.6 | v5.1 
@@ -783,11 +783,11 @@ OUTPUT:
 #------------------------------------------------------
 #######################################################
 def Generate_EventCurves(TrajNameList, TrajLengthList, MatrixDir, SaveDir, SaveName, ThresholdList, MaxNumberLines, \
-     ROW_TrajNrList=None, COL_TrajNrList=None, StartFrame=0, EndingFrame=NP.infty, PartList=None,
+     ROW_TrajNrList=None, COL_TrajNrList=None, StartFrame=0, EndingFrame=NP.infty, PartList=None, BinFile_precision=NP.float32, 
      aMD_Nrs=[], aMD_reweight='MF', aMDlogDir=None, aMDlogName=None, AmberVersion='Amber14', WeightStep=1, Temp=300,
-     sMD_Nrs=[], Lambda=1, Order=10, BinFile_precision=NP.float32, Iterations=1):
+     sMD_Nrs=[], Lambda=1, Order=10, Iterations=1):
     """ 
-v30.01.17
+v15.02.17
     This function calculates the EventCurves using calculated RMSD matrices and possible aMD/sMD Weights: 
         - Events are the number of neighboring frames with Threshold < RMSD for each reference frame and for each traj
         - Events as a function of Simulation time
@@ -828,6 +828,7 @@ INPUT:
                                                                (MD2.xtc -> MD2_part1.xtc, MD2_part2.xtc),
                                                                (MD3.xtc -> MD3_part1.xtc, MD3_part2.xtc, MD3_part3.xtc), ||
                                         3. default PartList = None -> PartList = [1]*len(TrajNameList);    
+ BinFile_precision : {TYPE}      FORMAT, [GROMACS/BINARY] single precision 'float32', double precision 'float64', [AMBER/ELSE] 'None';
     aMD_Nrs        : {INT-LIST}  <default []> FOR RE-WEIGHTING ONLY, trajectory numbers which are generated with aMD
                                     e.g. [1,3,5] means trajNr 1,3,5 of TrajNameList are aMD trajectories;
     aMD_reweight   : {STRING}    <default MF> FOR RE-WEIGHTING ONLY, reweighting method if aMD trajs are present, default Mean-Field-Approach | 
@@ -847,7 +848,6 @@ INPUT:
                                    e.g. [1,3,5] means trajNr 1,3,5 of TrajNameList are scaledMD trajectories;
     Lambda         : {FLOAT}     <default 1> FOR RE-WEIGHTING ONLY, scaling factor for scaledMD, e.g. 0.7, 1 means no scaling;
     Order          : {INT}       <default 10> FOR RE-WEIGHTING ONLY, Order for the MacLaurin expansion, ONLY NECESSARY IF aMD_reweight = 'McL';
- BinFile_precision : {TYPE}      FORMAT, [GROMACS/BINARY] single precision 'float32', double precision 'float64', [AMBER/ELSE] 'None';
     Iterations     : {INT}       <default 1> FOR RE-WEIGHTING ONLY, defines the number of MF iterations if aMD (aMD_reweight=MF) or sMD trajectories are present,
                                              for Iterations=-1, it iterates until convergence or 100000 steps;
 OUTPUT:
@@ -2162,21 +2162,21 @@ def determineR_generate_RMSD_distributions(TrajNameList, SaveName='V3',
                                            MatrixDir = 'RMSD_files/BinFiles/',
                                            SaveDir = 'Amber14Trajs/RMSD_distributions/',
                                            BinFile_precision=NP.float32,
-                                           Bins=250):
+                                           Bins=200):
     """
-v09.01.17
+v15.02.17
     generate RMSD distributions using ALL RMSD matrices | ADD MinRMSD to MaxMinRMSD_<SaveName>.txt
 
 INPUT:
     TrajNameList       : {LIST}    list of Trajectory name prefixes WITHOUT ENDING, 
                                     Names of the Block RMSD matrices / distributions refer to these names,
                                     e.g. ['MD1', 'MD2', ...] <-> MD1_bin.dat, MD2_bin.dat, MD1_MD2_bin.dat, ...;
-    SaveName           : {STRING}  Name for the RMSD distributions, e.g. 'V3' leads to 'Diag_V3_ALL_dist_Bins250.txt,
+    SaveName           : {STRING}  Name for the RMSD distributions, e.g. 'V3' leads to 'Diag_V3_ALL_dist_Bins200.txt,
                                     'Diag_%s_ALL_dist_Bins%s.txt' % (SaveName, Bins);
     MatrixDir          : {STRING}  Directory, where RMSD matrices are stored, e.g. 'RMSD_matrices/';
     SaveDir            : {STRING}  <default RMSD_distributions/>, Directory, where RMSD distributions are stored;
     BinFile_precision  : {TYPE}    FORMAT, [GROMACS/BINARY] single precision 'float32', double precision 'float64', [AMBER/ELSE] 'None';
-    Bins               : {INT}     <default 250>, number of BINS  used for RMSD histrogram between 0-MaxRMSD;
+    Bins               : {INT}     <default 200>, number of BINS  used for RMSD histrogram between 0-MaxRMSD;
 OUTPUT:
     generate (1) all single traj RMSD_dist | (2) all X vs Y traj RMSD_dist | 
              (3) concatenated single traj Diag_RMSD_dist | (4) concatenated X vs Y traj OffDiag_RMSD_dist 
@@ -2372,7 +2372,7 @@ OUTPUT:
                             print 'wrong SaveName to add MinRMSD: {}'.format(SaveName)
 ############################################################################################################
 def Plot_determineR_using_RMSD_distributions(TrajNameList, SaveName='V3', SaveNamePdf=None,  
-                                             SaveDir = 'Amber14Trajs/RMSD_distributions/', Bins=250, Percent=1,
+                                             SaveDir = 'Amber14Trajs/RMSD_distributions/', Bins=200, Percent=1,
                                              DiagTitle=[''], OffDiagTitle=[''], Legend=[], Indices1=None, Indices2=None, XLIM=None):
     """
 v29.11.16
@@ -2382,11 +2382,11 @@ INPUT:
     TrajNameList       : {LIST}    list of Trajectory name prefixes WITHOUT ENDING, 
                                     Names of the Block RMSD matrices / distributions refer to these names,
                                     e.g. ['MD1', 'MD2', ...] <-> MD1_bin.dat, MD2_bin.dat, MD1_MD2_bin.dat, ...;
-    SaveName           : {STRING}  Name for the RMSD distributions, e.g. 'V3' leads to 'Diag_V3_ALL_dist_Bins250.txt,
+    SaveName           : {STRING}  Name for the RMSD distributions, e.g. 'V3' leads to 'Diag_V3_ALL_dist_Bins200.txt,
                                     'Diag_%s_ALL_dist_Bins%s.txt' % (SaveName, Bins);
     SaveNamePdf        : {STRING}  Savename for the PDF, e.g. 'MoleculeName+Specification.pdf';
     SaveDir            : {STRING}  <default RMSD_distributions/>, Directory, where RMSD distributions are stored;
-    Bins               : {INT}     <default 250>, number of BINS  used for RMSD histrogram between 0-MaxRMSD;
+    Bins               : {INT}     <default 200>, number of BINS  used for RMSD histrogram between 0-MaxRMSD;
     Percent            : {FLOAT}   <default 1> plotting interval, where the Percent-amount of all RMSD distributions are 
                                         located in, for Percent = 1, it plots the minimal and maximal values, e.g. 0.99;
     DiagTitle          : {LIST}    <default ['']>, title for ROWS of single traj RMSD_dist, corresponds to splitting 
@@ -2636,14 +2636,11 @@ OUTPUT:
         Generate_Directories(SaveDir+SaveNamePdf)
         plt.savefig('%s%s' % (SaveDir, SaveNamePdf))
 ############################################################################################################
-def determineR_using_RMSD_distributions(TrajNameList, SaveName='V3', SaveNamePdf=None,
-                                        SaveDir = 'Amber14Trajs/RMSD_distributions/',
-                                        RMSD_dist_Dir = 'Amber14Trajs/RMSD_files/',
-                                        MatrixDir = 'Amber14Trajs/RMSD_files/BinFiles/',
-                                        BinFile_precision=NP.float32,
-                                        Bins=250, Percent=1):
+def determineR_using_RMSD_distributions(TrajNameList, SaveName, SaveNamePdf, SaveDir, MatrixDir,
+                                        RMSD_dist_Dir = '', BinFile_precision=NP.float32,
+                                        Bins=200, Percent=1):
     """
-v09.01.17
+v15.02.17
     this function plots the RMSD distributions within a certain interval 
     containing Percent-amount of the Full RMSD distribution
     
@@ -2658,16 +2655,15 @@ INPUT:
     TrajNameList       : {LIST}    list of Trajectory name prefixes WITHOUT ENDING, 
                                     Names of the Block RMSD matrices / distributions refer to these names,
                                     e.g. ['MD1', 'MD2', ...] <-> MD1_bin.dat, MD2_bin.dat, MD1_MD2_bin.dat, ...;
-    SaveName           : {STRING}  Name for the RMSD distributions, e.g. 'V3' leads to 'Diag_V3_ALL_dist_Bins250.txt,
+    SaveName           : {STRING}  Name for the RMSD distributions, e.g. 'V3' leads to 'Diag_V3_ALL_dist_Bins200.txt,
                                     'Diag_%s_ALL_dist_Bins%s.txt' % (SaveName, Bins);
     SaveNamePdf        : {STRING}  Savename for the PDF, e.g. 'MoleculeName+Specification.pdf';
-    SaveDir            : {STRING}  <default RMSD_distributions/>, Directory, where RMSD distributions, the MaxMinValue and
-                                    the PDF will be stored;
+    SaveDir            : {STRING}  Directory, where RMSD distributions, the MaxMinValue and the PDF will be stored;
+    MatrixDir          : {STRING}  Directory, where RMSD matrices are stored, e.g. 'RMSD_matrices/';
     RMSD_dist_Dir      : {STRING}  <default ''> Directory, where (possible) RMSD distributions are located (from GROMACS), e.g. 'RMSD_files/', 
                                     if it does not exist, RMSD matrices are used instead;
-    MatrixDir          : {STRING}  Directory, where RMSD matrices are stored, e.g. 'RMSD_matrices/';
     BinFile_precision  : {TYPE}    FORMAT, [GROMACS/BINARY] single precision 'float32', double precision 'float64', [AMBER/ELSE] 'None';
-    Bins               : {INT}     <default 250>, number of BINS  used for RMSD histrogram between 0-MaxRMSD;
+    Bins               : {INT}     <default 200>, number of BINS  used for RMSD histrogram between 0-MaxRMSD;
     Percent            : {FLOAT}   <default 1> plotting interval, where the Percent-amount of all RMSD distributions are 
                                         located in, for Percent = 1, it plots the minimal and maximal values, e.g. 0.99; 
 OUTPUT:
@@ -2729,12 +2725,12 @@ OUTPUT:
 #------------------------------------------------------
 #######################################################
 def Generate_Clustering(MatrixDir, SaveDir, TrajNameList, TrajLengthList, Threshold, SaveName, MaxNumberLines, 
-                        TimeStep=None, StartFrame=0, EndingFrame=NP.infty, PartList=None, GLOBAL=True,
+                        TimeStep=None, StartFrame=0, EndingFrame=NP.infty, PartList=None, GLOBAL=True, BinFile_precision=NP.float32, 
                         RMSDdir=None, TrajDir=None, TopologyDir=None, TopologyName=None, Ending='.xtc',
                         Select1=None, Select2=None, AmberHome='', GromacsHome='', Program_Suffix='', ReferencePDB=None, 
-                        BinFile_precision=NP.float32, RefFrame=None):
+                        RefFrame=None):
     """
-v09.01.17
+v15.02.17
 Calculates and generates the LOCAL or GLOBAL PROFILE & CENTROIDS for effective clustering for the submitted 
 trajectories, 
     - using Generate_reference_for_Clustering() & Return_FullColRMSD()
@@ -2797,6 +2793,7 @@ INPUT:
                                         3. default PartList = None -> PartList = [1]*len(TrajNameList);    
     GLOBAL            : {BOOL}      <default True> if True,  a GLOBAL clustering is applied for all concatenated trajectories
                                                    if False, every trajectory is clustered separately;
+    BinFile_precision : {TYPE}      FORMAT, [GROMACS/BINARY] single precision 'float32', double precision 'float64', [AMBER/ELSE] 'None';
     RMSDdir           : {STRING}    <default None> ONLY NECESSARY IF ReferencePDB is not None! 
                                                    directory, where to store possible RMSD curves to a submitted reference,
                                                    if is None, RMSDdir = SaveDir;
@@ -2829,7 +2826,6 @@ INPUT:
                                                    possible reference, to which the RMSD between all trajectories are
                                             calculated, then the closest structure is the starting point for the clustering
                                                         e.g. 'Crystalstructure.pdb';
-    BinFile_precision : {TYPE}      FORMAT, [GROMACS/BINARY] single precision 'float32', double precision 'float64', [AMBER/ELSE] 'None';
     RefFrame          : {INT}       <default None> possibility to submit a frame, which is the first centroid for the clustering, 0 means the first frame of the 
                                         trajectories, None means, it tries to calculate RMSD curves using GROMACS or AMBER if ReferencePDB is not None;
 OUTPUT:
@@ -4232,7 +4228,7 @@ return CDEarray -  NP.ndarray containing 3 columns: SimTime | nr of clusters | C
 def Generate_Slope_Error(EntropyDir, EntropyName, SaveDir=None, SaveName=None,
                          SlopeTimeArray=[100,250,500], X_NormFactor=1000):
     """
-v12.10.16
+v15.02.17
 - this function calculates & stores the 
         >> Entropy Slope <<
         >> Entropy Error = standard error of the slope estimate <<
@@ -4242,7 +4238,7 @@ v12.10.16
 - SlopeTimeArray [must contain 3 values] defines the number of FRAMES which are used for the LINEAR REGRESSION
 - automatically extracts the <Clustering Case> and <ThresholdList> from the submitted <EntropyName>-file
 - X_NormFactor defines, how many frames correspond to X-value increase of one, i.e.
-    - X_NormFactor=1000 means the X-value increases in 1000 steps by 1
+    - X_NormFactor=1000 means the Y-value increases in 1000 steps by 1
     - if 1000 steps mean 100ns, then over 100ns the Entropy is raised by the corresponding slope
     - thus the slopes are normalized by X_NormFactor
 
@@ -4391,10 +4387,10 @@ OUTPUT:
 #######################################################
 #--- ClusterProfile as a function of the simulation time
 #################
-def Plot_ClusterProfile(ClusterDir, ClusterName, TimeStep, Threshold, TrjLenList, Global,
+def Plot_ClusterProfile(ClusterDir, ClusterName, TimeStep, Threshold, TrjLenList, GLOBAL,
                         SaveDir=None, SavePDF=None, Names=[], FigSize=[16,8]):
     """
-v12.10.16
+v15.02.17
     - This function plots a clustering profile as a function of the simulation time [ns]
     - May produce huge plots depending on the number of clusters and number of involved frames, try to play with
         FigSize to adjust the visibility and figure size
@@ -4411,11 +4407,11 @@ INPUT:
                                 one frame corresponds to 0.1ns, the frames are multiplied by this value to obtain the time;
     Threshold   : {FLOAT}      Threshold used for the clustering, MUST MATCH the thresholds in the clusterfile, e.g. '0.15' [nm];
     TrjLenList  : {FLOAT-LIST} length of the (involved) trajectories in [ns], e.g. [100, 50];
-    Global      : {BOOL}       if True,  it is assumed that the clustering was done globally,
+    GLOBAL      : {BOOL}       if True,  it is assumed that the clustering was done globally,
                                if False, every trajectory is handled separately;
     SaveDir     : {STRING}     Directory, where the figure is stored e.g. 'Clustering/';
     SavePDF     : {STRING}     Savename for the PDF, e.g. 'Profile_Clustering+Specifications.pdf';
-    Names       : {LIST}       <default []>      a second y-axis numberes different trajectories, whereas also names for
+    Names       : {LIST}       <default []>      a second y-axis numbers different trajectories, whereas also names for
                                                  different trajectories can be submitted, e.g. ['traj A', 'traj B'];
     FigSize     : {INT-LIST}   <default [16,8]>  size of the figure (in inches), try to adjust this array depending on 
                                                  the number of clusters and frames;
@@ -4440,7 +4436,7 @@ OUTPUT:
     COLORS = ['r','b','g','k','m','c']
     
   ########  
-    if Global: ## GLOBAL CLUSTERING IS ASSUMED
+    if GLOBAL: ## GLOBAL CLUSTERING IS ASSUMED
         Repeater = 1
     else:
         Repeater = len(NP.unique(Array[:,1]))
@@ -4451,7 +4447,7 @@ OUTPUT:
       #----  
         ColInd = 0; Minus = 0
       #----
-        if Global:
+        if GLOBAL:
             ARR = Array
             plt.xlim([0,NP.sum(TrjLenList)]); 
         else:
@@ -4479,7 +4475,7 @@ OUTPUT:
         except IndexError:
             pass
       ## vertical lines separating trajNr  
-        if Global:
+        if GLOBAL:
             LenList = [sum(TrjLenList[:elem]) for elem in range(len(TrjLenList))]
             for IL in LenList[1:]:
                 plt.axvline(IL, lw=2, ls='-.')
@@ -4493,7 +4489,7 @@ OUTPUT:
         ax2.set_yticklabels([int(elem) for elem in COUNTS[INDEX]], fontsize=15)
         ax2.set_ylabel('cluster size', fontsize=22)
       ## second x-axis ##
-        if Global:
+        if GLOBAL:
             NewXticks = [sum(TrjLenList[:elem])+TrjLenList[elem]/2 for elem in range(len(TrjLenList))]
             ax3 = plt.twiny(); ax3.set_xlim([0,NP.sum(TrjLenList)]); ax3.set_xticks(NewXticks)
             if len(Names) == 0:
@@ -4511,7 +4507,7 @@ OUTPUT:
       ## STORING ##
         if SaveDir is not None and SavePDF is not None:
             Generate_Directories(SaveDir)
-            if not Global:
+            if not GLOBAL:
                 plt.savefig('%s%s' % (SaveDir, SavePDF.replace('.pdf', '_Traj%s' % TrajNr).replace('.png', '_Traj%s' % TrajNr)))
             else:
                 plt.savefig('%s%s' % (SaveDir, SavePDF))
@@ -5369,11 +5365,11 @@ OUTPUT:
 #######################################################
 #--- OVERLAP vs TIME
 #################
-def Plot_Overlap_VS_Time(OverlapDir, OverlapList, Threshold, SimTimeList, TimeStep, Percentile1=25, Percentile2=25, 
+def Plot_Overlap_VS_Time(OverlapDir, OverlapList, Threshold, SimTimeList, TimeStep, Percentile1=25, Percentile2=75, 
                          Median=False, Interpolation='linear', LegendList=[], Title='', LegendNcols=1, 
                          SaveDir=None, SaveName=None, logX=False, LegendDens=True):
     """
-v17.01.17
+v15.02.17
 This function generates the plots 'Overlap vs simulation Time' for conformational & density overlap
 - possibility to submit multiple OverlapMatrices to plot for instance multiple groups together
 - each element of OverlapList MUST constain 'Start-End' which are replaced by the elements of SimTimeList, because
@@ -5696,10 +5692,9 @@ OUTPUT:
 #--- ClusterSize vs Time for GLOBAL clustering 
 #################
 def Plot_ClusterSize_vs_Time_GLOBAL(ClusterDir, ClusterName, Threshold, StartEndList, TrajGrpList,
-                                             SaveDir=None, SaveName=None, SndAxis=2, 
-                                             LegendList=None, YLIM=None, FigSize=(12,4)):
+                                    SaveDir=None, SaveName=None, SndAxis=2, LegendList=None, YLIM=None, FigSize=(12,4)):
     """
-v14.02.17
+v15.02.17
 idea: 
     (1) use GLOBAL clustering with all trajectories and full lengths
     (2) extract from the GLOBAL Profile the different clusters which are occupied by the trajectories between Start:End
@@ -5833,7 +5828,7 @@ OUTPUT:
 
 def Generate_Directories(SaveDir):
     """
-v12.10.16
+v15.02.17
     Helper function to generate all necessary directories
 
 INPUT:
@@ -5844,7 +5839,7 @@ OUTPUT:
     if SaveDir is not None:
         SaveDir = SaveDir.replace('None','')
         for Kai in range(1,len(SaveDir.split('/'))):
-            if not os.path.exists('/'.join((SaveDir).split('/')[:Kai])):
+            if not os.path.exists('/'.join((SaveDir).split('/')[:Kai])) and '/'.join((SaveDir).split('/')[:Kai]) != '':
                 os.mkdir('/'.join((SaveDir).split('/')[:Kai]))
               #---- ENSURE, that the directory is generated, wait for network latency  
                 EmergencyCancel = 0

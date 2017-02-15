@@ -1,6 +1,8 @@
 # PySamplingQuality
 _Released under the GNU General Public License version 3 by MikeN12_
 
+The actual version of PySamplingQuality.py is (15.02.17-1), and the tutorial needs to be modified!
+
 v25.11.16
 
 Python tool to assess the sampling quality of Molecular Dynamics (MD) simulations using multiple trajectories
