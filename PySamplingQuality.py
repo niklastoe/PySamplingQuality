@@ -9,7 +9,7 @@
 #
 # Author:     Mike Nemec <mike.nemec@uni-due.de>
 #
-# current version: v30.03.17-2
+# current version: v30.03.17-3
 #######################################################
 # tested with following program versions:
 #        Gromacs       v4.6 | v5.1 
@@ -5732,7 +5732,7 @@ idea:
 INPUT:
     ClusterDir   : {STRING}     Directory, where effective Clustering output is located, e.g. 'effectiveClustering/';
     ClusterFile  : {STRING}     Clustering Name of GLOBAL effective clustering, which stores the FULL clustering profile,
-                            e.g. 'Profile_Met_ALLw1000_Ref_Met153_R0.1-0.13_0-10000_GLOBAL.txt'
+                            e.g. 'Profile_Met_ALLw1000_Ref_Met153_R0.1-0.13_0-10000_GLOBAL.txt';
     Threshold    : {FLOAT}      threshold for the effective clustering, must be in the ThresholdList of the File, e.g. 0.1;
     StartEndList : {TUPLE-LIST} (StartFrame,EndingFrame) tuples for which the total number of clusters are evaluated, 
                             e.g. [(0,100), (0,250), (0,500), (0,750), (0,1000), (0,1500), (0,2000)];
