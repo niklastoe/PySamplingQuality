@@ -9,7 +9,7 @@
 #
 # Author:     Mike Nemec <mike.nemec@uni-due.de>
 #
-# current version: v15.02.17-1
+# current version: v30.03.17-1
 #######################################################
 # tested with following program versions:
 #        Gromacs       v4.6 | v5.1 
@@ -3871,7 +3871,7 @@ OUTPUT:
 ###############
 #-------------
 ###############
-def Generate_CDE_to_File(ClusterDir, ClusterFileName, ThresholdList, Case, SaveDir=None, SaveName=None,
+def Generate_CDE_to_File(ClusterDir, ClusterFile, ThresholdList, Case, SaveDir=None, SaveName=None,
                          WeightDir=None, aMD_Nrs=[], sMD_Nrs=[], aMD_reweight='MF', Iterations=1, Lambda=1, Order=10):
     """
 v12.01.17
@@ -3894,22 +3894,22 @@ v12.01.17
 
 INPUT:
     ClusterDir      : {STRING} Directory, where effective Clustering output is located, e.g. 'effectiveClustering/';
-    ClusterFileName : {STRING} Clustering Name of effective clustering, contains the PROFILES, e.g. 'Cluster_R5_REF_D_S1-S10_R0.2-0.7_LOCAL.txt';
+    ClusterFile     : {STRING} Clustering Name of effective clustering, contains the PROFILES, e.g. 'Cluster_R5_REF_D_S1-S10_R0.2-0.7_LOCAL.txt';
     ThresholdList   : {FLOAT-LIST}   Clustering ThresholdList [nm], e.g. [0.2, 0.25, 0.3, 0.35, 0.4];
-    Case            : {STRING} 'LOCAL' or 'GLOBAL' or 'GLOBAL_singles', needs to correspond to the submitted ClusterFileName !!
+    Case            : {STRING} 'LOCAL' or 'GLOBAL' or 'GLOBAL_singles', needs to correspond to the submitted ClusterFile !!
                         "LOCAL"          - each trajectory is clustered separately ||
                         "GLOBAL"         - one global clustering for all concatenated trajectories ||
                         "GLOBAL_singles" - each trajectory is taken SEPARATELY, but the clustering was done GLOBAL! ||
-                        for GLOBAL_singles, GLOBAL clustering has to be submitted in the ClusterFileName !!;
+                        for GLOBAL_singles, GLOBAL clustering has to be submitted in the ClusterFile !!;
     SaveDir         : {STRING} Directory, where the CDE file is stored e.g. 'CDE/';
     SaveName        : {STRING} savename PREFIX without Ending, 
                                     e.g. 'CDE_R5_R0.2-0.7' -> 'CDE_R5_R0.2-0.7_%s.txt' % (Case);
     WeightDir       : {STRING}    <default None>, FOR RE-WEIGHTING ONLY, Directory, where the aMD/sMD weights are located, e.g. 'EventCurves/Weights/';
     aMD_Nrs         : {INT-LIST}  <default []>,   FOR RE-WEIGHTING ONLY, trajectory numbers which are generated with aMD,
-                                                  numbering MUST correspond to the trajectories stored in ClusterFileName under "TrajNameList = [...]",
+                                                  numbering MUST correspond to the trajectories stored in ClusterFile under "TrajNameList = [...]",
                                         e.g. [1,3,5] means trajNr 1,3,5 of TrajNameList are aMD trajectories | has to correspond to possible _ColY EventCurves;
     sMD_Nrs         : {INT-LIST}  <default []>,   FOR RE-WEIGHTING ONLY, trajectory numbers which are generated with scaledMD, 
-                                                  numbering MUST correspond to the trajectories stored in ClusterFileName under "TrajNameList = [...]",
+                                                  numbering MUST correspond to the trajectories stored in ClusterFile under "TrajNameList = [...]",
                                         e.g. [1,3,5] means trajNr 1,3,5 of TrajNameList are scaledMD trajectories | has to correspond to possible _ColY EventCurves;
     aMD_reweight    : {STRING}    <default MF> FOR RE-WEIGHTING ONLY, reweighting method if aMD trajs are present, default Mean-Field-Approach | 
                                     possibilities - 'MF', 'Exp', 'McL';
@@ -3921,12 +3921,12 @@ OUTPUT:
         SaveDir+SaveName with:
                            |             Threshold = r1                 | r2  | ...
             Frame | TrajNr | NrClusts | normNrClusts | CDE | normCDE | ... | ...
-                uses the same threshold as in ClusterFileName
+                uses the same threshold as in ClusterFile
     else:
         return CDE_Array
     """
     
-    if os.path.exists(ClusterDir+ClusterFileName) and \
+    if os.path.exists(ClusterDir+ClusterFile) and \
         ((SaveDir==None and SaveName==None) or not os.path.exists('%s%s_%s.txt' % (SaveDir,SaveName,Case))):
       ## generate SaveDir if not None
         if SaveName is not None:
@@ -3935,13 +3935,13 @@ OUTPUT:
         if Case != 'LOCAL' and Case != 'GLOBAL' and Case != 'GLOBAL_singles':
             raise ValueError('Case has to be either "LOCAL" or "GLOBAL" or "GLOBAL_singles"!\n\tsubmitted Case = %s' % \
                                 (Case))
-      ## CHECK, if Case corresponds to ClusterFileName
-        if ClusterFileName.find('%s.txt' % Case.split('_')[0]) == -1:
-            raise ValueError('Case = <%s> and ClusterFileName = <%s> have to have corresponding clusterings!' % \
-                                (Case, ClusterFileName))
+      ## CHECK, if Case corresponds to ClusterFile
+        if ClusterFile.find('%s.txt' % Case.split('_')[0]) == -1:
+            raise ValueError('Case = <%s> and ClusterFile = <%s> have to have corresponding clusterings!' % \
+                                (Case, ClusterFile))
       ## CHECK, if ThresholdList is the same like submitted
         CorrectThreshold = False
-        with open(ClusterDir+ClusterFileName, 'r') as INPUT:
+        with open(ClusterDir+ClusterFile, 'r') as INPUT:
             for line in INPUT:
                 if len(line.split()) > 1 and line.split()[1] == 'ThresholdList':
                     if line.split(' = ')[1] == '{}\n'.format(ThresholdList):
@@ -3968,7 +3968,7 @@ OUTPUT:
             for Kai in range(3*len(ThresholdList)-1):
                 USECOLS[Kai+3] = USECOLS[Kai+2]+abs(Kai%3-3)
           #----- LOAD Clustering to which CDE is calculated
-            PROF = NP.genfromtxt(ClusterDir+ClusterFileName, usecols=USECOLS)
+            PROF = NP.genfromtxt(ClusterDir+ClusterFile, usecols=USECOLS)
           #----- GENERATE CDE ARRAY: Time[ns] | TrajNr | NrClusts r1 | normNrClusts r1 | CDE r1 | normCDE r1 || NrClustsr2
             CDE_Array = NP.zeros( (len(PROF[:,0]), 2+4*len(ThresholdList)) )
           #----- extract TrajNrList from PROF to calculate the number of clusters and go through every trajectory
@@ -4126,7 +4126,7 @@ OUTPUT:
                    '>> normalized Nr of Cluster vs Time <<\n'+\
                    '>> Entropy vs Time <<\n'+\
                    '>> normalized Entropy vs Time <<\n'
-            with open(ClusterDir+ClusterFileName, 'r') as INPUT:
+            with open(ClusterDir+ClusterFile, 'r') as INPUT:
                 Index = 0
                 for line in INPUT:
                     if line.split()[-1] == '*******':
@@ -4151,7 +4151,7 @@ OUTPUT:
             print 'the submitted \n\t>>Threshold = {}<< \nis NOT the same as the Clustering-Threshold'.format(ThresholdList)
     else:
         print 'Either \n\t>>%s%s_%s.txt<< \nalready exists or \n\t>>%s%s<< \ndoes NOT exist' % \
-                (SaveDir,SaveName,Case,ClusterDir,ClusterFileName)
+                (SaveDir,SaveName,Case,ClusterDir,ClusterFile)
 
 ###############
 #-------------
@@ -4387,7 +4387,7 @@ OUTPUT:
 #######################################################
 #--- ClusterProfile as a function of the simulation time
 #################
-def Plot_ClusterProfile(ClusterDir, ClusterName, TimeStep, Threshold, TrjLenList, GLOBAL,
+def Plot_ClusterProfile(ClusterDir, ClusterFile, TimeStep, Threshold, TrjLenList, GLOBAL,
                         SaveDir=None, SavePDF=None, Names=[], FigSize=[16,8]):
     """
 v15.02.17
@@ -4401,7 +4401,7 @@ v15.02.17
 
 INPUT:
     ClusterDir  : {STRING}     Directory, where effective Clustering output is stored, e.g. 'effectiveClustering/';
-    ClusterName : {STRING}     Clustering Name of effective clustering containing the profiles, 
+    ClusterFile : {STRING}     Clustering Name of effective clustering containing the profiles, 
                                     e.g. 'Cluster_R5_REF_D_S1-S10_R0.2-0.7_LOCAL.txt';
     TimeStep    : {FLOAT}      time-step, which represents one frame-step, e.g. '0.1' [ns] means, 
                                 one frame corresponds to 0.1ns, the frames are multiplied by this value to obtain the time;
@@ -4420,7 +4420,7 @@ OUTPUT:
     """
     import matplotlib.pyplot as plt
     ### INIT ThresholdList       ###
-    with open('%s%s' % (ClusterDir, ClusterName), 'r') as INPUT:
+    with open('%s%s' % (ClusterDir, ClusterFile), 'r') as INPUT:
         for line in INPUT:
             if len(line.split()) > 1 and line.split()[1] == 'ThresholdList':
                 ThresholdList = [NP.float(elem) for elem in line.split(' = [')[1].replace(']\n','').split(',')]
@@ -4429,7 +4429,7 @@ OUTPUT:
                 ThresholdList = [NP.float(line.split(' = ')[1])]
                 break
     ### LOAD CLUSTERING PROFILES ###
-    Array = NP.genfromtxt('%s%s' % (ClusterDir, ClusterName), usecols=(0,1,2+6*ThresholdList.index(Threshold)))
+    Array = NP.genfromtxt('%s%s' % (ClusterDir, ClusterFile), usecols=(0,1,2+6*ThresholdList.index(Threshold)))
     Array[:,0] = Array[:,0]*TimeStep
     ################################
     
@@ -5016,11 +5016,11 @@ OUTPUT:
 #######################################################
 #--- HEATMAP
 #################
-def Plot_HeatMap_1vs1(OverlapDir, OverlapName, Threshold, StartFrame, EndingFrame, YLIM=None, 
-                      ClusterDir=None, ClusterFileName=None, AllPrject=True, 
+def Plot_HeatMap_1vs1(OverlapDir, OverlapFile, Threshold, StartFrame, EndingFrame, YLIM=None, 
+                      ClusterDir=None, ClusterFile=None, AllPrject=True, 
                       TrajExcept=[], Title='', Grid=[], CaseTitles=[], SaveDir=None, SaveName=None):
     """
-v16.01.17   
+v16.02.17   
 This function plots the heatmap of trajectory X vs trajectory Y (whereas GroupX vs GroupY should also work).
 - possibility to use AllPrject EITHER projection on both groups, OR lower triangular projection on X and upper on Y
 - Grid & CaseTitles give the possibility to split the Heatmap into different regions, where Grid gives the split coords
@@ -5029,7 +5029,7 @@ This function plots the heatmap of trajectory X vs trajectory Y (whereas GroupX 
     trajectories is extracted by hand
 INPUT:
     OverlapDir      : {STRING}      Directory, where the overlap files are located, e.g. 'Overlap/';
-    OverlapName     : {STRING}      Overlap file, which contains ALL X vs Y Pairs, then a heatmap matrix is constructed;
+    OverlapFile     : {STRING}      Overlap file, which contains ALL X vs Y Pairs, then a heatmap matrix is constructed;
     Threshold       : {FLOAT}       Threshold used for the overlap calculation, for which the heatmap is generated,
                                         e.g. 0.2, has to match the ThresholdList of the Overlap file;
     StartFrame      : {INT}         starting frame of Trajectories, used for the clustering, should be the same as the overlapfile,
@@ -5038,7 +5038,7 @@ INPUT:
                                         e.g. 2000
     YLIM            : {FLOAT-LIST}  <default None>  defines the y-limits for the number of found clusters, e.g. [0,100];
     ClusterDir      : {STRING}      <default None>  Directory, where the clustering files are located, e.g. 'Clustering/';
-    ClusterFileName : {STRING}      <default None>  Clustering file containing EITHER the centers OR a GLOBAL clustering profile, 
+    ClusterFile     : {STRING}      <default None>  Clustering file containing EITHER the centers OR a GLOBAL clustering profile, 
                             e.g. 'Cluster_Centers_LOCAL.txt' OR 'Cluster_GLOBAL.txt';
     AllPrject       : {BOOL}        <default True> True - Heatmap is  symmetric = overlap is projected on both groups X & Y,
                                                     False- Heatmap is asymmetric = lower triangular projection on X, upper on Y;
@@ -5064,22 +5064,22 @@ OUTPUT:
         return
   #----------
     #-----
-    if os.path.exists('%s%s' % (ClusterDir, ClusterFileName)):
+    if os.path.exists('%s%s' % (ClusterDir, ClusterFile)):
         RowFigs = 9
-        if ClusterFileName.find('_Centers_') != -1:
-            NrClusters = NP.genfromtxt('%s%s' % (ClusterDir, ClusterFileName), usecols=(0,1,2))
+        if ClusterFile.find('_Centers_') != -1:
+            NrClusters = NP.genfromtxt('%s%s' % (ClusterDir, ClusterFile), usecols=(0,1,2))
             #### strip clusters with -1 & strip only correct threshold & strip TrajExcept
             NrClusters = NrClusters[NrClusters[:,2]!=-1]
             NrClusters = NrClusters[NrClusters[:,1]==Threshold]
             for TrajNr in TrajExcept:
                 NrClusters = NrClusters[NrClusters[:,0]!=TrajNr]
         else:
-            with open('%s%s' % (ClusterDir, ClusterFileName), 'r') as INPUT:
+            with open('%s%s' % (ClusterDir, ClusterFile), 'r') as INPUT:
                 for line in INPUT:
                     if len(line.split()) > 1 and line.split()[1] == 'ThresholdList':
                         ThresholdList = [float(elem) for elem in line[line.find('[')+1:line.find(']')].split(', ')]
                         break
-            PROF = NP.genfromtxt('%s%s' % (ClusterDir, ClusterFileName), usecols=(1,2+6*ThresholdList.index(Threshold)))
+            PROF = NP.genfromtxt('%s%s' % (ClusterDir, ClusterFile), usecols=(1,2+6*ThresholdList.index(Threshold)))
             TrajNrList = [elem for elem in NP.unique(PROF[:,0]) if TrajExcept.count(elem) < 1]
             NrClusters = NP.zeros( (len(TrajNrList),3) )
             for Koi in range(len(TrajNrList)):
@@ -5094,7 +5094,7 @@ OUTPUT:
         plt.subplot2grid( (RowFigs,1), (4*Relative,0), rowspan=4);
         plt.subplots_adjust(wspace=0.55, hspace=0.05, left=0.14, right=0.99, bottom=0.055, top=0.865)
       ## HEATMAP
-        Array = Generate_1vs1_Matrix(OverlapDir, OverlapName, Threshold, ['conformational','density'][Relative], 
+        Array = Generate_1vs1_Matrix(OverlapDir, OverlapFile, Threshold, ['conformational','density'][Relative], 
                                      AllPrject, TrajExcept=[])
         imgplot = plt.imshow(Array, interpolation='nearest', alpha=1, cmap='bwr', origin='low', 
                              aspect='auto',vmin=0, vmax=1)
@@ -5140,7 +5140,7 @@ OUTPUT:
             cbar.ax.tick_params(labelsize=16); cbar.set_label('Overlap %s' % Title, fontsize=20)
             cbar.ax.xaxis.set_label_position('top')  
   ## Nr of Clusters vs TrajNrs
-    if os.path.exists('%s%s' % (ClusterDir, ClusterFileName)):
+    if os.path.exists('%s%s' % (ClusterDir, ClusterFile)):
         AX2=plt.subplot2grid( (RowFigs,1), (8,0) )
         plt.plot(range(1,len(NrClusters)+1), NrClusters[:,2], color='g', marker='s', ls=':', ms=8.5); 
         if YLIM is None: plt.ylim([0,max(NrClusters[:,2])*1.2]); 
@@ -5291,32 +5291,32 @@ OUTPUT:
 #######################################################
 #--- DENDROGRAM
 #################
-def Plot_HeatMap_as_Dendro(OverlapDir, FileName, Threshold, Case='density', TrajExcept=[],
+def Plot_HeatMap_as_Dendro(OverlapDir, OverlapFile, Threshold, Case='density', TrajExcept=[],
                            Labels=None, Colors=None, SaveDir=None, SaveName=None):
     """
-v12.10.16
+v16.02.17
 This function transforms the Heatmap_1vs1 to a hierarchically clustered dendrogram using average linkage.
 - Colors is a dictionary, which has to fit the LabelNames, e.g.
     Colors = {'Label1':'g'} <-> Labels = ['Label1 1', 'Label1 2', 'Label1 3', 'Label1 4']
 INPUT:
-    OverlapDir : {STRING}      Directory, where the overlap files are located, e.g. 'Overlap/';
-    FileName   : {STRING}      Overlap file, which contains ALL X vs Y Pairs, then a heatmap matrix is constructed;
-    Threshold  : {FLOAT}       Threshold used for the overlap calculation, for which the heatmap is generated,
-                                        e.g. 0.2, has to match the ThresholdList of the Overlap file;
-    Case       : {STRING}      <default density> 'conformational' or 'density', select if density or conformational overlap is displayed;
-    TrajExcept : {INT-LIST}    <default []>       possibility to EXCLUDE manually trajectories by deleting the 
-                                                  Rows and Columns (starting from 1 to N) of the HeatMap
-                                                    e.g. TrajExcept=[1,2] delete the first 2 trajectories;
-    Labels     : {LIST}        <default None>     Label names for the Leaves, thus 
-                                                    len(Labels) == total amount of leaves == total number of trajectories,
-                                    IF COLOR IS NOT NONE, label PREFIX has to correspond to Colors, 
-                                            e.g. Labels = ['Label1 1', 'Label1 2', 'Label1 3', 'Label1 4'];
-    Colors     : {DICT}        <default None>     color specific label prefix, whereas 
-                                                    len(Labels) == total amount of leaves == total number of trajectories,
-                                    e.g. for 4 Trajectories, all leaves colored green - 
-                                      Colors = {'Label1':'g'} <-> Labels = ['Label1 1', 'Label1 2', 'Label1 3', 'Label1 4'];
-    SaveDir    : {STRING}                      Directory, where the PDF is stored, e.g. 'DendroGrams/';
-    SaveName   : {STRING}                      save name, e.g. 'Molecule_Dendrogram_Specifications.pdf';
+    OverlapDir  : {STRING}      Directory, where the overlap files are located, e.g. 'Overlap/';
+    OverlapFile : {STRING}      Overlap file, which contains ALL X vs Y Pairs, then a heatmap matrix is constructed;
+    Threshold   : {FLOAT}       Threshold used for the overlap calculation, for which the heatmap is generated,
+                                         e.g. 0.2, has to match the ThresholdList of the Overlap file;
+    Case        : {STRING}      <default density> 'conformational' or 'density', select if density or conformational overlap is displayed;
+    TrajExcept  : {INT-LIST}    <default []>       possibility to EXCLUDE manually trajectories by deleting the 
+                                                   Rows and Columns (starting from 1 to N) of the HeatMap
+                                                     e.g. TrajExcept=[1,2] delete the first 2 trajectories;
+    Labels      : {LIST}        <default None>     Label names for the Leaves, thus 
+                                                     len(Labels) == total amount of leaves == total number of trajectories,
+                                     IF COLOR IS NOT NONE, label PREFIX has to correspond to Colors, 
+                                             e.g. Labels = ['Label1 1', 'Label1 2', 'Label1 3', 'Label1 4'];
+    Colors      : {DICT}        <default None>     color specific label prefix, whereas 
+                                                     len(Labels) == total amount of leaves == total number of trajectories,
+                                     e.g. for 4 Trajectories, all leaves colored green - 
+                                       Colors = {'Label1':'g'} <-> Labels = ['Label1 1', 'Label1 2', 'Label1 3', 'Label1 4'];
+    SaveDir     : {STRING}                      Directory, where the PDF is stored, e.g. 'DendroGrams/';
+    SaveName    : {STRING}                      save name, e.g. 'Molecule_Dendrogram_Specifications.pdf';
 OUTPUT:
     """
     import matplotlib.pyplot as plt
@@ -5324,7 +5324,7 @@ OUTPUT:
         print 'Figure already exists\n%s%s' % (SaveDir, SaveName)
         return
     #---- DENDROGRAM
-    Heat_mat = Generate_1vs1_Matrix(OverlapDir, FileName, Threshold, Case, True, TrajExcept)
+    Heat_mat = Generate_1vs1_Matrix(OverlapDir, OverlapFile, Threshold, Case, True, TrajExcept)
     vals_dist = squareform(1-Heat_mat)
     Clusters = linkage(vals_dist, method='average')
     #---- PLOTTING
@@ -5365,27 +5365,27 @@ OUTPUT:
 #######################################################
 #--- OVERLAP vs TIME
 #################
-def Plot_Overlap_VS_Time(OverlapDir, OverlapList, Threshold, SimTimeList, TimeStep, Percentile1=25, Percentile2=75, 
+def Plot_Overlap_VS_Time(OverlapDir, OverlapList, Threshold, StartEndList, TimeStep, Percentile1=25, Percentile2=75, 
                          Median=False, Interpolation='linear', LegendList=[], Title='', LegendNcols=1, 
                          SaveDir=None, SaveName=None, logX=False, LegendDens=True):
     """
-v15.02.17
+v16.02.17
 This function generates the plots 'Overlap vs simulation Time' for conformational & density overlap
 - possibility to submit multiple OverlapMatrices to plot for instance multiple groups together
-- each element of OverlapList MUST constain 'Start-End' which are replaced by the elements of SimTimeList, because
+- each element of OverlapList MUST constain 'Start-End' which are replaced by the elements of StartEndList, because
   Overlap files are calculated for different simulation times separately and must be merged in first place
-- elements of SimTimeList define the (StartFrame, EndingFrame) tuples for the corresponding simulation time
+- elements of StartEndList define the (StartFrame, EndingFrame) tuples for the corresponding simulation time
 - all Groups from one OverlapList are used, i.e. all K reference structures
 - ERROR HANDLING: plots the first percentile and second percentile as error bars,
                   if the average value is outside, use the average as one limit
 INPUT:
     OverlapDir    : {STRING}      Directory, where the Overlap is located, e.g. 'Overlap/';
     OverlapList   : {LIST}        List of Overlap filenames containing different cases, e.g. Pairs, different Groups,
-                                  MUST CONTAIN 'Start-End' which is replaced by the corresponding element of SimTimeList
+                                  MUST CONTAIN 'Start-End' which is replaced by the corresponding element of StartEndList
                                   e.g. ['Overlap_ALLvsALL_Start-End.txt' 'Overlap_AvsB_Start-End.txt'];
     Threshold     : {FLOAT}       Threshold used for the overlap calculation, for which the 'Overlap VS Time' is plotted,
                                         e.g. 0.2, has to match the ThresholdList of the Overlap file;
-    SimTimeList   : {TUPLE-LIST}  (StartFrame,EndingFrame) tuples of the calculated simulation times, 
+    StartEndList   : {TUPLE-LIST}  (StartFrame,EndingFrame) tuples of the calculated simulation times, 
                                         e.g. [(0,100), (0,250), (0,500), (0,750), (0,1000), (0,1500), (0,2000)];
     TimeStep      : {FLOAT}       defines the step, 1 frame refers to TimeStep [ns], e.g. TimeStep = 0.01 means, 1 Frame = 10ps;
     Percentile1   : {INT}         <default 25> Value of the 1st percentile [in %], e.g. 25 for the 1st quartile;
@@ -5413,7 +5413,7 @@ OUTPUT:
                          'replacements! Check your input.\n%s' % OverlapList)
  #################################
      # StartTime | EndTime | densO1 | densO1_Perc1 | densO1_Perc2 | confO1 | confO1_Perc1 | confO1_Perc2 | ...
-    OvT = Generate_OvT(OverlapDir, OverlapList, Threshold, SimTimeList, TimeStep,
+    OvT = Generate_OvT(OverlapDir, OverlapList, Threshold, StartEndList, TimeStep,
                                    Percentile1, Percentile2, Median, Interpolation)
     if len(OvT[0,2:])/6 <=7:
         Color = ['b<', 'k>', 'r>', 'g>', 'm>', 'c>', 'y>'];
@@ -5468,20 +5468,20 @@ OUTPUT:
 
 ##### ##### ##### ##### ##### ##### 
 #----- GENERATE Overlap VS Time
-def Generate_OvT(OverlapDir, OverlapList, Threshold, SimTimeList, TimeStep, Percentile1, Percentile2, Median=False, Interpolation='linear'):
+def Generate_OvT(OverlapDir, OverlapList, Threshold, StartEndList, TimeStep, Percentile1, Percentile2, Median=False, Interpolation='linear'):
     """
-v18.11.16
+v16.02.17
 - supporting function to merge/generate OverlaPvsTime NP.ndarray from Overlapfiles with different simulation times
 - extracts the overlap for a certain threshold of different simulation time files and merge them in the ROW-dimension
 - different groups are also extracted from different OverlapList elements and merged in the COLUMN-dimension
 INPUT:
     OverlapDir    : {STRING}      Directory, where the Overlap is located, e.g. 'Overlap/';
     OverlapList   : {LIST}        List of Overlap filenames containing different cases, e.g. Pairs, different Groups,
-                                  MUST CONTAIN 'Start-End' which is replaced by the corresponding element of SimTimeList
+                                  MUST CONTAIN 'Start-End' which is replaced by the corresponding element of StartEndList
                                   e.g. ['Overlap_ALLvsALL_Start-End.txt' 'Overlap_AvsB_Start-End.txt'];
     Threshold     : {FLOAT}       Threshold used for the overlap calculation, for which the 'Overlap VS Time' is plotted,
                                         e.g. 0.2, has to match the ThresholdList of the Overlap file;
-    SimTimeList   : {TUPLE-LIST}  (StartFrame,EndingFrame) tuples of the calculated simulation times, 
+    StartEndList   : {TUPLE-LIST}  (StartFrame,EndingFrame) tuples of the calculated simulation times, 
                                         e.g. [(0,100), (0,250), (0,500), (0,750), (0,1000), (0,1500), (0,2000)];
     TimeStep      : {FLOAT}       defines the step, 1 frame refers to TimeStep [ns], e.g. TimeStep = 0.01 means, 1 Frame = 10ps;
     Percentile1   : {INT}         Value of the 1st percentile [in %], e.g. 25 for the 1st quartile;
@@ -5497,19 +5497,19 @@ OUTPUT:
     ColLength = 2
     if len(OverlapList) > 1:
         for FF in OverlapList:
-            for First,Snd in SimTimeList:
+            for First,Snd in StartEndList:
                 if not os.path.exists('%s%s' % (OverlapDir, 
                                                 FF.replace('Start', str(First)).replace('End',str(Snd)))):
                     raise NameError('The submitted\n\tOverlapFile=%s\ndoes not exist! Check your input\n%s\n%s\nwith\n%s' % \
-                                    (FF.replace('Start', str(First)).replace('End',str(Snd)), OverlapDir, OverlapList, SimTimeList))
+                                    (FF.replace('Start', str(First)).replace('End',str(Snd)), OverlapDir, OverlapList, StartEndList))
         #----- Loaded Overlap for all different simulation times
             ColLength += 6*len(NP.genfromtxt('%s%s' % (OverlapDir, 
                                 FF.replace('Start', str(First)).replace('End',str(Snd))))[0,2:])/4
-        OvT = NP.zeros( (len(SimTimeList), ColLength) )
+        OvT = NP.zeros( (len(StartEndList), ColLength) )
         
 ###########
     OvT_Row = 0
-    for StartFrame, EndingFrame in SimTimeList:
+    for StartFrame, EndingFrame in StartEndList:
         if 'OvT' in locals():
             OvT[OvT_Row, 0] = StartFrame*TimeStep; OvT[OvT_Row, 1] = EndingFrame*TimeStep; 
         OvT_Col = 2
@@ -5519,7 +5519,7 @@ OUTPUT:
                 raise NameError('%s%s\ndoes not exist! Check your input!' % (OverlapDir, FileName.replace('Start', str(StartFrame)).replace('End',str(EndingFrame))))
             tempO = NP.genfromtxt('%s%s' % (OverlapDir, FileName.replace('Start', str(StartFrame)).replace('End',str(EndingFrame))))
             if 'OvT' not in locals():
-                OvT = NP.zeros( (len(SimTimeList), 2+6*len(OverlapList)*len(tempO[0,2:])/4) ) # StartTime | EndTime | densO1 | confO1 | densO2 | confO2 | ...
+                OvT = NP.zeros( (len(StartEndList), 2+6*len(OverlapList)*len(tempO[0,2:])/4) ) # StartTime | EndTime | densO1 | confO1 | densO2 | confO2 | ...
                 OvT[OvT_Row, 0] = StartFrame*TimeStep; OvT[OvT_Row, 1] = EndingFrame*TimeStep; 
 
             tempO = tempO[tempO[:,1]==Threshold]
@@ -5563,16 +5563,20 @@ OUTPUT:
 #######################################################
 #--- OVERLAP vs NUMBER of CLUSTERS
 #################
-def Plot_Overlap_VS_Cluster(OverlapDir, OverlapList, Threshold, ClusterDir, Centers_GLOBAL_singles, Case='density', 
-                          XLIM=None, YLIM=None, LEGEND=None, Percentile1=25, Percentile2=75, Median=False, 
-                          Interpolation='linear', SaveDir=None, SaveName=None,
-                          Symbols=['bs', 'ks', 'rs', 'gs', 'ko', 'ro', 'go', 'k<', 'r<', 'g<', 'g<', 'm<', 'c<', 'y<']):
+def Plot_Overlap_VS_Cluster(OverlapDir, OverlapList, Threshold, ClusterDir, ClusterFile, Case='density', 
+                            XLIM=None, YLIM=None, LegendList=None, LegendNcols=1, Percentile1=25, Percentile2=75, Median=False, 
+                            Interpolation='linear', SaveDir=None, SaveName=None, Title='', FigSize=(7,6), Combi=True,
+                            Symbols=['bs', 'ks', 'rs', 'gs', 'ko', 'ro', 'go', 'k<', 'r<', 'g<', 'g<', 'm<', 'c<', 'y<']):
     """
-v21.11.16
+v16.02.17
     This function plots the overlap as a function of the cluster of all combined trajectories which were used for the 
     overlap calculation
     - the clustering must contain ALL trajectories with the same trajectory numbering as in the overlap files
     - Symbols follow the matplotlib plot logic, which contains 2 characters: 1st = color; 2nd = marker
+    - #clusters are extracted from one PROFILE (preferably GLOBAL) using  the same StartFrame:EndingFrames as in OverlapList
+    - possibility to use 
+        (a) EITHER Combi=True:  # clusters correspond to unique combination of all clusters found by the multiple trajectories
+        (b) OR     Combi=False: # clusters correspond to single trajectories, and distribution is shown as average/median with percentiles
 INPUT:
     OverlapDir             : {STRING}     Directory, where the Overlap is located, e.g. 'Overlap/';
     OverlapList            : {LIST}       List of Overlap filenames containing different cases, 
@@ -5581,13 +5585,14 @@ INPUT:
     Threshold              : {FLOAT}      Threshold used for the overlap and clustering calculation, 
                                             e.g. 0.2, has to match the ThresholdList of the Overlap and Clustering file;
     ClusterDir             : {STRING}     Directory, where the clustering files are located, e.g. 'Clustering/';
-    Centers_GLOBAL_singles : {STRING}     Clustering file containing the global partitioning centers, 
-                                            e.g. 'Cluster_Centers_GLOBAL_singles.txt';
+    ClusterFile            : {STRING}     Clustering file containing the Profiles, preferably from GLOBAL, 
+                                            e.g. 'Cluster_GLOBAL.txt';
     Case                   : {STRING}     <default density> density or conformational for the corresponding overlap;   
     XLIM                   : {FLOAT-LIST} <default None>    defines the x-limits for the number of clusters;
     YLIM                   : {FLOAT-LIST} <default None>    defines the y-limits for the overlap;
     LegendList             : {LIST}       <default None>    Legend for the single elements of the OverlapList1, 
                                                             e.g. ['ALL','AvsB'];
+    LegendNcols            : {INT}        <default 1>       number of columns in the displayed Legend, to fit into the plot;
     Percentile1            : {INT}        <default 25>      Value of the 1st percentile [in %], e.g. 25 for the 1st quartile;
     Percentile2            : {INT}        <default 75>      Value of the 2nd percentile [in %], e.g. 75 for the 3rd quartile;
     Median                 : {BOOL}       <default False>   if True, the median is plotted over all K reference trajs, else the Avg;
@@ -5595,6 +5600,10 @@ INPUT:
                                                             e.g. 'linear', 'lower', 'higher', 'midpoint', 'nearest';
     SaveDir                : {STRING}     <default None>    saving directory for the PDF, e.g. 'PDFs/';
     SaveName               : {STRING}     <default None>    savename, e.g. 'OverlaPvsCluster.pdf';
+    Title                  : {STRING}     <default ''>      title of the plot, e.g. 'Molecule, r=0.11nm';
+    FigSize                : {INT-LIST}   <default [7,6]>   size of the figure (in inches);
+    Combi                  : {BOOL}       <default True>    if True, #cluster = trajectory combination,
+                                                            else,    #cluster = distribution of single trajectories;
     Symbols                : {LIST}       <default bs ks rs gs ko ro go k^ r^ g^> color and marker for the symbols,
                                                 1st character = color, 2nd character = marker,
                                                 b = blue, k = black, r = red, g = green, ...,
@@ -5607,7 +5616,7 @@ OUTPUT:
     if Case != 'density':
         Case = 'conformational'
     SkipHead = 0
-    with open('%s%s' % (ClusterDir, Centers_GLOBAL_singles), 'r') as INPUT:
+    with open('%s%s' % (ClusterDir, ClusterFile), 'r') as INPUT:
         for line in INPUT:
             if len(line.split()) == 0 or line[0] == '#':
                 SkipHead += 1
@@ -5616,11 +5625,11 @@ OUTPUT:
   #---- load Overlap values
     Overlap = Generate_OvR(OverlapDir, OverlapList, Percentile1, Percentile2, Median, Interpolation)
     Overlap = Overlap[Overlap[:,0]==Threshold]
-  #---- calculate combined number of clusters
-    NrClust = NP.zeros( len(OverlapList) )
+  #---- calculate combined number of clusters | percentile1 | percentile2
+    NrClust = NP.zeros( (len(OverlapList),3) )
     Index   = 0
   #---- load ThresholdList & NrOfTrajs
-    with open('%s%s' % (ClusterDir, Centers_GLOBAL_singles), 'r') as INPUT:
+    with open('%s%s' % (ClusterDir, ClusterFile), 'r') as INPUT:
         for line in INPUT:
             if len(line.split()) > 2 and line.split()[0] == '#' and line.split()[1] == 'ThresholdList':
                 ThresholdList = [float(elem.replace(',','')) for elem in line[line.find('[')+1:line.find(']')].split()]
@@ -5633,16 +5642,21 @@ OUTPUT:
   #---- ERROR detection
     if 'ThresholdList' not in locals():
         raise ValueError('ThresholdList is not defined in\n\t%s%s\nAdd used >>ThresholdList = [...]<<.' % \
-                                                (ClusterDir, Centers_GLOBAL_singles))
+                                                (ClusterDir, ClusterFile))
     if 'NrOfTrajs' not in locals():
         raise ValueError('TrajNameList is not defined in\n\t%s%s\nAdd used >>TrajNameList = [...]<<, to define the trajectories which were used.' % \
-                                                (ClusterDir, Centers_GLOBAL_singles))
+                                                (ClusterDir, ClusterFile))
     if ThresholdList.count(Threshold) == 0:
         raise ValueError('The submitted\n\t>>Threshold=%s<<\nis not present in the\n\t>>ThresholdList = %s\nof\n\t%s%s' %\
-                         (Threshold, ThresholdList, ClusterDir, Centers_GLOBAL_singles))
+                         (Threshold, ThresholdList, ClusterDir, ClusterFile))
     if len(Overlap[:,0]) == 0:
         raise ValueError('The submitted\n\t>>Threshold=%s<<\nis not present in the\n\t>>ThresholdList = %s\nof all overlap files\n\t%s%s' %\
                          (Threshold, ThresholdList, OverlapDir, OverlapList))    
+ ## NOT cluster center file
+    if ClusterFile.find('_Centers_') != -1:
+        raise NameError('You have to submit a clustering PROFILE, not the CENTERS file\n\tClusterFile = %s!' % ClusterFile)
+    else:
+        PROF = NP.genfromtxt('%s%s' % (ClusterDir, ClusterFile), usecols=(0,1,2+6*ThresholdList.index(Threshold)))
  #-----######
     for File in OverlapList:
       #---- extract comparelists for trajectory numbers
@@ -5650,22 +5664,33 @@ OUTPUT:
             for line in INPUT:
                 if len(line.split()) > 2 and line.split()[1] == 'CompareList':
                     CompareList = ast.literal_eval(line.split(' = ')[1].replace('\n',''))
-                    break
+                elif len(line.split()) > 2 and line.split()[1] == 'StartFrame':
+                    StartFrame = min([int(elem) for elem in line[line.find('[')+1:line.find(']')].split(', ')])
+                elif len(line.split()) > 2 and line.split()[1] == 'EndingFrame':
+                    EndingFrame = max([int(elem) for elem in line[line.find('[')+1:line.find(']')].split(', ')])
+                    break        
       #---- each comparelist generates (multiple) cases
         for Single in CompareList:
             TrajNrList = NP.concatenate(Single)
             Centers = []
             for Traj in TrajNrList:
-                temp = NP.genfromtxt('%s%s' % (ClusterDir, Centers_GLOBAL_singles),
-                    skip_header=SkipHead+(Traj-1)+NrOfTrajs*((ThresholdList.index(Threshold))),
-                    skip_footer=len(ThresholdList)*NrOfTrajs-((Traj)+NrOfTrajs*((ThresholdList.index(Threshold)))))
-                Centers = NP.concatenate( (Centers, temp[3:]) )
-            NrClust[Index] = len(NP.unique(Centers))
+              ## cluster profiles
+                if Combi:
+                    Centers.extend(NP.unique(PROF[PROF[:,1]==(Traj)][StartFrame:EndingFrame,2]))
+                else:
+                    Centers.append(len(NP.unique(PROF[PROF[:,1]==(Traj)][StartFrame:EndingFrame,2])))
+            if Combi:
+                NrClust[Index,0] = len(NP.unique(Centers))
+            else:
+                NrClust[Index,0] = NP.median(Centers) if Median else NP.average(Centers)
+                NrClust[Index,1] = NP.percentile(Centers, Percentile1, interpolation=Interpolation)
+                NrClust[Index,2] = NP.percentile(Centers, Percentile2, interpolation=Interpolation if \
+                                                 Interpolation != 'lower' else 'higher')
             Index += 1
 #########################
     ###------ PLOT
-    fig = plt.figure(figsize=(7,6))
-    plt.subplot2grid( (1,1), (0,0) );
+    fig = plt.figure(figsize=FigSize)
+    plt.subplot2grid( (1,1), (0,0) ); plt.title(Title, fontsize=25);
     plt.subplots_adjust(left=0.17, right=0.95, top=0.92, bottom=0.15, wspace=0.15)
   #-------
     for CaseA in range(len(OverlapList)):
@@ -5673,17 +5698,21 @@ OUTPUT:
         else:               Plus = 3;
         YERR = [Overlap[0,[1+Plus+6*CaseA]]-Overlap[0,[2+Plus+6*CaseA]], 
                 Overlap[0,[3+Plus+6*CaseA]]-Overlap[0,[1+Plus+6*CaseA]]]
+        XERR = None if Combi else [[NrClust[CaseA,0]-NrClust[CaseA,1]], [NrClust[CaseA,2]-NrClust[CaseA,0]]]
         YERR[0][YERR[0]<0] = 0; YERR[1][YERR[1]<0] = 0;
-        plt.errorbar(NrClust[CaseA], Overlap[0,1+Plus+6*CaseA], yerr=YERR, color=Symbols[CaseA%len(Symbols)][0], 
+        plt.errorbar(NrClust[CaseA,0], 
+                     Overlap[0,1+Plus+6*CaseA], 
+                     xerr=XERR,
+                     yerr=YERR, color=Symbols[CaseA%len(Symbols)][0], 
                      marker=Symbols[CaseA%len(Symbols)][1], mec=Symbols[CaseA%len(Symbols)][0], 
                      mfc='none', mew=1.5, ms=8, capsize=7, capthick=1.5);
   #--------
     if YLIM is None: YLIM = ([-0.05, 1.05]);
-    if XLIM is None: XLIM = [min(NrClust)-10, max(NrClust)+10]
+    if XLIM is None: XLIM = [min(NrClust[:,0])-10, max(NrClust[:,0])+10]
     plt.xticks(fontsize=21); plt.xlim(XLIM); plt.yticks(fontsize=21); plt.ylim(YLIM); plt.grid(); 
     plt.xlabel('number of clusters', fontsize=22); plt.ylabel('%s overlap' % Case, fontsize=22)
-    if LEGEND is not None:
-        plt.legend(LEGEND, numpoints=1, fontsize=19, loc=0, ncol=1,framealpha=0.65)
+    if LegendList is not None:
+        plt.legend(LegendList, numpoints=1, fontsize=17, loc=0, ncol=LegendNcols,framealpha=0.65)
     if SaveName != None and SaveDir != None:
         plt.savefig(SaveDir+SaveName)
         plt.close()
@@ -5691,10 +5720,10 @@ OUTPUT:
 #######################################################
 #--- ClusterSize vs Time for GLOBAL clustering 
 #################
-def Plot_ClusterSize_vs_Time_GLOBAL(ClusterDir, ClusterName, Threshold, StartEndList, TrajGrpList,
+def Plot_ClusterSize_vs_Time_GLOBAL(ClusterDir, ClusterFile, Threshold, StartEndList, TrajGrpList,
                                     SaveDir=None, SaveName=None, SndAxis=2, LegendList=None, YLIM=None, FigSize=(12,4)):
     """
-v15.02.17
+v30.03.17
 idea: 
     (1) use GLOBAL clustering with all trajectories and full lengths
     (2) extract from the GLOBAL Profile the different clusters which are occupied by the trajectories between Start:End
@@ -5702,7 +5731,7 @@ idea:
     (4) store "TrajNr | Threshold | Nr of Clusters" in Cluster_Glob[:,:,SimTimeIndex]
 INPUT:
     ClusterDir   : {STRING}     Directory, where effective Clustering output is located, e.g. 'effectiveClustering/';
-    ClusterName  : {STRING}     Clustering Name of GLOBAL effective clustering, which stores the FULL clustering profile,
+    ClusterFile  : {STRING}     Clustering Name of GLOBAL effective clustering, which stores the FULL clustering profile,
                             e.g. 'Profile_Met_ALLw1000_Ref_Met153_R0.1-0.13_0-10000_GLOBAL.txt'
     Threshold    : {FLOAT}      threshold for the effective clustering, must be in the ThresholdList of the File, e.g. 0.1;
     StartEndList : {TUPLE-LIST} (StartFrame,EndingFrame) tuples for which the total number of clusters are evaluated, 
@@ -5730,20 +5759,21 @@ OUTPUT:
     # all cMD clusters | # all aMD clusters | # all concat clusters for all different sim times
     ConcatClusterNumbers = NP.zeros( (len(TrajGrpList)+1, len(StartEndList)), dtype=int ) 
     # load only 0-10000 GLOBAL.txt
-    with open(ClusterDir+ClusterName, 'r') as INPUT:
+    with open(ClusterDir+ClusterFile, 'r') as INPUT:
         for line in INPUT:
             if len(line.split()) > 1 and line.split()[1] == 'ThresholdList':
                 ThresholdList = [float(elem) for elem in line[line.find('[')+1:line.find(']')].split(', ')]
                 break
             elif len(line.split()) > 1 and line.split()[1] == 'Threshold':
                 ThresholdList = [NP.float(line.split(' = ')[1])]
+                break
     #------------
-    if 'ThesholdList' not in locals():
-        raise ValueError('ThresholdList is not defined in\n\t%s%s' % (ClusterDir, ClusterName))
+    if 'ThresholdList' not in locals():
+        raise ValueError('ThresholdList is not defined in\n\t%s%s' % (ClusterDir, ClusterFile))
     elif ThresholdList.count(Threshold) == 0:
         raise ValueError('Threshold = %s is not in ThresholdList = %s' % (Threshold, ThresholdList))
     #------------
-    temp = NP.genfromtxt('%s%s' % (ClusterDir, ClusterName), usecols=(0,1,2+ThresholdList.index(Threshold)*6))
+    temp = NP.genfromtxt('%s%s' % (ClusterDir, ClusterFile), usecols=(0,1,2+ThresholdList.index(Threshold)*6))
     #############
     TimeIndex = 0
     for StartFrame, EndingFrame in StartEndList:
