@@ -9,7 +9,7 @@
 #
 # Author:     Mike Nemec <mike.nemec@uni-due.de>
 #
-# current version: v30.03.17-3
+# current version: v30.03.17-4
 #######################################################
 # tested with following program versions:
 #        Gromacs       v4.6 | v5.1 
@@ -5020,7 +5020,7 @@ def Plot_HeatMap_1vs1(OverlapDir, OverlapFile, Threshold, StartFrame, EndingFram
                       ClusterDir=None, ClusterFile=None, AllPrject=True, 
                       TrajExcept=[], Title='', Grid=[], CaseTitles=[], SaveDir=None, SaveName=None):
     """
-v16.02.17   
+v30.03.17   
 This function plots the heatmap of trajectory X vs trajectory Y (whereas GroupX vs GroupY should also work).
 - possibility to use AllPrject EITHER projection on both groups, OR lower triangular projection on X and upper on Y
 - Grid & CaseTitles give the possibility to split the Heatmap into different regions, where Grid gives the split coords
@@ -5033,9 +5033,9 @@ INPUT:
     Threshold       : {FLOAT}       Threshold used for the overlap calculation, for which the heatmap is generated,
                                         e.g. 0.2, has to match the ThresholdList of the Overlap file;
     StartFrame      : {INT}         starting frame of Trajectories, used for the clustering, should be the same as the overlapfile,
-                                        e.g. 0
+                                        e.g. 0;
     EndingFrame     : {INT}         ending frame of Trajectories, used for the clustering, should be the same as the overlapfile,
-                                        e.g. 2000
+                                        e.g. 2000;
     YLIM            : {FLOAT-LIST}  <default None>  defines the y-limits for the number of found clusters, e.g. [0,100];
     ClusterDir      : {STRING}      <default None>  Directory, where the clustering files are located, e.g. 'Clustering/';
     ClusterFile     : {STRING}      <default None>  Clustering file containing EITHER the centers OR a GLOBAL clustering profile, 
