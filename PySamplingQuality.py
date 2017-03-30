@@ -4521,7 +4521,7 @@ OUTPUT:
 def Plot_Slope_Error_Plateau_NrClust(SlopeDir, SlopeName, Threshold, Case, TimeStep, SaveDir=None, Confidence=0.95, 
                                      YMAX=50, Splitter=None, SupGrid=None, TrajExcept=[], FigText=None):
     """
-v28.10.16
+v30.03.17
     This function plots/analyzes ALL information stored in Slopes.txt of
             >> Generate_Slope_Error() <<
 
@@ -4618,7 +4618,7 @@ only stored if SaveDir/SaveName is not None else:
                 Splitter = [0+elem*len(SlopeArray[:,0])/SupGrid[0] for elem in range(1+SupGrid[0])]
                 Splitter = zip(Splitter[0:-1], Splitter[1:])
      #------------- FIGURE PLOT
-            fig = plt.figure(figsize=(max(17/24.*NP.unique(Splitter)[SupGrid[1]],4.1),8/2.*SupGrid[0]))
+            fig = plt.figure(figsize=(max(17/24.*NP.unique(Splitter)[SupGrid[1]],6.1),8/2.*SupGrid[0]))
             for Index in range(len(Splitter)):
                 K,L = Splitter[Index] #[Splitter[Index], Splitter[Index+1]]
               #### subplot GRID & MARGINS  
@@ -4626,7 +4626,7 @@ only stored if SaveDir/SaveName is not None else:
                 if len(SlopeArray[:,0]) > 5:
                     plt.subplots_adjust(wspace=0.01, hspace=0.4, left=0.085, right=0.99, bottom=0.10, top=0.86)
                 else:
-                    plt.subplots_adjust(wspace=0.01, hspace=0.4, left=0.265, right=0.89, bottom=0.16, top=0.69)
+                    plt.subplots_adjust(wspace=0.01, hspace=0.4, left=0.265, right=0.89, bottom=0.18, top=0.6)
 
          #---------- SLOPES
                 if Case == 'Entropy' or Case == 'Cluster':
@@ -4673,19 +4673,21 @@ only stored if SaveDir/SaveName is not None else:
                     YMAX = Ymax
               #### LEGEND
                 if Index == 0:
-                    if 17/30.*NP.unique(Splitter)[SupGrid[1]] > 4.1: NCOL = 10
-                    else: NCOL = 2
+                    if 17/30.*NP.unique(Splitter)[SupGrid[1]] > 4.1: 
+                        NCOL = 10; FONT = 19.5; Pll = 0;
+                    else: 
+                        NCOL = 2;  FONT = 15;   Pll = 0.2;
                     if Case == 'Plateau':
-                        plt.legend(['last cluster', 'largest cluster'], fontsize=19.5, 
-                               loc=3, bbox_to_anchor=(+0., 1.25, 2., 0.092), ncol=NCOL, borderaxespad=0., numpoints=1)
+                        plt.legend(['last cluster', 'largest cluster'], fontsize=FONT, 
+                               loc=3, bbox_to_anchor=(+0., 1.25+Pll, 2., 0.092), ncol=NCOL, borderaxespad=0., numpoints=1)
                     elif Case == 'Entropy':
                         plt.legend(['last %sns' % (SlopeTimeArray[0]*TimeStep), 'last %sns' % (SlopeTimeArray[1]*TimeStep), 
-                                    'last %sns' % (SlopeTimeArray[2]*TimeStep), 'last cluster'], fontsize=19.5, 
-                               loc=3, bbox_to_anchor=(+0., 1.25, 2., 0.092), ncol=NCOL, borderaxespad=0., numpoints=1)
+                                    'last %sns' % (SlopeTimeArray[2]*TimeStep), 'last cluster'], fontsize=FONT, 
+                               loc=3, bbox_to_anchor=(+0., 1.25+Pll, 2., 0.092), ncol=NCOL, borderaxespad=0., numpoints=1)
                     elif Case == 'Cluster':
                         plt.legend(['last %sns' % (SlopeTimeArray[0]*TimeStep), 'last %sns' % (SlopeTimeArray[1]*TimeStep), 
-                                    'last %sns' % (SlopeTimeArray[2]*TimeStep)], fontsize=19.5, 
-                               loc=3, bbox_to_anchor=(+0., 1.25, 2., 0.092), ncol=NCOL, borderaxespad=0., numpoints=1)
+                                    'last %sns' % (SlopeTimeArray[2]*TimeStep)], fontsize=FONT, 
+                               loc=3, bbox_to_anchor=(+0., 1.25+Pll, 2., 0.092), ncol=NCOL, borderaxespad=0., numpoints=1)
               #### grid of vertical lines AND 0 horizontally
                 for Kai in NP.arange(0,len(SlopeArray[K:L,0])-1,1)+0.5:
                     plt.axvline(Kai, ls='--', lw=2, color='grey')
