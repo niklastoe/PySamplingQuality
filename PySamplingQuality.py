@@ -9,7 +9,7 @@
 #
 # Author:     Mike Nemec <mike.nemec@uni-due.de>
 #
-# current version: v30.03.17-1
+# current version: v30.03.17-2
 #######################################################
 # tested with following program versions:
 #        Gromacs       v4.6 | v5.1 
@@ -5896,7 +5896,7 @@ def cmdlineparse():
 
 def GenerateIn(Module, FileName):
     """
-v12.10.16
+v30.03.17
 This function generates the config-files for all modules with possible examples, default values and explanations.
 
 INPUT:
@@ -5920,6 +5920,7 @@ OUTPUT:
                      'TYPE': '"float32" or "float64"',
                      'STRING/LIST': '(STRING) "Name" | (LIST) "Name1 Name2 Name3"',
                      'LIST,TUPLE,LIST': '"[([1],[3]), ([1,2],[3,4]), ([1,2],[3])]"',
+                     'LIST,LIST': '"[[1,2,3], [5]]"',
                      'FLOAT/INT': '(FLOAT) "0.1" | (INT) "3"',
                      'BOOL': '"False" or "True"',
                      'DICT': '{(Key1,Value1), (Key2,Value2)}',
@@ -5975,7 +5976,7 @@ v09.09.16
 
 def TransformConfigFile(String, Type):
     """
-v07.09.16    
+v30.03.17    
     """
     if String == "":
         return 'ERROR'
@@ -6011,7 +6012,7 @@ v07.09.16
     elif Type == 'BOOL':
         return String == 'True'
   #---------------
-    elif Type == 'LIST,TUPLE,LIST' or Type == 'INT' or Type == 'FLOAT' or \
+    elif Type == 'LIST,TUPLE,LIST' or Type == 'LIST,LIST' or Type == 'INT' or Type == 'FLOAT' or \
          Type == 'FLOAT/INT' or Type == 'DICT' or Type == 'TUPLE-LIST':
         return ast.literal_eval(String)
   #---------------
