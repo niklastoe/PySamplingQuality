@@ -9,7 +9,7 @@
 #
 # Author:     Mike Nemec <mike.nemec@uni-due.de>
 #
-# current version: v30.03.17-6
+# current version: v30.03.17-7
 #######################################################
 # tested with following program versions:
 #        Gromacs       v4.6 | v5.1 
@@ -2407,6 +2407,9 @@ OUTPUT:
         >> ALL SINGLE TRAJS | ALL X vs Y TRAJS | Concatenated Cases <<
     of the RMSD distributions for the submitted Trajectory Names
     """
+    if SaveDir is not None and SaveName is not None and os.path.exists(SaveDir+SaveName):
+        print 'Figure already exists\n%s%s' % (SaveDir, SaveName)
+        return
     import matplotlib.pyplot as plt
     logX=False; 
     Diag_dist    = NP.zeros( (Bins) )
@@ -4778,10 +4781,10 @@ OUTPUT:
     if SaveDir&SaveName is not None:
         the OverlaPvsThreshold.pdf is stored
     """
-    import matplotlib.pyplot as plt
     if SaveDir is not None and SaveName is not None and os.path.exists(SaveDir+SaveName):
         print 'Figure already exists\n%s%s' % (SaveDir, SaveName)
         return
+    import matplotlib.pyplot as plt
     Color = ['b', 'k', 'r', 'g', 'm', 'c', 'y', '0.5','0.8']
   
   ####################################
@@ -5060,10 +5063,10 @@ OUTPUT:
     (b2)                                   OR     submitting a GLOBAL clustering, where the numbers are extracted from
                                                   one GLOBAL partitioning depending how many clusters are reached by the traj
     """
-    import matplotlib.pyplot as plt
     if SaveDir is not None and SaveName is not None and os.path.exists(SaveDir+SaveName):
         print 'Figure already exists\n%s%s' % (SaveDir, SaveName)
         return
+    import matplotlib.pyplot as plt
   #----------
     #-----
     if os.path.exists('%s%s' % (ClusterDir, ClusterFile)):
@@ -5321,10 +5324,10 @@ INPUT:
     SaveName    : {STRING}                      save name, e.g. 'Molecule_Dendrogram_Specifications.pdf';
 OUTPUT:
     """
-    import matplotlib.pyplot as plt
     if SaveDir is not None and SaveName is not None and os.path.exists(SaveDir+SaveName):
         print 'Figure already exists\n%s%s' % (SaveDir, SaveName)
         return
+    import matplotlib.pyplot as plt
     #---- DENDROGRAM
     Heat_mat = Generate_1vs1_Matrix(OverlapDir, OverlapFile, Threshold, Case, True, TrajExcept)
     vals_dist = squareform(1-Heat_mat)
@@ -5405,10 +5408,10 @@ INPUT:
 OUTPUT:
     stores the OverlapVStime.pdf
     """
-    import matplotlib.pyplot as plt
     if SaveDir is not None and SaveName is not None and os.path.exists(SaveDir+SaveName):
         print 'Figure already exists\n%s%s' % (SaveDir, SaveName)
         return
+    import matplotlib.pyplot as plt
     #----- ERROR DETECTION -----#
     if not NP.all([elem.find('Start-End')+1 for elem in OverlapList]):
         raise ValueError('All Overlap-files in <OverlapList> must include >Start-End< as StartFrame-EndingFrame '+\
@@ -5614,6 +5617,9 @@ OUTPUT:
     plots the pareto plot overlap (dens/conf) vs. the number of clusters which are found by all trajectories involved
     in the overlap calculation [L of O(K,L;r)]
     """
+    if SaveDir is not None and SaveName is not None and os.path.exists(SaveDir+SaveName):
+        print 'Figure already exists\n%s%s' % (SaveDir, SaveName)
+        return
     import matplotlib.pyplot as plt
     if Case != 'density':
         Case = 'conformational'
@@ -5723,7 +5729,7 @@ OUTPUT:
 #--- ClusterSize vs Time for GLOBAL clustering 
 #################
 def Plot_ClusterSize_vs_Time_GLOBAL(ClusterDir, ClusterFile, Threshold, StartEndList, TrajGrpList,
-                                    SaveDir=None, SaveName=None, SndAxis=2, LegendList=None, YLIM=None, FigSize=(12,4)):
+                                    SaveDir=None, SaveName=None, SndAxis=2, LegendList=None, YLIM=None, FigSize=(12,5)):
     """
 v30.03.17
 idea: 
@@ -5748,13 +5754,17 @@ INPUT:
     LegendList   : {LIST}       <default None>   Legend for the single elements of the number of unique clusters, 
                             e.g. ['cMD', 'aMD', '# clusters of all cMD', '# clusters of all aMD'];
     YLIM         : {FLOAT-LIST} <default None>   defines the y-limits for the number of clusters;
-    FigSize      : {INT-LIST}   <default [12,4]> size of the figure (in inches), try to adjust this array depending on 
+    FigSize      : {INT-LIST}   <default [12,5]> size of the figure (in inches), try to adjust this array depending on 
                                                  the number of clusters and frames;
 OUTPUT:
     a) Plots number of unique clusters for every single trajectory defined in the TrajGrpList as boxplots
     b) plots number of unique clusters for COMBINED trajectories defined in the TrajGrpList as bar
     c) optional: shows in the 2nd axis the TOTAL number of ALL COMBINED trajectories in defined in the TrajGrpList
     """
+    if SaveDir is not None and SaveName is not None and os.path.exists(SaveDir+SaveName):
+        print 'Figure already exists\n%s%s' % (SaveDir, SaveName)
+        return
+    import matplotlib.pyplot as plt
     Color = [('0.4','k'), ('0.6', 'r'), ('0.8', 'g'), ('0.4','m'), ('0.6', 'b'), ('0.8', 'c')]
     # 12 trajs | trajNr+Threshold+NrClusts | sim Time
     Cluster_Glob = NP.zeros( (NP.sum([len(elem) for elem in TrajGrpList]), 3, len(StartEndList)) ) 
