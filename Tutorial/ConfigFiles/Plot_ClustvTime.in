@@ -1,0 +1,48 @@
+#### #### ####
+    # Config-File for the module <Plot_ClusterSize_vs_Time_GLOBAL()>. Ensure, that every parameter is set with the certain format
+    # given as an example (WITHIN ""). All optional parameters are initialized with their default parameters.
+    #### #### ####
+##  ##  ##  ##  ##
+### DESCRIPTION: ###
+# 
+# v30.03.17
+# idea: 
+#     (1) use GLOBAL clustering with all trajectories and full lengths
+#     (2) extract from the GLOBAL Profile the different clusters which are occupied by the trajectories between Start:End
+#     (3) count unique cluster centers = Nr of clusters for this simulation time and this trajectory/these trajectories
+#     (4) store "TrajNr | Threshold | Nr of Clusters" in Cluster_Glob[:,:,SimTimeIndex]
+# 
+##  ##  ##  ##  ##
+#-------------------------------------------
+# Directory, where effective Clustering output is located, e.g. 'effectiveClustering/'
+ClusterDir = "Clustering/"                 # <STRING> format example: (non-directory) "TEXT" | (directory) "TEXT/"
+#-------------------------------------------
+# Clustering Name of GLOBAL effective clustering, which stores the FULL clustering profile, e.g. 'Profile_Met_ALLw1000_Ref_Met153_R0.1-0.13_0-10000_GLOBAL.txt'
+ClusterFile = "Met_Amber_R0.1-0.15_0-1000_GLOBAL.txt"                # <STRING> format example: (non-directory) "TEXT" | (directory) "TEXT/"
+#-------------------------------------------
+# threshold for the effective clustering, must be in the ThresholdList of the File, e.g. 0.1
+Threshold = "0.1"                  # <FLOAT> format example: "203.12"
+#-------------------------------------------
+# (StartFrame,EndingFrame) tuples for which the total number of clusters are evaluated, e.g. [(0,100), (0,250), (0,500), (0,750), (0,1000), (0,1500), (0,2000)]
+StartEndList = "[(0,100), (0,200), (0,300), (0,400), (0,500), (0,600), (0,700), (0,800), (0,900), (0,1000)]"               # <TUPLE-LIST> format example: "[(0,100), (0,500), (0,1000)]"
+#-------------------------------------------
+# defines the trajectories which are concatenated into groups to evaluate the number of clusters, e.g. [[1,2,3], [5]] plots total number of unique clusters reached by trajs (1,2,3) and (5)
+TrajGrpList = "[[1], [2], [1,2]]"                # <LIST,LIST> format example: "[[1,2,3], [5]]"
+#-------------------------------------------
+# storing directory for the output figure, e.g. PDFs/
+SaveDir = "PDFs/"                    # <STRING> format example: (non-directory) "TEXT" | (directory) "TEXT/"
+#-------------------------------------------
+# storing name for the output figure, e.g. GlobalClustering_VS_time_result.pdf
+SaveName = "Met_Amber_ClusTvsTime.png"                   # <STRING> format example: (non-directory) "TEXT" | (directory) "TEXT/"
+#-------------------------------------------
+# <default 2>, =0 no 2nd axis, = 1 & if len(TrajGrpList) > 1, show 2nd axis as total number of both groups, = 2 show as 2nd axis TOTAL NUMBER for given time
+SndAxis = "2"                   # <INT> format example: "502"
+#-------------------------------------------
+# <default None> Legend for the single elements of the number of unique clusters, e.g. ['cMD', 'aMD', '# clusters of all cMD', '# clusters of all aMD']
+LegendList = "1 2 1+2"             # <LIST> format example: "Name1 Name2 Name3 Name4"
+#-------------------------------------------
+# <default None> defines the y-limits for the number of clusters
+YLIM = "None"                   # <FLOAT-LIST> format example: "0.1 0.2 0.3 0.4"
+#-------------------------------------------
+# <default [12,5]> size of the figure (in inches), try to adjust this array depending on the number of clusters and frames
+FigSize = "[12,4]"              # <INT-LIST> format example: "2 4 65 12 4 22"

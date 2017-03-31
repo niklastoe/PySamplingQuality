@@ -5,11 +5,13 @@
 ##  ##  ##  ##  ##
 ### DESCRIPTION: ###
 # 
-# v12.10.16   
+# v30.03.17   
 # This function plots the heatmap of trajectory X vs trajectory Y (whereas GroupX vs GroupY should also work).
 # - possibility to use AllPrject EITHER projection on both groups, OR lower triangular projection on X and upper on Y
 # - Grid & CaseTitles give the possibility to split the Heatmap into different regions, where Grid gives the split coords
 # - if a ClusterFile is submitted, the number of clusters with the same TrajNr/GroupNr is plotted below
+# - as clusterfile, it is possible to submit a GLOBAL clustering profile, where the number of clusters reached by single
+#     trajectories is extracted by hand
 # 
 ##  ##  ##  ##  ##
 #-------------------------------------------
@@ -17,16 +19,25 @@
 OverlapDir = "Overlap/"                 # <STRING> format example: (non-directory) "TEXT" | (directory) "TEXT/"
 #-------------------------------------------
 # Overlap file, which contains ALL X vs Y Pairs, then a heatmap matrix is constructed
-FileName = "Overlap_Met_Amber_0-1000_noWeight.txt"                   # <STRING> format example: (non-directory) "TEXT" | (directory) "TEXT/"
+OverlapFile = "Overlap_Met_Amber_0-1000_noWeight.txt"                # <STRING> format example: (non-directory) "TEXT" | (directory) "TEXT/"
 #-------------------------------------------
 # Threshold used for the overlap calculation, for which the heatmap is generated, e.g. 0.2, has to match the ThresholdList of the Overlap file
 Threshold = "0.15"                  # <FLOAT> format example: "203.12"
 #-------------------------------------------
+# starting frame of Trajectories, used for the clustering, should be the same as the overlapfile, e.g. 0
+StartFrame = "0"             # <INT> format example: "502"
+#-------------------------------------------
+# ending frame of Trajectories, used for the clustering, should be the same as the overlapfile, e.g. 2000
+EndingFrame = "0"                # <INT> format example: "502"
+#-------------------------------------------
+# <default None> defines the y-limits for the number of found clusters, e.g. [0,100]
+YLIM = "None"                   # <FLOAT-LIST> format example: "0.1 0.2 0.3 0.4"
+#-------------------------------------------
 # <default None> Directory, where the clustering files are located, e.g. 'Clustering/'
 ClusterDir = "Clustering/"             # <STRING> format example: (non-directory) "TEXT" | (directory) "TEXT/"
 #-------------------------------------------
-# <default None> Clustering file containing the centers, e.g. 'Cluster_Centers_LOCAL.txt'
-ClusterFileName = "Met_Amber_R0.1-0.15_0-1000_Centers_GLOBAL_singles.txt"        # <STRING> format example: (non-directory) "TEXT" | (directory) "TEXT/"
+# <default None> Clustering file containing EITHER the centers OR a GLOBAL clustering profile, e.g. 'Cluster_Centers_LOCAL.txt' OR 'Cluster_GLOBAL.txt'
+ClusterFile = "Met_Amber_R0.1-0.15_0-1000_Centers_GLOBAL_singles.txt"            # <STRING> format example: (non-directory) "TEXT" | (directory) "TEXT/"
 #-------------------------------------------
 # <default True> True - Heatmap is symmetric = overlap is projected on both groups X & Y, False- Heatmap is asymmetric = lower triangular projection on X, upper on Y
 AllPrject = "True"              # <BOOL> format example: "False" or "True"

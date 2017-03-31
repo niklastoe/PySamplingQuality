@@ -5,7 +5,7 @@
 ##  ##  ##  ##  ##
 ### DESCRIPTION: ###
 #  
-# v31.10.16
+# v15.02.17
 #     This function calculates the EventCurves using calculated RMSD matrices and possible aMD/sMD Weights: 
 #         - Events are the number of neighboring frames with Threshold < RMSD for each reference frame and for each traj
 #         - Events as a function of Simulation time
@@ -58,6 +58,9 @@ EndingFrame = "600"        # <INT> format example: "502"
 # <default None> defines into how many parts the single trajectories are split, due to memory reasons, 1. len(PartList) == len(TrajNameList) !! || 2. PartList = [1,2,3], (MD1.xtc -> MD1.xtc), (MD2.xtc -> MD2_part1.xtc, MD2_part2.xtc), (MD3.xtc -> MD3_part1.xtc, MD3_part2.xtc, MD3_part3.xtc), || 3. default PartList = None -> PartList = [1]*len(TrajNameList)
 PartList = "None"               # <INT-LIST> format example: "2 4 65 12 4 22"
 #-------------------------------------------
+# FORMAT, [GROMACS/BINARY] single precision 'float32', double precision 'float64', [AMBER/ELSE] 'None'
+BinFile_precision = "None"          # <TYPE> format example: "float32" or "float64"
+#-------------------------------------------
 # <default []> FOR RE-WEIGHTING ONLY, trajectory numbers which are generated with aMD e.g. [1,3,5] means trajNr 1,3,5 of TrajNameList are aMD trajectories
 aMD_Nrs = "[]"                  # <INT-LIST> format example: "2 4 65 12 4 22"
 #-------------------------------------------
@@ -88,8 +91,5 @@ Lambda = "1"                    # <FLOAT> format example: "203.12"
 # <default 10> FOR RE-WEIGHTING ONLY, Order for the MacLaurin expansion, ONLY NECESSARY IF aMD_reweight = 'McL'
 Order = "10"                    # <INT> format example: "502"
 #-------------------------------------------
-# FORMAT, [GROMACS/BINARY] single precision 'float32', double precision 'float64', [AMBER/ELSE] 'None'
-BinFile_precision = "None"          # <TYPE> format example: "float32" or "float64"
-#-------------------------------------------
-# <default 1> FOR RE-WEIGHTING ONLY, defines the number of MF iterations if aMD (aMD_reweight=MF) or sMD trajectories are present
+# <default 1> FOR RE-WEIGHTING ONLY, defines the number of MF iterations if aMD (aMD_reweight=MF) or sMD trajectories are present, for Iterations=-1, it iterates until convergence or 100000 steps
 Iterations = "1"                # <INT> format example: "502"

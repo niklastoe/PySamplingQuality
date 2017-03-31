@@ -5,7 +5,7 @@
 ##  ##  ##  ##  ##
 ### DESCRIPTION: ###
 #  
-# v18.11.16
+# v28.11.16
 # - calculates <conformational overlap> and <density overlap> : Overlap between different trajectories/groups 
 #   for different Threshold and reference Trajectories
 # - CompareList has to match the TrajNr in the EventCurves: the overlap is than calculated between the sets of trajectory numbers defined in CompareList

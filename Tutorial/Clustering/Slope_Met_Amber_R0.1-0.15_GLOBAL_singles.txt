@@ -4,7 +4,7 @@
 # 	(iii) last 100 frames
 # 	(iv) last 250 frames
 # 	(v) last 500 frames
-# elapsed time = 1474013248.48 seconds
+# elapsed time = 1490972392.77 seconds
 # SlopeTimeArray = [100, 250, 500]
 #   TrajNameList = ['Met_Amber1_stripped', 'Met_Amber2_stripped']
 #   TrjLenList = [1000, 1000]

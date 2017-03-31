@@ -9,7 +9,6 @@
 # 	COL_TrajNrList           = None
 # 	aMD_Nrs                  = []
 # 	sMD_Nrs                  = []
-# 	AllPrject                = True
 # 		TrajNameList           = ['Met_Amber1_stripped', 'Met_Amber2_stripped']
 # 		ThresholdList             = [0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4]
 # 		StartFrame             = [0, 0]
@@ -20,7 +19,7 @@
 # 		Lambda                 = 1
 # 		Order                  = 10
 # 
-# calculation time = 0.04 seconds
+# calculation time = 0.01 seconds
 # 
 # 	densO has to be averaged for different trajectory Nr projections
 # 	Err   is the standard error of the mean, which is taken for the weighted average calculation for different trajectory projections
@@ -28,16 +27,23 @@
 # 	TotFrames means the total number of frames of the certain trajectory group
 # 	confO and TotFrames have to be summed for different trajectory Nr projections
 # 		and then divided to obtain the real conformational overlap value
-# 	GroupNr monitors the number of the comparing group of [X]vs[Y]vs... meaning that
-# 		the overlap value corresponds to the projection on the i-th group
-# 		-1 means projection on all groups, then densO +- Err means the weighted average for different trajectory projections
+# 	GroupNr monitors the number of the comparing group of [X]vs[Y]vs... (K of O(K,L:r)) meaning that
+# 		the overlap value corresponds to the reference trajectory (set) of the K-th group
 # 
 # GroupNr | Threshold | [densO|Err|confO|TotFrames] of [1]vs.[2] | 
--1 0.05    0.0186 0.0043 22 600
--1 0.1    0.1086 0.0084 289 600
--1 0.15    0.2616 0.0095 595 600
--1 0.2    0.4323 0.0081 600 600
--1 0.25    0.6304 0.0137 600 600
--1 0.3    0.8120 0.0073 600 600
--1 0.35    0.9397 0.0034 600 600
--1 0.4    0.9924 0.0008 600 600
+1 0.05    0.0201 0.0128 11 300
+2 0.05    0.0174 0.0101 11 300
+1 0.1    0.1032 0.0440 110 300
+2 0.1    0.1137 0.0410 179 300
+1 0.15    0.2530 0.0606 297 300
+2 0.15    0.2686 0.0491 298 300
+1 0.2    0.4340 0.0503 300 300
+2 0.2    0.4312 0.0318 300 300
+1 0.25    0.6137 0.0436 300 300
+2 0.25    0.6417 0.0294 300 300
+1 0.3    0.8035 0.0288 300 300
+2 0.3    0.8182 0.0211 300 300
+1 0.35    0.9375 0.0089 300 300
+2 0.35    0.9412 0.0057 300 300
+1 0.4    0.9921 0.0008 300 300
+2 0.4    0.9925 0.0002 300 300

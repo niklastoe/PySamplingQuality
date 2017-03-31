@@ -3,7 +3,7 @@
 # >> normalized Nr of Cluster vs Time <<
 # >> Entropy vs Time <<
 # >> normalized Entropy vs Time <<
-# elapsed time = 0.87 seconds
+# elapsed time = 1.51 seconds
 #  ThresholdList = [0.1, 0.15]
 #  TrajNameList = ['Met_Amber1_stripped', 'Met_Amber2_stripped']
 #  TrjLenList = [1000, 1000]
@@ -11,6 +11,7 @@
 #  TimeStep = 1
 #  StartFrame = 0
 #  EndingFrame = 1000
+#  ReferencePDB = Trajectories/Met_Amber2_stripped.pdb
 #                   |             Threshold = 0.1                |r=0.15
 #    Frame | TrajNr | NrClusts | normNrClusts | CDE | normCDE | ... 
 # 

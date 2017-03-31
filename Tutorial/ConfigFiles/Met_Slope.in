@@ -5,7 +5,7 @@
 ##  ##  ##  ##  ##
 ### DESCRIPTION: ###
 # 
-# v12.10.16
+# v15.02.17
 # - this function calculates & stores the 
 #         >> Entropy Slope <<
 #         >> Entropy Error = standard error of the slope estimate <<
@@ -15,7 +15,7 @@
 # - SlopeTimeArray [must contain 3 values] defines the number of FRAMES which are used for the LINEAR REGRESSION
 # - automatically extracts the <Clustering Case> and <ThresholdList> from the submitted <EntropyName>-file
 # - X_NormFactor defines, how many frames correspond to X-value increase of one, i.e.
-#     - X_NormFactor=1000 means the X-value increases in 1000 steps by 1
+#     - X_NormFactor=1000 means the Y-value increases in 1000 steps by 1
 #     - if 1000 steps mean 100ns, then over 100ns the Entropy is raised by the corresponding slope
 #     - thus the slopes are normalized by X_NormFactor
 # 

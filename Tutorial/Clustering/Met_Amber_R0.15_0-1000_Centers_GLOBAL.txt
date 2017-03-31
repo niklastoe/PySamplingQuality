@@ -1,5 +1,5 @@
 # # This File stores the ClusterProfile/Centers using >>ClosestCenters<< of the given TrajNameList
-# # elapsed time: 20.81 seconds
+# # elapsed time: 16.47 seconds
 # # Threshold = 0.15
 # # TrajNameList = ['Met_Amber1_stripped', 'Met_Amber2_stripped']
 # # TrjLenList = [1000, 1000]
@@ -7,6 +7,7 @@
 # # TimeStep = 1
 # # StartFrame = 0
 # # EndingFrame = 1000
+# # ReferencePDB = Trajectories/Met_Amber2_stripped.pdb
 # # *******
 # # GLOBAL PROFILE: Radius = 0.15
 # # *******

@@ -5,11 +5,15 @@
 ##  ##  ##  ##  ##
 ### DESCRIPTION: ###
 # 
-# v21.11.16
+# v16.02.17
 #     This function plots the overlap as a function of the cluster of all combined trajectories which were used for the 
 #     overlap calculation
 #     - the clustering must contain ALL trajectories with the same trajectory numbering as in the overlap files
 #     - Symbols follow the matplotlib plot logic, which contains 2 characters: 1st = color; 2nd = marker
+#     - #clusters are extracted from one PROFILE (preferably GLOBAL) using  the same StartFrame:EndingFrames as in OverlapList
+#     - possibility to use 
+#         (a) EITHER Combi=True:  # clusters correspond to unique combination of all clusters found by the multiple trajectories
+#         (b) OR     Combi=False: # clusters correspond to single trajectories, and distribution is shown as average/median with percentiles
 # 
 ##  ##  ##  ##  ##
 #-------------------------------------------
@@ -25,8 +29,8 @@ Threshold = "0.15"                  # <FLOAT> format example: "203.12"
 # Directory, where the clustering files are located, e.g. 'Clustering/'
 ClusterDir = "Clustering/"                 # <STRING> format example: (non-directory) "TEXT" | (directory) "TEXT/"
 #-------------------------------------------
-# Clustering file containing the global partitioning centers, e.g. 'Cluster_Centers_GLOBAL_singles.txt'
-Centers_GLOBAL_singles = "Met_Amber_R0.1-0.15_0-1000_Centers_GLOBAL_singles.txt"     # <STRING> format example: (non-directory) "TEXT" | (directory) "TEXT/"
+# Clustering file containing the Profiles, preferably from GLOBAL, e.g. 'Cluster_GLOBAL.txt'
+ClusterFile = "Met_Amber_R0.1-0.15_0-1000_GLOBAL.txt"                # <STRING> format example: (non-directory) "TEXT" | (directory) "TEXT/"
 #-------------------------------------------
 # <default density> density or conformational for the corresponding overlap
 Case = "density"                # <STRING> format example: (non-directory) "TEXT" | (directory) "TEXT/"
@@ -39,6 +43,9 @@ YLIM = "None"                   # <FLOAT-LIST> format example: "0.1 0.2 0.3 0.4"
 #-------------------------------------------
 # <default None> Legend for the single elements of the OverlapList1, e.g. ['ALL','AvsB']
 LegendList = "1vs2"             # <LIST> format example: "Name1 Name2 Name3 Name4"
+#-------------------------------------------
+# <default 1> number of columns in the displayed Legend, to fit into the plot
+LegendNcols = "1"               # <INT> format example: "502"
 #-------------------------------------------
 # <default 25> Value of the 1st percentile [in %], e.g. 25 for the 1st quartile
 Percentile1 = "0"              # <INT> format example: "502"
@@ -57,6 +64,15 @@ SaveDir = "PDFs/"                # <STRING> format example: (non-directory) "TEX
 #-------------------------------------------
 # <default None> savename, e.g. 'OverlaPvsCluster.pdf'
 SaveName = "Met_Amber_OverlaPvsCluster.png"               # <STRING> format example: (non-directory) "TEXT" | (directory) "TEXT/"
+#-------------------------------------------
+# <default ''> title of the plot, e.g. 'Molecule, r=0.11nm'
+Title = "''"                    # <STRING> format example: (non-directory) "TEXT" | (directory) "TEXT/"
+#-------------------------------------------
+# <default [7,6]> size of the figure (in inches)
+FigSize = "[7,6]"               # <INT-LIST> format example: "2 4 65 12 4 22"
+#-------------------------------------------
+# <default True> if True, #cluster = trajectory combination, else, #cluster = distribution of single trajectories
+Combi = "True"                  # <BOOL> format example: "False" or "True"
 #-------------------------------------------
 # <default bs ks rs gs ko ro go k^ r^ g^> color and marker for the symbols, 1st character = color, 2nd character = marker, b = blue, k = black, r = red, g = green, ..., s = square, o = circle, ^ = triangle, * = star, h = hexagon, ...
 Symbols = "bs ks rs gs ko ro go k^ r^ g^" # <LIST> format example: "Name1 Name2 Name3 Name4"

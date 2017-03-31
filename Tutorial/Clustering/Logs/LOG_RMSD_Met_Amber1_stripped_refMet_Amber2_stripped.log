@@ -1,0 +1,61 @@
+
+CPPTRAJ: Trajectory Analysis. V14.25
+    ___  ___  ___  ___
+     | \/ | \/ | \/ | 
+    _|_/\_|_/\_|_/\_|_
+	Reading 'Trajectories/Met_Amber_stripped.top' as Amber Topology
+INPUT: Reading Input from file Clustering/RMSD_Met_Amber1_stripped_refMet_Amber2_stripped.in
+  [trajin Trajectories/Met_Amber1_stripped.netcdf 1 last 1]
+	Reading 'Trajectories/Met_Amber1_stripped.netcdf' as Amber Trajectory
+Warning: Trajectory only contains box lengths and topology has no box info.
+Warning: To set box angles for topology use the 'parmbox' command.
+  [reference Trajectories/Met_Amber2_stripped.pdb]
+	Reading 'Trajectories/Met_Amber2_stripped.pdb' as PDB
+	Read CRYST1 info from PDB: a=39.88 b=39.88 c=39.88 alpha=109.47 beta=109.47 gamma=109.47
+	'Met_Amber2_stripped.pdb' is a PDB file, Parm Trajectories/Met_Amber_stripped.top (Non-orthogonal box) (reading 1 of 1)
+	Read CRYST1 info from PDB: a=39.88 b=39.88 c=39.88 alpha=109.47 beta=109.47 gamma=109.47
+  [rms reference mass out Clustering/RMSD_Met_Amber1_stripped_refMet_Amber2_stripped.xvg @N,CA,C ]
+	Reference mask: [@N,CA,C](17)
+    RMSD: (@N,CA,C), reference is reference frame Met_Amber2_stripped.pdb (@N,CA,C), with fitting, mass-weighted.
+---------- RUN BEGIN -------------------------------------------------
+
+PARAMETER FILES:
+ 0: 'Trajectories/Met_Amber_stripped.top', 84 atoms, 7 res, box: None, 1 mol, 1000 frames
+
+INPUT TRAJECTORIES:
+ 0: 'Met_Amber1_stripped.netcdf' is an AMBER trajectory, Parm Trajectories/Met_Amber_stripped.top (reading 1000 of 1000)
+  Coordinate processing will occur on 1000 frames.
+
+REFERENCE FRAMES (1 total):
+    0: 'Trajectories/Met_Amber2_stripped.pdb', frame 1
+	Active reference frame for masks is 0
+TIME: Run Initialization took 0.0000 seconds.
+
+BEGIN TRAJECTORY PROCESSING:
+.....................................................
+ACTION SETUP FOR PARM 'Trajectories/Met_Amber_stripped.top' (1 actions):
+  0: [rms reference mass out Clustering/RMSD_Met_Amber1_stripped_refMet_Amber2_stripped.xvg @N,CA,C ]
+	Target mask: [@N,CA,C](17)
+----- Met_Amber1_stripped.netcdf (1-1000, 1) -----
+ 0% 10% 20% 30% 40% 50% 60% 70% 80% 90% 100% Complete.
+
+Read 1000 frames and processed 1000 frames.
+TIME: Trajectory processing: 0.0284 s
+TIME: Avg. throughput= 35201.3517 frames / second.
+
+ACTION OUTPUT:
+
+DATASETS:
+  1 data set:
+	RMSD_00000 "RMSD_00000" (double, rms), size is 1000
+
+DATAFILES:
+  RMSD_Met_Amber1_stripped_refMet_Amber2_stripped.xvg (Standard Data File):  RMSD_00000
+---------- RUN END ---------------------------------------------------
+TIME: Total execution time: 0.0301 seconds.
+--------------------------------------------------------------------------------
+To cite CPPTRAJ use:
+Daniel R. Roe and Thomas E. Cheatham, III, "PTRAJ and CPPTRAJ: Software for
+  Processing and Analysis of Molecular Dynamics Trajectory Data". J. Chem.
+  Theory Comput., 2013, 9 (7), pp 3084-3095.
+

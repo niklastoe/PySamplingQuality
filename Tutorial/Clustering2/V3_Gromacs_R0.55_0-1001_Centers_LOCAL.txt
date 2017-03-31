@@ -1,5 +1,5 @@
 # This File stores the ClusterProfile/Centers using >>ClosestCenters<< of the given TrajNameList
-# elapsed time: 0.04 seconds
+# elapsed time: 0.05 seconds
 # Threshold = 0.55
 # TrajNameList = ['V3_Gromacs1_stripped', 'V3_Gromacs2_stripped']
 # TrjLenList = [1001, 1001]
@@ -7,6 +7,7 @@
 # TimeStep = 0.1
 # StartFrame = 0
 # EndingFrame = 1001
+# ReferencePDB = None
 # *******
 # LOCAL PROFILE: Radius = 0.55
 # *******

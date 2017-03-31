@@ -1,9 +1,14 @@
 # PySamplingQuality
 _Released under the GNU General Public License version 3 by MikeN12_
 
-The actual version of PySamplingQuality.py is (15.02.17-1), and the tutorial needs to be modified!
+The actual version of PySamplingQuality.py is (31.03.17-1). The tool is based on the paper:
 
-v25.11.16
+Paper:        Quantitative assessment of molecular dynamics sampling for flexible systems
+Authors:      Mike Nemec and Daniel Hoffmann
+published in: Journal of Chemical Theory and Computation, 2017, 13 (2), pp 400-414
+DOI:          10.1021/acs.jctc.6b00823
+
+v31.03.17
 
 Python tool to assess the sampling quality of Molecular Dynamics (MD) simulations using multiple trajectories
 
@@ -33,6 +38,7 @@ Checked version is released with the following modules:
         Plot_HeatMap_as_Dendro()
         Plot_Overlap_VS_Time()
         Plot_Overlap_VS_Cluster()
+        Plot_ClusterSize_vs_Time_GLOBAL()
 
 It is possible, to split trajectories into smaller pieces to fit into the memory of the computation node.
 

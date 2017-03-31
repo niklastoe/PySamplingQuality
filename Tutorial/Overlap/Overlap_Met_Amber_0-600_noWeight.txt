@@ -9,7 +9,6 @@
 # 	COL_TrajNrList           = None
 # 	aMD_Nrs                  = []
 # 	sMD_Nrs                  = []
-# 	AllPrject                = True
 # 		TrajNameList           = ['Met_Amber1_stripped', 'Met_Amber2_stripped']
 # 		ThresholdList             = [0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4]
 # 		StartFrame             = [0, 0]
@@ -20,7 +19,7 @@
 # 		Lambda                 = 1
 # 		Order                  = 10
 # 
-# calculation time = 0.08 seconds
+# calculation time = 0.02 seconds
 # 
 # 	densO has to be averaged for different trajectory Nr projections
 # 	Err   is the standard error of the mean, which is taken for the weighted average calculation for different trajectory projections
@@ -28,16 +27,23 @@
 # 	TotFrames means the total number of frames of the certain trajectory group
 # 	confO and TotFrames have to be summed for different trajectory Nr projections
 # 		and then divided to obtain the real conformational overlap value
-# 	GroupNr monitors the number of the comparing group of [X]vs[Y]vs... meaning that
-# 		the overlap value corresponds to the projection on the i-th group
-# 		-1 means projection on all groups, then densO +- Err means the weighted average for different trajectory projections
+# 	GroupNr monitors the number of the comparing group of [X]vs[Y]vs... (K of O(K,L:r)) meaning that
+# 		the overlap value corresponds to the reference trajectory (set) of the K-th group
 # 
 # GroupNr | Threshold | [densO|Err|confO|TotFrames] of [1]vs.[2] | 
--1 0.05    0.0919 0.0066 222 1200
--1 0.1    0.2854 0.0372 1089 1200
--1 0.15    0.4723 0.0279 1200 1200
--1 0.2    0.6692 0.0045 1200 1200
--1 0.25    0.8075 0.0032 1200 1200
--1 0.3    0.9089 0.0025 1200 1200
--1 0.35    0.9745 0.0012 1200 1200
--1 0.4    0.9975 0.0003 1200 1200
+1 0.05    0.0855 0.0537 88 600
+2 0.05    0.0978 0.0496 134 600
+1 0.1    0.2444 0.0576 505 600
+2 0.1    0.3191 0.0473 584 600
+1 0.15    0.4403 0.0415 600 600
+2 0.15    0.4966 0.0315 600 600
+1 0.2    0.6711 0.0272 600 600
+2 0.2    0.6676 0.0220 600 600
+1 0.25    0.8051 0.0149 600 600
+2 0.25    0.8093 0.0109 600 600
+1 0.3    0.9081 0.0078 600 600
+2 0.3    0.9097 0.0074 600 600
+1 0.35    0.9750 0.0017 600 600
+2 0.35    0.9741 0.0018 600 600
+1 0.4    0.9975 0.0001 600 600
+2 0.4    0.9974 0.0001 600 600

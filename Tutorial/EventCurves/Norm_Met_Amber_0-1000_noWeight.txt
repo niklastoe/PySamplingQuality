@@ -1,7 +1,7 @@
 # this file contains the <EventMatrix> / <NormMatrix> / <enhancedMatrix> / <enhancedNorm> for the different trajectories calculating
 # 		>> EventMatrix/enhancedMatrix: << the amount of frames (re-weighted) within a certain threshold r
 # 		>> NormMatrix/enhancedNorm:    << the total amount of frames (re-weighted) for a certain threshold
-# 	calculation time: 2.95 seconds
+# 	calculation time: 3.21 seconds
 # 	INPUT:
 # 		TrajNameList = ['Met_Amber1_stripped', 'Met_Amber2_stripped']
 # 		ThresholdList = [0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4]

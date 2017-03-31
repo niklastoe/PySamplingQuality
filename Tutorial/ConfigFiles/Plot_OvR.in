@@ -5,7 +5,7 @@
 ##  ##  ##  ##  ##
 ### DESCRIPTION: ###
 # 
-# v18.11.16
+# v14.01.17
 # This function generates the plots "Overlap vs Threshold r" for conf/dens + the corresponding integral.
 # - uses always ALL K reference trajectories
 # - possibility to submit multiple OverlapMatrices to plot for instance multiple groups together

@@ -3,7 +3,7 @@
 # >> normalized Nr of Cluster vs Time <<
 # >> Entropy vs Time <<
 # >> normalized Entropy vs Time <<
-# elapsed time = 0.29 seconds
+# elapsed time = 0.97 seconds
 #  ThresholdList = [0.2, 0.4, 0.55]
 #  TrajNameList = ['V3_Gromacs1_stripped', 'V3_Gromacs2_stripped']
 #  TrjLenList = [1001, 1001]
@@ -11,6 +11,7 @@
 #  TimeStep = 0.1
 #  StartFrame = 0
 #  EndingFrame = 1001
+#  ReferencePDB = None
 #                   |             Threshold = 0.2                |r=0.4 |r=0.55
 #    Frame | TrajNr | NrClusts | normNrClusts | CDE | normCDE | ...  | ... 
 # 

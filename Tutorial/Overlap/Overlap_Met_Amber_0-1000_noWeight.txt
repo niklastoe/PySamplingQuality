@@ -19,7 +19,7 @@
 # 		Lambda                 = 1
 # 		Order                  = 10
 # 
-# calculation time = 0.06 seconds
+# calculation time = 0.02 seconds
 # 
 # 	densO has to be averaged for different trajectory Nr projections
 # 	Err   is the standard error of the mean, which is taken for the weighted average calculation for different trajectory projections

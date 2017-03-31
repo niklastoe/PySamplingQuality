@@ -5,7 +5,7 @@
 ##  ##  ##  ##  ##
 ### DESCRIPTION: ###
 # 
-# v12.10.16
+# v15.02.17
 # Calculates and generates the LOCAL or GLOBAL PROFILE & CENTROIDS for effective clustering for the submitted 
 # trajectories, 
 #     - using Generate_reference_for_Clustering() & Return_FullColRMSD()
@@ -73,6 +73,9 @@ PartList = "None"               # <INT-LIST> format example: "2 4 65 12 4 22"
 # <default True> if True, a GLOBAL clustering is applied for all concatenated trajectories if False, every trajectory is clustered separately
 GLOBAL = "True"                 # <BOOL> format example: "False" or "True"
 #-------------------------------------------
+# FORMAT, [GROMACS/BINARY] single precision 'float32', double precision 'float64', [AMBER/ELSE] 'None'
+BinFile_precision = "None"          # <TYPE> format example: "float32" or "float64"
+#-------------------------------------------
 # <default None> ONLY NECESSARY IF ReferencePDB is not None! directory, where to store possible RMSD curves to a submitted reference, if is None, RMSDdir = SaveDir
 RMSDdir = "None"                # <STRING> format example: (non-directory) "TEXT" | (directory) "TEXT/"
 #-------------------------------------------
@@ -105,9 +108,6 @@ Program_Suffix = "''"           # <STRING> format example: (non-directory) "TEXT
 #-------------------------------------------
 # <default None> ONLY NECESSARY IF ReferencePDB is not None! possible reference, to which the RMSD between all trajectories are calculated, then the closest structure is the starting point for the clustering e.g. 'Crystalstructure.pdb'
 ReferencePDB = "Met_Amber2_stripped.pdb"           # <STRING> format example: (non-directory) "TEXT" | (directory) "TEXT/"
-#-------------------------------------------
-# FORMAT, [GROMACS/BINARY] single precision 'float32', double precision 'float64', [AMBER/ELSE] 'None'
-BinFile_precision = "None"          # <TYPE> format example: "float32" or "float64"
 #-------------------------------------------
 # <default None> possibility to submit a frame, which is the first centroid for the clustering, 0 means the first frame of the trajectories, None means, it tries to calculate RMSD curves using GROMACS or AMBER if ReferencePDB is not None
 RefFrame = "None"               # <INT> format example: "502"
