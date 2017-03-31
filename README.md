@@ -3,10 +3,10 @@ _Released under the GNU General Public License version 3 by MikeN12_
 
 The actual version of PySamplingQuality.py is (31.03.17-1). The tool is based on the paper:
 
-Paper:        Quantitative assessment of molecular dynamics sampling for flexible systems
-Authors:      Mike Nemec and Daniel Hoffmann
-published in: Journal of Chemical Theory and Computation, 2017, 13 (2), pp 400-414
-DOI:          10.1021/acs.jctc.6b00823
+        Paper:        Quantitative assessment of molecular dynamics sampling for flexible systems
+        Authors:      Mike Nemec and Daniel Hoffmann
+        published in: Journal of Chemical Theory and Computation, 2017, 13 (2), pp 400-414
+        DOI:          10.1021/acs.jctc.6b00823
 
 v31.03.17
 
