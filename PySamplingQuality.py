@@ -9,7 +9,7 @@
 #
 # Author:     Mike Nemec <mike.nemec@uni-due.de>
 #
-# current version: v31.03.17-1
+# current version: v05.04.17-1
 #######################################################
 # tested with following program versions:
 #        Gromacs       v4.6 | v5.1 
@@ -737,7 +737,7 @@ OUTPUT:
                                  Params if Params != 'Iterations' else 'Weight Iterations', EventNamesList))
     #### #### ####
     HEADER = '\t\tTrajNameList           = {}\n'.format(TrajNameList)+\
-             '\t\tThresholdList             = {}\n'.format(ThresholdList)+\
+             '\t\tThresholdList          = {}\n'.format(ThresholdList)+\
              '\t\tStartFrame             = {}\n'.format(StartFrame)+\
              '\t\tEndingFrame            = {}\n'.format(EndingFrame)+\
              '\t\taMD/sMD MF Iterations  = {}\n'.format(Iterations)+\
@@ -1711,7 +1711,7 @@ def Generate_RMSD_Matrix(TrajDir, TopologyDir, TrajName, TopologyName, DistSaveD
                         Select1, Select2=None, TimeStep=None, AmberHome='', GromacsHome='', Begin=None, End=None, 
                         SecondTraj=None, Fit='rot+trans', Program_Suffix='', ReferencePDB=None, Bin=True):
     """
-v31.03.17
+v05.04.17
     - RMSD matrix generation for given Trajectory using Gromacs v4.6.7|5.1.2 or AmberTools14
     - it tries to automatically detect AMBER/GROMACS Trajs:
         1. if Select2 is     None or TrajName = <.netcdf or .nc> -> AMBER
@@ -1784,7 +1784,8 @@ OUTPUT:
                                   'define the ending frame of the trajectory, try >"last"< for all frames')
                 raise ValueError(('The >End = %s< you have specified is not an >int< or not "last"\n' % End)+\
                                   'define the ending frame of the trajectory, try >"last"< for all frames')
-            if not os.path.exists('%scpptraj' % AmberHome) and not os.path.exists('%s/bin/cpptraj' % (os.environ.copy()['AMBERHOME'])):
+            if not os.path.exists('%scpptraj' % AmberHome) and \
+                    (not os.environ.copy().has_key('AMBERHOME') or not os.path.exists('%s/bin/cpptraj' % (os.environ.copy()['AMBERHOME']))):
                 print ('You are trying to calculate RMSD (matrix) using Amber\n\t'+\
                                 ('>> %scpptraj << not found\n' % AmberHome)+\
                                 ('CHECK your >> AmberHome=%s<< value' % AmberHome))
@@ -1822,20 +1823,21 @@ OUTPUT:
             elif os.environ.copy().has_key('AMBERHOME') and os.path.exists('%s/bin/cpptraj' % (os.environ.copy()['AMBERHOME'])):
                 Command = ['%s/bin/cpptraj' % (os.environ.copy()['AMBERHOME']), '-p', '%s%s' % (TopologyDir, TopologyName), 
                                                  '-i', '%s%s.in' % (MatrixSaveDir, SaveName)]
-            else:
-                raise OSError('Something went wrong, probably cpptraj of AMBER was not found: check whether cpptraj can be found in\n\t%scpptraj\nor\n\t%s/bin/cpptraj' % \
-                                (AmberHome, ' ' if not os.environ.copy().has_key('AMBERHOME') else os.environ.copy()['AMBERHOME']))
-            CPPTRAJ = SB.Popen(Command, stdout=SB.PIPE, stderr=SB.STDOUT)
-            Out, _ = CPPTRAJ.communicate()
+            try:
+                CPPTRAJ = SB.Popen(Command, stdout=SB.PIPE, stderr=SB.STDOUT)
+                Out, _ = CPPTRAJ.communicate()
+            raise OSError('Something went wrong, probably cpptraj of AMBER was not found: check whether cpptraj can be found in\n\t%scpptraj\nor\n\t%s/bin/cpptraj' % \
+                            (AmberHome, ' ' if not os.environ.copy().has_key('AMBERHOME') else os.environ.copy()['AMBERHOME']))
             with open('%sLogs/LOG_%s.log' % (MatrixSaveDir, SaveName), 'w') as LOG_OUT:
                 LOG_OUT.write(Out)
           #---- 
         elif Select2 is not None or TrajName.split('.')[-1] == 'xtc' or TrajName.split('.')[-1] == 'trr': # GROMACS
      #### GROMACS ####
             if not os.path.exists('%sg_rms%s' % (GromacsHome, Program_Suffix)) and \
-               not os.path.exists('%s/g_rms%s' % (os.environ.copy()['GMXBIN'], Program_Suffix)) and \
                not os.path.exists('%sgmx%s' % (GromacsHome, Program_Suffix)) and \
-               not os.path.exists('%s/gmx%s' % (os.environ.copy()['GMXBIN'], Program_Suffix)):
+               (not os.environ.copy().has_key('GMXBIN') or \
+                   (not os.path.exists('%s/g_rms%s' % (os.environ.copy()['GMXBIN'], Program_Suffix)) and \
+                    not os.path.exists('%s/gmx%s' % (os.environ.copy()['GMXBIN'], Program_Suffix)))):
                 print ('You are trying to calculate RMSD (matrix) using Gromacs\n\t'+\
                                 ('Neither >>%sg_rms%s<< nor >>%sgmx%s<< found\n' % \
                                 (GromacsHome, Program_Suffix, GromacsHome, Program_Suffix))+\
@@ -1850,10 +1852,10 @@ OUTPUT:
           #---- Command for RMS
             if os.path.exists('%sg_rms%s' % (GromacsHome, Program_Suffix)): # gromacs v4.6.7
                 Command = ['%sg_rms%s' % (GromacsHome, Program_Suffix)]
-            elif os.path.exists('%s/g_rms%s' % (os.environ.copy()['GMXBIN'], Program_Suffix)): # gromacs v4.6.7
-                Command = ['%sg_rms%s' % (GromacsHome, Program_Suffix)]
             elif os.path.exists('%sgmx%s' % (GromacsHome, Program_Suffix)):
                 Command = ['%sgmx%s' % (GromacsHome, Program_Suffix), 'rms']
+            elif os.path.exists('%s/g_rms%s' % (os.environ.copy()['GMXBIN'], Program_Suffix)): # gromacs v4.6.7
+                Command = ['%sg_rms%s' % (os.environ.copy()['GMXBIN'], Program_Suffix)]
             elif os.path.exists('%s/gmx%s' % (os.environ.copy()['GMXBIN'], Program_Suffix)):
                 Command = ['%sgmx%s' % (os.environ.copy()['GMXBIN'], Program_Suffix), 'rms']
             Command.extend(['-f', '%s%s' % (TrajDir, TrajName),
@@ -1880,7 +1882,7 @@ OUTPUT:
             try:
                 RMSD = SB.Popen(Command, stdin=SB.PIPE, stdout=SB.PIPE, stderr=SB.STDOUT)
                 Out, _ = RMSD.communicate('%s\n%s\n' % (Select1, Select2))
-            except OSError:
+            except:
                 raise OSError('Something went wrong, probably the GROMACS RMSD tool was not found: check the following Command\n*****\n\t%s\n*****' % ' '.join(Command))
             with open('%sLogs/LOG_%s.log' % (MatrixSaveDir, SaveName), 'w') as LOG_OUT:
                 LOG_OUT.write(Out)
