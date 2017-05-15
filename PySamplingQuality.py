@@ -9,7 +9,13 @@
 #
 # Author:     Mike Nemec <mike.nemec@uni-due.de>
 #
-# current version: v05.04.17-1
+# Paper:      Mike Nemec, Daniel Hoffmann.
+#             Quantitative Assessment of Molecular Dynamics Sampling for Flexible Systems. 
+#             Journal of Chemical Theory and Computation, 13: 400-414, 2017.
+#             doi:10.1021/acs.jctc.6b00823.
+#             recommended by F1000Prime
+#
+# current version: v15.05.17-1
 #######################################################
 # tested with following program versions:
 #        Gromacs       v4.6 | v5.1 
@@ -1711,7 +1717,7 @@ def Generate_RMSD_Matrix(TrajDir, TopologyDir, TrajName, TopologyName, DistSaveD
                         Select1, Select2=None, TimeStep=None, AmberHome='', GromacsHome='', Begin=None, End=None, 
                         SecondTraj=None, Fit='rot+trans', Program_Suffix='', ReferencePDB=None, Bin=True):
     """
-v05.04.17
+v15.05.17
     - RMSD matrix generation for given Trajectory using Gromacs v4.6.7|5.1.2 or AmberTools14
     - it tries to automatically detect AMBER/GROMACS Trajs:
         1. if Select2 is     None or TrajName = <.netcdf or .nc> -> AMBER
@@ -1826,7 +1832,8 @@ OUTPUT:
             try:
                 CPPTRAJ = SB.Popen(Command, stdout=SB.PIPE, stderr=SB.STDOUT)
                 Out, _ = CPPTRAJ.communicate()
-            raise OSError('Something went wrong, probably cpptraj of AMBER was not found: check whether cpptraj can be found in\n\t%scpptraj\nor\n\t%s/bin/cpptraj' % \
+            except OSError:
+                raise OSError('Something went wrong, probably cpptraj of AMBER was not found: check whether cpptraj can be found in\n\t%scpptraj\nor\n\t%s/bin/cpptraj' % \
                             (AmberHome, ' ' if not os.environ.copy().has_key('AMBERHOME') else os.environ.copy()['AMBERHOME']))
             with open('%sLogs/LOG_%s.log' % (MatrixSaveDir, SaveName), 'w') as LOG_OUT:
                 LOG_OUT.write(Out)
