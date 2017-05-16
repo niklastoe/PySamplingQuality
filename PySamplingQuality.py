@@ -15,7 +15,7 @@
 #             doi:10.1021/acs.jctc.6b00823.
 #             recommended by F1000Prime
 #
-# current version: v15.05.17-1
+# current version: v16.05.17-1
 #######################################################
 # tested with following program versions:
 #        Gromacs       v4.6 | v5.1 
@@ -56,7 +56,7 @@ from Objects.Misc    import *
 def Calc_Overlap(EventDir, EventNames, SaveDir, SaveName, CompareList, 
                  WeightDir=None, aMD_Nrs=[], sMD_Nrs=[], SameTraj=None):
     """ 
-v28.11.16
+v16.05.17
 - calculates <conformational overlap> and <density overlap> : Overlap between different trajectories/groups 
   for different Threshold and reference Trajectories
 - CompareList has to match the TrajNr in the EventCurves: the overlap is than calculated between the sets of trajectory numbers defined in CompareList
