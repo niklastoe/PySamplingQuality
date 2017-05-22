@@ -15,7 +15,7 @@
 #             doi:10.1021/acs.jctc.6b00823.
 #             recommended by F1000Prime
 #
-# current version: v16.05.17-1
+# current version: v22.05.17-1
 #######################################################
 # tested with following program versions:
 #        Gromacs       v4.6 | v5.1 
@@ -1735,7 +1735,7 @@ def Plot_determineR_using_RMSD_distributions(TrajNameList, SaveName='V3', SaveNa
                                              SaveDir = 'Amber14Trajs/RMSD_distributions/', Bins=200, Percent=1,
                                              DiagTitle=[''], OffDiagTitle=[''], Legend=[], Indices1=None, Indices2=None, XLIM=None):
     """
-v31.03.17
+v22.05.17
     Plotting RMSD distributions into different subplots
 
 INPUT:
@@ -1986,7 +1986,7 @@ OUTPUT:
         plt.axvline(Max, ls=':', color='grey', lw=2);
   #--------------------------
     plt.xticks(fontsize=20); plt.yticks([]); plt.xlabel('RMSD [nm]', fontsize=22)
-    plt.legend(['all single', 'all trajX vs Y', 'full'], fontsize=19, numpoints=1, framealpha=0.5)
+    plt.legend(['all single', 'all trajX vs Y', 'full'], loc=1, fontsize=16, numpoints=1, framealpha=0.6)
  #----------------------
     if SaveDir is not None and SaveNamePdf is not None:
         Generate_Directories(SaveDir+SaveNamePdf)
