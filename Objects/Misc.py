@@ -1,3 +1,12 @@
+### HELPER FUNCTIONS FOR PySamplingQuality.py
+###
+### Generate_Directories(SaveDir)
+### GenerateIn(Module, FileName)
+### ReadConfigFile(FileName)
+### TransformConfigFile(String, Type)
+### cmdlineparse()
+
+
 
 from argparse import ArgumentParser
 ## String to literal

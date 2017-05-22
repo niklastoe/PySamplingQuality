@@ -33,7 +33,8 @@ import numpy as NP
 import scipy.misc
 import time
 from collections import defaultdict
-
+## IMPORT NECESSARY OBJECTS
+from Misc import Generate_Directories
     
 #######################################################
 #------------------------------------------------------

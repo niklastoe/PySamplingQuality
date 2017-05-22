@@ -47,7 +47,9 @@ from scipy.stats import t as TPPF
 ##############################################
 ## IMPORT NECESSARY OBJECTS
 from Objects.Overlap import Overlap
-from Objects.Misc    import *
+from Objects.Misc    import Generate_Directories
+from Objects.Misc    import ReadConfigFile
+from Objects.Misc    import cmdlineparse
 #######################################################
 #------------------------------------------------------
 #---          OVERLAP CALCULATION
