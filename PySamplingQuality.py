@@ -15,7 +15,7 @@
 #             doi:10.1021/acs.jctc.6b00823.
 #             recommended by F1000Prime
 #
-# current version: v22.05.17-1
+# current version: v29.05.17-1
 #######################################################
 # tested with following program versions:
 #        Gromacs       v4.6 | v5.1 
@@ -4100,7 +4100,7 @@ def Plot_Overlap_VS_Threshold(OverlapDir, OverlapList1, Percentile1=25, Percenti
                               Interpolation='linear', OverlapList2=None, XLIM1=[None,None], XLIM2=[None,None], 
                               MolName1='', MolName2='', LegendList=[None], SaveDir=None, SaveName=None):
     """
-v14.01.17
+v29.05.17
 This function generates the plots "Overlap vs Threshold r" for conf/dens + the corresponding integral.
 - uses always ALL K reference trajectories
 - possibility to submit multiple OverlapMatrices to plot for instance multiple groups together
@@ -4171,7 +4171,7 @@ OUTPUT:
         if densconfIndex == 0:
             LEGEND = [elem for elem in [MolName1, MolName2]+LegendList if elem != '' and elem is not None]
             if LEGEND != []:
-                plt.legend(LEGEND, numpoints=1, framealpha=0.5, loc=4, fontsize=18)
+                plt.legend(LEGEND, numpoints=1, framealpha=0.5, loc='best', fontsize=18)
        #---- 1st AXIS: Plot Overlap vs Threshold V3
         Cindex = 0
         for confIndex in range([4,1][densconfIndex],len(OvR1[0,:]),6):
