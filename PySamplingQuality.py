@@ -15,7 +15,7 @@
 #             doi:10.1021/acs.jctc.6b00823.
 #             recommended by F1000Prime
 #
-# current version: v29.05.17-1
+# current version: v28.06.17-1
 #######################################################
 # tested with following program versions:
 #        Gromacs       v4.6 | v5.1 
@@ -4230,14 +4230,9 @@ OUTPUT:
         plt.errorbar(range(1,1+len(Integrals2[:,3]),1), Integrals2[:,3], yerr=[Integrals2[:,4],Integrals2[:,5]], color='b', marker='*', ms=12, barsabove=True, capsize=5, capthick=2.0); 
         plt.errorbar(range(1,1+len(Integrals2[:,0]),1), Integrals2[:,0], yerr=[Integrals2[:,1],Integrals2[:,2]], color='b', marker='o', ms=8, barsabove=True, capsize=5, capthick=2.0); 
    ###
-    if OverlapList2 is not None:
-        plt.legend(['%s (conf)' % MolName1,'%s (dens)' % MolName1,'%s (conf)' % MolName2,'%s (dens)' % MolName2], 
-                   numpoints=1, ncol=4, loc='best', framealpha=0.35, fontsize=19,
-                   bbox_to_anchor=(-1.056, -0.30, 1., .092))
-    else:
-        plt.legend(['%s (conf)' % MolName1,'%s (dens)' % MolName1], 
-                   numpoints=1, ncol=2, loc='best', framealpha=0.35, fontsize=19,
-                   bbox_to_anchor=(0.036, 0.11, 1., .092))
+    plt.legend(['%s (conf)' % MolName1,'%s (dens)' % MolName1,'%s (conf)' % MolName2,'%s (dens)' % MolName2], 
+               numpoints=1, ncol=4, loc='best', framealpha=0.35, fontsize=19,
+               bbox_to_anchor=(-1.056, -0.30, 1., .092))
   ##########------- SAVE PDF ---------##########
     if SaveDir is not None and SaveName is not None:
         #### #### ####
