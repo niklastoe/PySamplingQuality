@@ -1257,7 +1257,7 @@ OUTPUT:
                                (self.WeightDir, self.AttrDict['Lambda'], self.AttrDict['TrajNameList'][sS-1], self.AttrDict['StartFrame'][sS-1], 
                                 self.AttrDict['EndingFrame'][sS-1], self.AttrDict['Iterations'][sS-1])):
                     raise NameError(('The Weight-Vector for %s does not exist, please check your input' % \
-                                            self.AttrDict['TrajNameList'][aA-1])+\
+                                            self.AttrDict['TrajNameList'][sS-1])+\
                                     ('\n\taMD trajectories = {}'.format(self.aMD_Nrs))+\
                                     ('\n\t%ssMD_Weight_lambda%s_%s_%s-%s_Iter%s.txt' % \
                                        (self.WeightDir, self.AttrDict['Lambda'], self.AttrDict['TrajNameList'][sS-1], self.AttrDict['StartFrame'][sS-1], 

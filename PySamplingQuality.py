@@ -398,8 +398,8 @@ OUTPUT:
                         else:
                             raise NameError('aMD Weight Check failed: no appropriate aMD-Weight-File is submitted!\n'+\
                                     ('Neither >%sWeights/aMD_Weight_MF_%s_%s-%s%s_Iter%s.txt<\n' % \
-                                  (SaveDir, TrajNameList[trajY], StartFrame, EndY, PartY, Iterations))+\
-                                    ('nor >%sWeights/aMD_Weight_%s%s.txt\n' % (SaveDir, TrajNameList[trajY], PartY))+\
+                                  (SaveDir, TrajNameList[PartY], StartFrame, EndY, PartY, Iterations))+\
+                                    ('nor >%sWeights/aMD_Weight_%s%s.txt\n' % (SaveDir, TrajNameList[PartY], PartY))+\
                                     ('nor >%s<\nexist! Calculation stopped' % \
                          (aMDlogCombo[aMD_Nrs.index(Kai)] if aMDlogCombo is not None else 'aMDlogDir/aMDlogName')))
     #---- CHECK if all necessary trajectories are present for sMD weight calculation
