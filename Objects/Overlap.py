@@ -674,7 +674,7 @@ OUTPUT:
         #--- CHECK if SameTraj is present
             if [elem for elem in NP.unique(temp[:,1])].count(self.SameTraj) == 0:
                 raise ValueError('SameTraj = %s is not present in the EventCurve\n\tEventDir = %s\n\tEventNames = %s' % \
-                                        (self.SameTraj, self.EventDir, EventNames))
+                                        (self.SameTraj, self.EventDir, self.EventNames))
             temp = temp[temp[:,1] == self.SameTraj]
             StEvent = 0
             tempGroupNr = 0
