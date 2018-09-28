@@ -28,6 +28,7 @@
 #######################################################
 
 ## IMPORT NECESSARY MODULES ##
+import ast
 import os
 import numpy as NP
 import scipy.misc
